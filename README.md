@@ -45,6 +45,11 @@ has successfully reached the local server. Vite forwards `/api` requests to
 the server, so local development needs no separate build step or second
 terminal.
 
+The complete Scenario lives in `src/scenario.ts`. Edit that one file to tune
+the Briefing, Persona, Private Profile, behaviour rules, Gate, hang-up
+precondition, or Rubric. The development server restarts when it changes;
+refresh the page to read the revised Briefing. No build step is required.
+
 The API key is loaded only by the Node server. Vite exposes browser variables
 only when their names begin with `VITE_`; do not use that prefix for secrets.
 

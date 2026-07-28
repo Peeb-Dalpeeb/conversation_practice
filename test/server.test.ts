@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createServer as createViteServer, type ViteDevServer } from 'vite';
 
+import { scenario, type Scenario } from '../src/scenario.js';
 import { createApiServer } from '../src/server/app.js';
 
 const servers: ReturnType<typeof createApiServer>[] = [];
@@ -13,8 +14,10 @@ const proxyMode = `proxy-test-${process.pid}`;
 const proxyEnvironmentPath = resolve(`.env.${proxyMode}`);
 const inheritedServerPort = process.env.SERVER_PORT;
 
-async function startApiServer(): Promise<number> {
-  const server = createApiServer();
+async function startApiServer(
+  currentScenario: Scenario = scenario
+): Promise<number> {
+  const server = createApiServer(currentScenario);
   servers.push(server);
 
   await new Promise<void>((resolveListening) => {
@@ -50,6 +53,48 @@ describe('the server HTTP interface', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ status: 'ok' });
+  });
+
+  it('serves the Trainee-safe Scenario details', async () => {
+    const apiScenario: Scenario = {
+      ...scenario,
+      id: 'scenario-supplied-at-startup',
+      title: 'Scenario supplied at startup',
+      briefing: {
+        role: 'Role supplied at startup.',
+        counterpart: 'Counterpart supplied at startup.',
+        situation: 'Situation supplied at startup.',
+        constraint: 'Limits supplied at startup.',
+      },
+      persona: {
+        ...scenario.persona,
+        name: 'Public Persona',
+        publicDescription: 'Public description supplied at startup.',
+        privateProfile: {
+          actualIntent: 'Private intent must remain on the server.',
+          priorIncident: 'Private incident must remain on the server.',
+          meaningOfCancellation: 'Private meaning must remain on the server.',
+        },
+      },
+    };
+    const port = await startApiServer(apiScenario);
+    const response = await fetch(`http://127.0.0.1:${port}/api/scenario`);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      id: 'scenario-supplied-at-startup',
+      title: 'Scenario supplied at startup',
+      briefing: {
+        role: 'Role supplied at startup.',
+        counterpart: 'Counterpart supplied at startup.',
+        situation: 'Situation supplied at startup.',
+        constraint: 'Limits supplied at startup.',
+      },
+      persona: {
+        name: 'Public Persona',
+        publicDescription: 'Public description supplied at startup.',
+      },
+    });
   });
 
   it('is reachable through the page development server', async () => {
