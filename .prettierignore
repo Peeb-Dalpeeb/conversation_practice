@@ -1,0 +1,8 @@
+node_modules/
+dist/
+package-lock.json
+.scratch/
+
+# Prose is written by hand, not formatted. Prettier rewrites emphasis markers
+# and re-aligns tables, which churns the ADRs without improving them.
+*.md

@@ -53,5 +53,19 @@ only when their names begin with `VITE_`; do not use that prefix for secrets.
 ```sh
 npm test
 npm run typecheck
+npm run lint
 npm run build
 ```
+
+`npm run build` runs the typecheck and the lint before building, so it is the
+single command that covers everything except the tests.
+
+Formatting is handled by Prettier and applies to code only — Markdown is left
+alone so the decision records are not rewritten by a formatter.
+
+```sh
+npm run format
+npm run format:check
+```
+
+`npm run lint:fix` applies the lint fixes that can be applied automatically.

@@ -1,17 +1,17 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 
-import { App } from "./App.js";
-import "./styles.css";
+import { App } from './App.js';
+import './styles.css';
 
-const root = document.querySelector<HTMLDivElement>("#root");
+const root = document.querySelector<HTMLDivElement>('#root');
 
 if (!root) {
-  throw new Error("The page root element is missing.");
+  throw new Error('The page root element is missing.');
 }
 
 createRoot(root).render(
   <StrictMode>
     <App />
-  </StrictMode>,
+  </StrictMode>
 );

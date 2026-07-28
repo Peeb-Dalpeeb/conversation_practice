@@ -1,41 +1,41 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 
-type ConnectionState = "checking" | "connected" | "unavailable";
+type ConnectionState = 'checking' | 'connected' | 'unavailable';
 
 export function App() {
   const [connectionState, setConnectionState] =
-    useState<ConnectionState>("checking");
+    useState<ConnectionState>('checking');
 
   useEffect(() => {
     const controller = new AbortController();
 
     async function checkServer() {
       try {
-        const response = await fetch("/api/health", {
+        const response = await fetch('/api/health', {
           signal: controller.signal,
         });
 
         if (!response.ok) {
-          setConnectionState("unavailable");
+          setConnectionState('unavailable');
           return;
         }
 
         const body: unknown = await response.json();
 
         if (
-          typeof body === "object" &&
+          typeof body === 'object' &&
           body !== null &&
-          "status" in body &&
-          body.status === "ok"
+          'status' in body &&
+          body.status === 'ok'
         ) {
-          setConnectionState("connected");
+          setConnectionState('connected');
           return;
         }
 
-        setConnectionState("unavailable");
+        setConnectionState('unavailable');
       } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
-          setConnectionState("unavailable");
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setConnectionState('unavailable');
         }
       }
     }
@@ -51,18 +51,19 @@ export function App() {
         <p className="eyebrow">Conversation Practice</p>
         <h1 id="page-title">Rehearse the conversation before it matters.</h1>
         <p className="lede">
-          A quiet place to practise difficult conversations out loud, learn
-          from each attempt, and try again.
+          A quiet place to practise difficult conversations out loud, learn from
+          each attempt, and try again.
         </p>
 
         <div className={`connection connection--${connectionState}`}>
           <span className="connection__indicator" aria-hidden="true" />
           <span>
-            {connectionState === "checking" && "Connecting to the local server…"}
-            {connectionState === "connected" &&
-              "Page and local server are connected."}
-            {connectionState === "unavailable" &&
-              "The local server is unavailable."}
+            {connectionState === 'checking' &&
+              'Connecting to the local server…'}
+            {connectionState === 'connected' &&
+              'Page and local server are connected.'}
+            {connectionState === 'unavailable' &&
+              'The local server is unavailable.'}
           </span>
         </div>
       </section>

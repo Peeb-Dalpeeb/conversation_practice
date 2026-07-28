@@ -1,0 +1,3 @@
+# Prettier writes LF (endOfLine: "lf"). Without this, a Windows clone with
+# core.autocrlf=true checks out CRLF and every formatter run rewrites the file.
+* text=auto eol=lf
