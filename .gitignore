@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Secrets — the OpenAI key must never reach the remote
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
