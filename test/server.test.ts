@@ -1,7 +1,8 @@
+import { rm, writeFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { resolve } from "node:path";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   createServer as createViteServer,
   type ViteDevServer,
@@ -11,6 +12,9 @@ import { createApiServer } from "../src/server/app.js";
 
 const servers: ReturnType<typeof createApiServer>[] = [];
 const viteServers: ViteDevServer[] = [];
+const proxyMode = `proxy-test-${process.pid}`;
+const proxyEnvironmentPath = resolve(`.env.${proxyMode}`);
+const inheritedServerPort = process.env.SERVER_PORT;
 
 async function startApiServer(): Promise<number> {
   const server = createApiServer();
@@ -33,7 +37,13 @@ afterEach(async () => {
       }),
     ),
   );
-  vi.unstubAllEnvs();
+  await rm(proxyEnvironmentPath, { force: true });
+
+  if (inheritedServerPort === undefined) {
+    delete process.env.SERVER_PORT;
+  } else {
+    process.env.SERVER_PORT = inheritedServerPort;
+  }
 });
 
 describe("the server HTTP interface", () => {
@@ -47,11 +57,13 @@ describe("the server HTTP interface", () => {
 
   it("is reachable through the page development server", async () => {
     const apiPort = await startApiServer();
-    vi.stubEnv("SERVER_PORT", apiPort.toString());
+    await writeFile(proxyEnvironmentPath, `SERVER_PORT=${apiPort}\n`);
+    delete process.env.SERVER_PORT;
 
     const pageServer = await createViteServer({
       configFile: resolve("vite.config.ts"),
       logLevel: "silent",
+      mode: proxyMode,
       server: {
         host: "127.0.0.1",
         port: 0,

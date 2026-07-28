@@ -14,10 +14,15 @@ export function App() {
         const response = await fetch("/api/health", {
           signal: controller.signal,
         });
+
+        if (!response.ok) {
+          setConnectionState("unavailable");
+          return;
+        }
+
         const body: unknown = await response.json();
 
         if (
-          response.ok &&
           typeof body === "object" &&
           body !== null &&
           "status" in body &&

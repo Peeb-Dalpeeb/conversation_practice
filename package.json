@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "tsx src/server/validate-environment.ts",
     "dev": "concurrently --kill-others-on-fail --names server,page \"npm:dev:server\" \"npm:dev:page\"",
     "dev:server": "tsx watch src/server/index.ts",
     "dev:page": "vite",

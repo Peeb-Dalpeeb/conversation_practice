@@ -30,6 +30,10 @@ You need Node.js 20.19 or newer (or Node.js 22.12 or newer).
 
 3. Replace the placeholder in `.env` with your OpenAI API key.
 
+   `SERVER_PORT` controls the local API port and defaults to `3001`. Vite reads
+   the same value from `.env`, so the development proxy follows the server if
+   you change it.
+
 4. Start the whole application:
 
    ```sh
