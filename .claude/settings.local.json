@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"C:/Users/Click here to log in/.claude/skills/\")"
+    ]
+  }
+}
