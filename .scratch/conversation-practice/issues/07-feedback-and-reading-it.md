@@ -22,6 +22,22 @@ readable afterwards instead of guessed at.
 Getting the tone right is ticket 12's job. This ticket has to produce the Feedback, persist
 it, and put it in front of the Trainee.
 
+**Measured 2026-07-29:** an Assessment takes 6.5–8.5 seconds, and that figure does not grow
+with the length of the Attempt — 3, 9 and 22-turn Transcripts all landed in the same band,
+so the cost is the grader's reasoning rather than the Transcript it reads. Feedback is a
+second sequential call and writes prose rather than short quotes, so budget roughly twenty
+seconds of judging in total. That is short enough for the page to block on the completion
+request and show ticket 05's judging-in-progress state throughout; polling is not worth
+building. Re-measure if the Assessment prompt grows much:
+`npx tsx .scratch/conversation-practice/check-assessment.ts --live`.
+
+Note the completion endpoint currently answers `204` and `CompleteAttempt` returns
+`Promise<void>`, discarding the numbered `Attempt` that `storeAttempt` already returns —
+nothing can carry Feedback to the page until that changes. A read path for the latest
+Attempt is worth building here rather than in ticket 11: if the blocking request ever fails
+or times out the Attempt is already safely on disk, and without a read path that looks like
+data loss when it is not.
+
 **Blocked by:** 06 — Assessment against the Rubric.
 
 **Status:** ready-for-agent

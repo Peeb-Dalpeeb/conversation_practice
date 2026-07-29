@@ -15,19 +15,32 @@ constraint, not an accident: leadership has to be able to agree with a verdict
 independently, and that is how the grader earns trust. Do not add a criterion that requires
 expertise, and do not sharpen strictness by making a criterion subtler.
 
-**Strictness here means ground truth, not sterner wording.** Criterion 3's entire grader
-instruction is the words "Surfaced the real reason." — the grader is never told what the
-real reason *is*, so nothing lets it separate the cover story from the prior incident. The
-fix is to give the Assessment call the Persona's private profile; the author has approved
-this. Keep the fact in `persona.privateProfile` and pass it, rather than restating it in the
-Rubric — this ticket follows dozens of edits to Jordan's backstory in ticket 10, and a
-second copy of that fact will drift out of step without anything catching it. If the grid
-and the grader then need different text — a short label for the projector, an explicit
-standard for the grader — that is the moment to split `RubricCriterion`, not before.
+**Strictness here means ground truth, not sterner wording.** Criterion 3's grader
+instruction was once the whole of "Surfaced the real reason." — the grader was never told
+what the real reason *is*, and measurement confirmed it counted the cover story as meeting
+the criterion, quoting "Fees are too high, and I can get something cheaper somewhere else"
+as its evidence. Fixed in `8b1c49e` by passing `persona.privateProfile` to the Assessment
+call. Keep the fact there and pass it, rather than restating it in the Rubric: this ticket
+follows dozens of edits to Jordan's backstory in ticket 10, and a second copy would drift
+out of step without anything catching it. If the grid and the grader later need different
+text — a short label for the projector, an explicit standard for the grader — that is the
+moment to split `RubricCriterion`, not before.
 
-Run `npx tsx .scratch/conversation-practice/check-assessment.ts --live` before starting. It
-judges a cover-story-only Transcript and reports whether the grader already gets this right,
-which decides how much of the above is actually needed.
+Verified 2026-07-29 across three Transcripts: cover-story-only returns NOT MET, and both a
+9-turn and a 22-turn successful Attempt return MET with the quote anchored to the Persona
+turn that revealed the incident rather than the Trainee turn that asked for it.
+
+**What is still open: criteria phrased as things the Trainee did not do are met vacuously.**
+A cover-story-only Attempt still scores 3 of 6, because "did not try to solve anything" and
+"did not get defensive" are both satisfied by a Trainee who barely spoke — in that run both
+cited "Can you tell me what happened?" as their evidence, which is evidence of neither. An
+instruction requiring the Trainee to have had the opportunity and avoided it did not shift
+it. This is measured, not predicted. It costs the demo little, since the deliberate discount
+opening genuinely fails five of the six, but it inflates every weak Attempt by roughly two
+criteria and is the remaining strictness work.
+
+`npx tsx .scratch/conversation-practice/check-assessment.ts --live` (~$0.15) is the
+regression check for all of the above — run it after each edit to the Assessment prompt.
 
 The Attempts to read back are the two deliberate Trainee failures recorded during ticket 10:
 the one that accepted the cover story and stopped, and the one that was warm and courteous
