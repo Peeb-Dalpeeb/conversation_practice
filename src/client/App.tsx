@@ -21,6 +21,7 @@ type AppState =
       activity: AttemptActivity;
       personaName: string;
     }
+  | { name: 'data-failed' }
   | { name: 'ended' }
   | { name: 'failed'; reason: string; scenario: PublicScenario }
   | { name: 'unavailable' };
@@ -107,7 +108,9 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
 
   const stopAttempt = () => {
     releaseAttempt();
-    setState({ name: 'ended' });
+    setState((currentState) =>
+      currentState.name === 'data-failed' ? currentState : { name: 'ended' }
+    );
   };
 
   const startAttempt = async (scenario: PublicScenario) => {
@@ -129,7 +132,16 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
         onEnded: () => {
           connectionEnded = true;
           releaseAttempt();
-          setState({ name: 'ended' });
+          // A dropped line and an incomplete log are reported in that order,
+          // and the log is the one the Trainee can still act on.
+          setState((currentState) =>
+            currentState.name === 'data-failed'
+              ? currentState
+              : { name: 'ended' }
+          );
+        },
+        onAttemptDataFailed: () => {
+          setState({ name: 'data-failed' });
         },
       });
 
@@ -255,6 +267,20 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
       <main className="shell shell--attempt">
         <section className="attempt" aria-labelledby="attempt-ended-title">
           <h1 id="attempt-ended-title">Attempt ended</h1>
+        </section>
+      </main>
+    );
+  }
+
+  if (state.name === 'data-failed') {
+    return (
+      <main className="shell shell--attempt">
+        <section className="notice" aria-labelledby="attempt-data-title">
+          <p className="eyebrow">Attempt ended</p>
+          <h1 id="attempt-data-title">
+            The Attempt event log could not be completed.
+          </h1>
+          <p>Keep this page open and check that the local server is running.</p>
         </section>
       </main>
     );

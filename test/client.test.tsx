@@ -205,4 +205,66 @@ describe('the Trainee-facing app', () => {
     expect(stop).toHaveBeenCalledOnce();
     expect(screen.getByRole('heading', { name: 'Attempt ended' })).toBeTruthy();
   });
+
+  it('shows when the completed Attempt event log could not be saved', async () => {
+    respondWithScenario();
+    let reportAttemptDataFailed: (() => void) | undefined;
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
+      ({ onAttemptDataFailed }) => {
+        reportAttemptDataFailed = onAttemptDataFailed;
+        return Promise.resolve({ stop: vi.fn() });
+      }
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    expect((await screen.findByRole('status')).textContent).toContain(
+      'Listening'
+    );
+
+    act(() => reportAttemptDataFailed?.());
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'The Attempt event log could not be completed.',
+      })
+    ).toBeTruthy();
+  });
+
+  it('keeps the incomplete log notice when the line also drops', async () => {
+    respondWithScenario();
+    let reportEnded: (() => void) | undefined;
+    let reportAttemptDataFailed: (() => void) | undefined;
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
+      ({ onEnded, onAttemptDataFailed }) => {
+        reportEnded = onEnded;
+        reportAttemptDataFailed = onAttemptDataFailed;
+        return Promise.resolve({ stop: vi.fn() });
+      }
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    expect((await screen.findByRole('status')).textContent).toContain(
+      'Listening'
+    );
+
+    // A dropped line reports the incomplete log first and the end second.
+    act(() => {
+      reportAttemptDataFailed?.();
+      reportEnded?.();
+    });
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'The Attempt event log could not be completed.',
+      })
+    ).toBeTruthy();
+  });
 });

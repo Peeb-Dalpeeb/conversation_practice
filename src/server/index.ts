@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { scenario } from '../scenario.js';
 import { createApiServer } from './app.js';
 import { readServerEnvironment } from './environment.js';
+import { createRawEventLogStore } from './raw-event-log.js';
 import { createOpenAiRealtimeClientSecretMinter } from './realtime.js';
 
 const environment = readServerEnvironment();
@@ -10,7 +11,8 @@ const server = createApiServer(
   scenario,
   createOpenAiRealtimeClientSecretMinter({
     apiKey: environment.openAiApiKey,
-  })
+  }),
+  createRawEventLogStore()
 );
 
 server.listen(environment.port, '127.0.0.1', () => {

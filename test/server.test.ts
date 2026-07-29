@@ -185,6 +185,8 @@ describe('the server HTTP interface', () => {
     };
     expect(body.session.model).toBe('gpt-realtime-2.1');
     expect(body.session.output_modalities).toEqual(['audio']);
+    expect(JSON.stringify(body.session)).not.toContain('transcription');
+    expect(JSON.stringify(body.session)).not.toContain('transcribe');
     expect(body.session.instructions).toContain(
       'Character brief supplied by the Scenario.'
     );
@@ -203,6 +205,67 @@ describe('the server HTTP interface', () => {
     expect(body.session.instructions).toContain(
       'Gate condition supplied by the Scenario.'
     );
+  });
+
+  it('stores a completed Attempt raw event log without changing it', async () => {
+    const storedLogs: string[] = [];
+    const server = createApiServer(scenario, undefined, (rawEventLog) => {
+      storedLogs.push(rawEventLog);
+
+      return Promise.resolve();
+    });
+    servers.push(server);
+
+    await new Promise<void>((resolveListening) => {
+      server.listen(0, '127.0.0.1', resolveListening);
+    });
+
+    const port = (server.address() as AddressInfo).port;
+    const rawEventLog =
+      '[{"type":"response.output_text.done","item_id":"transcript-item","text":"What happened?"},{"type":"input_audio_buffer.committed","item_id":"trainee-turn","previous_item_id":"persona-turn"}]';
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/raw-event-log`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: rawEventLog,
+      }
+    );
+
+    expect(response.status).toBe(204);
+    expect(storedLogs).toEqual([rawEventLog]);
+  });
+
+  it('rejects non-JSON and oversized raw event logs before storage', async () => {
+    const storeRawEventLog = vi.fn(() => Promise.resolve());
+    const server = createApiServer(scenario, undefined, storeRawEventLog, 64);
+    servers.push(server);
+
+    await new Promise<void>((resolveListening) => {
+      server.listen(0, '127.0.0.1', resolveListening);
+    });
+
+    const port = (server.address() as AddressInfo).port;
+    const nonJsonResponse = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/raw-event-log`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: 'not json',
+      }
+    );
+    const oversizedResponse = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/raw-event-log`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(['x'.repeat(100)]),
+      }
+    );
+
+    expect(nonJsonResponse.status).toBe(415);
+    expect(oversizedResponse.status).toBe(413);
+    expect(storeRawEventLog).not.toHaveBeenCalled();
   });
 
   it('is reachable through the page development server', async () => {

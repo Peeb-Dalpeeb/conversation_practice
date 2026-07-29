@@ -8,6 +8,7 @@ type ConnectRealtimeAttemptOptions = {
   signal: AbortSignal;
   onActivity: (activity: AttemptActivity) => void;
   onEnded: () => void;
+  onAttemptDataFailed: () => void;
 };
 
 export type ConnectRealtimeAttempt = (
@@ -18,6 +19,16 @@ type ClientSecretResponse = {
   value: string;
   expiresAt: number;
 };
+
+type RawRealtimeEvent =
+  | {
+      direction: 'client' | 'server';
+      event: string;
+    }
+  | {
+      direction: 'server';
+      binary: string;
+    };
 
 /**
  * A failure the Trainee can act on, carrying wording meant for the screen.
@@ -70,6 +81,144 @@ function stoppedAttemptError(): DOMException {
   return new DOMException('The Attempt was stopped.', 'AbortError');
 }
 
+function encodeBase64(buffer: ArrayBuffer): string {
+  let binary = '';
+
+  for (const byte of new Uint8Array(buffer)) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return btoa(binary);
+}
+
+/**
+ * Whether an item is something someone said out loud. An out-of-band
+ * transcription's own output item is reported as a completed message too —
+ * carrying text, or nothing at all — even though the response was created with
+ * `conversation: "none"`. Transcribing those transcribes the transcript, which
+ * recurs for as long as the Attempt lasts. Audio content is what separates a
+ * spoken turn from the echo of one.
+ */
+function hasSpokenContent(item: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(item.content) &&
+    item.content.some(
+      (part) =>
+        isRecord(part) &&
+        (part.type === 'input_audio' || part.type === 'output_audio')
+    )
+  );
+}
+
+/**
+ * A turn the Trainee spoke, which is the only kind this session transcribes.
+ * The Persona's turns already carry `response.output_audio_transcript.done` —
+ * the text its own audio was generated from, by the same model, which is a
+ * stronger record than transcribing that audio back afterwards. Asking for one
+ * anyway returned nothing roughly half the time.
+ */
+function traineeTurnId(
+  serverEvent: Record<string, unknown>
+): string | undefined {
+  if (
+    serverEvent.type !== 'conversation.item.done' ||
+    !isRecord(serverEvent.item)
+  ) {
+    return undefined;
+  }
+
+  const { id, role, type } = serverEvent.item;
+
+  return type === 'message' &&
+    role === 'user' &&
+    typeof id === 'string' &&
+    hasSpokenContent(serverEvent.item)
+    ? id
+    : undefined;
+}
+
+function createTurnTranscriptionEvent(itemId: string, eventId: string) {
+  return {
+    event_id: eventId,
+    type: 'response.create',
+    response: {
+      conversation: 'none',
+      output_modalities: ['text'],
+      instructions:
+        'Transcribe the referenced spoken turn. Return only the words that were spoken.',
+      input: [{ type: 'item_reference', id: itemId }],
+      metadata: {
+        purpose: 'turn_transcription',
+        source_item_id: itemId,
+      },
+      tools: [],
+      tool_choice: 'none',
+    },
+  };
+}
+
+type CompletedTurnTranscription = {
+  sourceItemId: string;
+  succeeded: boolean;
+};
+
+function responseContainsText(response: Record<string, unknown>): boolean {
+  if (!Array.isArray(response.output)) {
+    return false;
+  }
+
+  return response.output.some(
+    (item) =>
+      isRecord(item) &&
+      Array.isArray(item.content) &&
+      item.content.some(
+        (content) =>
+          isRecord(content) &&
+          content.type === 'output_text' &&
+          typeof content.text === 'string' &&
+          content.text.trim() !== ''
+      )
+  );
+}
+
+function completedTurnTranscription(
+  serverEvent: Record<string, unknown>
+): CompletedTurnTranscription | undefined {
+  if (
+    serverEvent.type !== 'response.done' ||
+    !isRecord(serverEvent.response) ||
+    !isRecord(serverEvent.response.metadata)
+  ) {
+    return undefined;
+  }
+
+  const { purpose, source_item_id: sourceItemId } =
+    serverEvent.response.metadata;
+
+  if (purpose !== 'turn_transcription' || typeof sourceItemId !== 'string') {
+    return undefined;
+  }
+
+  return {
+    sourceItemId,
+    succeeded:
+      serverEvent.response.status === 'completed' &&
+      responseContainsText(serverEvent.response),
+  };
+}
+
+function clientEventIdFromError(
+  serverEvent: Record<string, unknown>
+): string | undefined {
+  if (serverEvent.type !== 'error' || !isRecord(serverEvent.error)) {
+    return undefined;
+  }
+
+  return typeof serverEvent.error.event_id === 'string'
+    ? serverEvent.error.event_id
+    : undefined;
+}
+
 function waitForDataChannel(
   dataChannel: RTCDataChannel,
   signal: AbortSignal
@@ -113,33 +262,186 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
   signal,
   onActivity,
   onEnded,
+  onAttemptDataFailed,
 }) => {
   let dataChannel: RTCDataChannel | undefined;
   let localMedia: MediaStream | undefined;
   let peerConnection: RTCPeerConnection | undefined;
   let remoteAudio: HTMLAudioElement | undefined;
+  const rawEventLog: RawRealtimeEvent[] = [];
+  const activeDefaultResponses = new Set<string>();
+  const pendingStopCommands = new Map<string, 'cancel' | 'clear' | 'commit'>();
+  const transcriptionRequestItems = new Map<string, string>();
+  const turnTranscriptions = new Map<
+    string,
+    'failed' | 'pending' | 'succeeded'
+  >();
+  const unfinalizedTurnItems = new Set<string>();
+  let attemptOpened = false;
+  let attemptDataFailed = false;
+  let eventSequence = 0;
+  let failureReported = false;
+  let finalized = false;
+  let forcedFinalization: ReturnType<typeof setTimeout> | undefined;
+  let quietFinalization: ReturnType<typeof setTimeout> | undefined;
+  let rawEventLogSubmission: Promise<void> | undefined;
   let stopped = false;
 
-  const closeResources = () => {
-    if (dataChannel && dataChannel.readyState !== 'closed') {
-      dataChannel.close();
+  const nextEventId = (purpose: string) =>
+    `conversation_practice_${purpose}_${++eventSequence}`;
+  const reportAttemptDataFailure = () => {
+    if (failureReported) {
+      return;
     }
+
+    failureReported = true;
+    onAttemptDataFailed();
+  };
+  const submitRawEventLog = (): Promise<void> => {
+    if (!attemptOpened) {
+      return Promise.resolve();
+    }
+
+    rawEventLogSubmission ??= fetch('/api/attempts/raw-event-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rawEventLog),
+    }).then((response) => {
+      if (!response.ok) {
+        throw new Error('The raw event log could not be stored.');
+      }
+    });
+
+    return rawEventLogSubmission;
+  };
+  const sendClientEvent = (event: unknown) => {
+    const rawEvent = JSON.stringify(event);
+
+    if (!dataChannel) {
+      throw new Error('The Realtime data channel is unavailable.');
+    }
+
+    dataChannel.send(rawEvent);
+    rawEventLog.push({ direction: 'client', event: rawEvent });
+  };
+  const releaseInputAndOutput = () => {
     localMedia?.getTracks().forEach((track) => track.stop());
-    peerConnection?.close();
 
     if (remoteAudio) {
       remoteAudio.pause();
       remoteAudio.srcObject = null;
     }
   };
+  const finalizeAttempt = (dataIncomplete = false) => {
+    if (finalized) {
+      return;
+    }
+
+    finalized = true;
+    attemptDataFailed ||= dataIncomplete;
+
+    if (forcedFinalization) {
+      clearTimeout(forcedFinalization);
+      forcedFinalization = undefined;
+    }
+
+    if (quietFinalization) {
+      clearTimeout(quietFinalization);
+      quietFinalization = undefined;
+    }
+
+    if (dataChannel && dataChannel.readyState !== 'closed') {
+      dataChannel.close();
+    }
+    peerConnection?.close();
+
+    if (attemptDataFailed) {
+      reportAttemptDataFailure();
+    }
+
+    void submitRawEventLog().catch(reportAttemptDataFailure);
+  };
+  const hasPendingTurnTranscription = () =>
+    [...turnTranscriptions.values()].some((state) => state === 'pending');
+  const canFinalizeStoppedAttempt = () =>
+    pendingStopCommands.size === 0 &&
+    unfinalizedTurnItems.size === 0 &&
+    activeDefaultResponses.size === 0 &&
+    !hasPendingTurnTranscription();
+  const maybeFinalizeStoppedAttempt = () => {
+    if (!stopped || finalized || !canFinalizeStoppedAttempt()) {
+      return;
+    }
+
+    quietFinalization ??= setTimeout(() => {
+      quietFinalization = undefined;
+
+      if (canFinalizeStoppedAttempt()) {
+        finalizeAttempt();
+      }
+    }, 150);
+  };
+  const sendStopCommand = (
+    kind: 'cancel' | 'commit',
+    event: Record<string, unknown>
+  ) => {
+    const eventId = nextEventId(`stop_${kind}`);
+    pendingStopCommands.set(eventId, kind);
+
+    try {
+      sendClientEvent({ event_id: eventId, ...event });
+    } catch {
+      pendingStopCommands.delete(eventId);
+      attemptDataFailed = true;
+    }
+  };
+  const settleStopCommand = (kind: 'cancel' | 'commit') => {
+    const pendingCommand = [...pendingStopCommands].find(
+      ([, pendingKind]) => pendingKind === kind
+    );
+
+    if (pendingCommand) {
+      pendingStopCommands.delete(pendingCommand[0]);
+    }
+  };
   const stop = () => {
+    if (stopped) {
+      return;
+    }
+
     stopped = true;
     signal.removeEventListener('abort', stop);
-    closeResources();
+    releaseInputAndOutput();
+
+    if (!attemptOpened) {
+      finalizeAttempt();
+      return;
+    }
+
+    forcedFinalization = setTimeout(() => finalizeAttempt(true), 15_000);
+    sendStopCommand('commit', { type: 'input_audio_buffer.commit' });
+    sendStopCommand('cancel', { type: 'response.cancel' });
+    // Silencing playback is sent and forgotten. Nothing in the log depends on
+    // it, and the session answers a clear with `output_audio_buffer.cleared`
+    // only when audio was actually playing — a stop taken in silence gets no
+    // reply and no error, so waiting on one waits until the deadline.
+    try {
+      sendClientEvent({
+        event_id: nextEventId('stop_clear'),
+        type: 'output_audio_buffer.clear',
+      });
+    } catch {
+      // The line is already gone; playback was released above regardless.
+    }
+
+    maybeFinalizeStoppedAttempt();
   };
   const ensureAttemptContinues = () => {
     if (stopped || signal.aborted) {
-      closeResources();
+      releaseInputAndOutput();
+      if (!attemptOpened) {
+        finalizeAttempt();
+      }
       throw stoppedAttemptError();
     }
   };
@@ -148,7 +450,12 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       return;
     }
 
-    stop();
+    stopped = true;
+    signal.removeEventListener('abort', stop);
+    releaseInputAndOutput();
+    finalizeAttempt(
+      unfinalizedTurnItems.size > 0 || hasPendingTurnTranscription()
+    );
     onEnded();
   };
 
@@ -206,33 +513,142 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       .forEach((track) => peerConnection?.addTrack(track, microphoneMedia));
 
     dataChannel = peerConnection.createDataChannel('oai-events');
+    dataChannel.binaryType = 'arraybuffer';
     dataChannel.addEventListener('message', (message) => {
-      if (typeof message.data !== 'string') {
+      if (quietFinalization) {
+        clearTimeout(quietFinalization);
+        quietFinalization = undefined;
+      }
+
+      if (message.data instanceof ArrayBuffer) {
+        rawEventLog.push({
+          direction: 'server',
+          binary: encodeBase64(message.data),
+        });
+        maybeFinalizeStoppedAttempt();
         return;
       }
+
+      if (typeof message.data !== 'string') {
+        maybeFinalizeStoppedAttempt();
+        return;
+      }
+
+      rawEventLog.push({ direction: 'server', event: message.data });
 
       let serverEvent: unknown;
 
       try {
         serverEvent = JSON.parse(message.data);
       } catch {
+        maybeFinalizeStoppedAttempt();
         return;
       }
 
       if (!isRecord(serverEvent) || typeof serverEvent.type !== 'string') {
+        maybeFinalizeStoppedAttempt();
         return;
       }
 
-      if (serverEvent.type === 'output_audio_buffer.started') {
+      if (
+        serverEvent.type === 'input_audio_buffer.committed' &&
+        typeof serverEvent.item_id === 'string'
+      ) {
+        unfinalizedTurnItems.add(serverEvent.item_id);
+        settleStopCommand('commit');
+      }
+
+      if (
+        serverEvent.type === 'response.created' &&
+        isRecord(serverEvent.response) &&
+        typeof serverEvent.response.id === 'string' &&
+        typeof serverEvent.response.conversation_id === 'string'
+      ) {
+        activeDefaultResponses.add(serverEvent.response.id);
+      }
+
+      const completedTraineeTurnId = traineeTurnId(serverEvent);
+
+      if (completedTraineeTurnId) {
+        unfinalizedTurnItems.delete(completedTraineeTurnId);
+
+        if (!turnTranscriptions.has(completedTraineeTurnId)) {
+          const eventId = nextEventId('turn_transcription');
+          turnTranscriptions.set(completedTraineeTurnId, 'pending');
+          transcriptionRequestItems.set(eventId, completedTraineeTurnId);
+
+          try {
+            sendClientEvent(
+              createTurnTranscriptionEvent(completedTraineeTurnId, eventId)
+            );
+          } catch {
+            turnTranscriptions.set(completedTraineeTurnId, 'failed');
+            transcriptionRequestItems.delete(eventId);
+            attemptDataFailed = true;
+          }
+        }
+      }
+
+      if (
+        serverEvent.type === 'response.done' &&
+        isRecord(serverEvent.response) &&
+        typeof serverEvent.response.id === 'string'
+      ) {
+        activeDefaultResponses.delete(serverEvent.response.id);
+      }
+
+      const transcription = completedTurnTranscription(serverEvent);
+
+      if (transcription) {
+        turnTranscriptions.set(
+          transcription.sourceItemId,
+          transcription.succeeded ? 'succeeded' : 'failed'
+        );
+
+        for (const [eventId, sourceItemId] of transcriptionRequestItems) {
+          if (sourceItemId === transcription.sourceItemId) {
+            transcriptionRequestItems.delete(eventId);
+          }
+        }
+
+        attemptDataFailed ||= !transcription.succeeded;
+      } else if (serverEvent.type === 'response.done') {
+        // The session only ever runs two kinds of response, and the out-of-band
+        // one identifies itself by its metadata above. Anything else finishing
+        // is the spoken response the stop asked to cancel — settle it here
+        // rather than reading `conversation_id`, so a stop cannot sit waiting
+        // on a field this session never promised to send.
+        settleStopCommand('cancel');
+      }
+
+      const failedClientEventId = clientEventIdFromError(serverEvent);
+
+      if (failedClientEventId) {
+        const failedTurnItemId =
+          transcriptionRequestItems.get(failedClientEventId);
+
+        if (failedTurnItemId) {
+          transcriptionRequestItems.delete(failedClientEventId);
+          turnTranscriptions.set(failedTurnItemId, 'failed');
+          attemptDataFailed = true;
+        }
+
+        pendingStopCommands.delete(failedClientEventId);
+      }
+
+      if (!stopped && serverEvent.type === 'output_audio_buffer.started') {
         onActivity('speaking');
       }
 
       if (
-        serverEvent.type === 'output_audio_buffer.stopped' ||
-        serverEvent.type === 'output_audio_buffer.cleared'
+        !stopped &&
+        (serverEvent.type === 'output_audio_buffer.stopped' ||
+          serverEvent.type === 'output_audio_buffer.cleared')
       ) {
         onActivity('listening');
       }
+
+      maybeFinalizeStoppedAttempt();
     });
 
     const offer = await peerConnection.createOffer();
@@ -263,16 +679,15 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
     ensureAttemptContinues();
     await waitForDataChannel(dataChannel, signal);
     ensureAttemptContinues();
+    attemptOpened = true;
     dataChannel.addEventListener('close', handleUnexpectedEnd, { once: true });
 
-    dataChannel.send(
-      JSON.stringify({
-        type: 'response.create',
-        response: {
-          output_modalities: ['audio'],
-        },
-      })
-    );
+    sendClientEvent({
+      type: 'response.create',
+      response: {
+        output_modalities: ['audio'],
+      },
+    });
 
     return { stop };
   } catch (error) {
