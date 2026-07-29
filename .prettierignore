@@ -3,6 +3,11 @@ dist/
 package-lock.json
 .scratch/
 
+# Recorded Realtime event logs, kept byte-for-byte as the server wrote them.
+# Ticket 04 requires the log be stored untouched; reformatting these would make
+# the fixtures no longer the thing that came off the wire.
+test/fixtures/raw-event-logs/*.json
+
 # Prose is written by hand, not formatted. Prettier rewrites emphasis markers
 # and re-aligns tables, which churns the ADRs without improving them.
 *.md
