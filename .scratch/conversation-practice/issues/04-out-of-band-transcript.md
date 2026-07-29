@@ -89,3 +89,25 @@ logs from real Attempts, and this is where they get captured.
   (read by ticket 05's tests) and `.scratch/conversation-practice/evidence/` (backs these
   Comments, read by nothing). Both have READMEs recording provenance. `data/` stays as the
   live write target.
+
+### Open, found by audit, not yet fixed
+
+- **The 15 s deadline reports failure unconditionally.** `forcedFinalization` calls
+  `finalizeAttempt(true)` in `src/client/realtime.ts` without asking whether the log actually
+  settled, and the 150 ms quiet timer that would otherwise finalize cleanly is reset by *every*
+  inbound message. A session still streaming after the stop can therefore ride to the deadline
+  and show "The Attempt event log could not be completed" over a complete log — the same false
+  failure as the `output_audio_buffer.clear` bug, by a different route.
+  `finalizeAttempt(!canFinalizeStoppedAttempt())` is the honest form. The test at
+  `test/realtime.test.ts` currently asserts the failure fires, so it locks in the wrong
+  behaviour and has to change with it.
+- **One failed Trainee transcription discards the whole Attempt.** A single out-of-band
+  response that returns no text sets `attemptDataFailed`, and the screen tells the Trainee to
+  check the local server — which had nothing to do with it, and the log was complete and
+  forwarded regardless. Unobserved so far (21 of 21 Trainee turns returned text across all
+  seven captures) but the empty-`content` signature that hits the Persona half the time has no
+  structural reason to be impossible on a user item. The request is idempotent, so one retry
+  before declaring failure is cheap; at minimum the wording should not blame the server.
+- **The false-failure fix is not yet confirmed live.** A clean stop taken in silence should
+  show "Attempt ended". The log cannot settle this on its own — both the clean path and the
+  deadline path forward the log, and nothing records what the screen displayed.
