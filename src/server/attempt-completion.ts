@@ -1,4 +1,4 @@
-import type { RubricCriterion, Scenario } from '../scenario.js';
+import type { PrivateProfile, RubricCriterion, Scenario } from '../scenario.js';
 import type { StoreAttempt } from './attempt-store.js';
 import type { StoreRawEventLog } from './raw-event-log.js';
 
@@ -27,7 +27,8 @@ export type Assessment = {
 
 export type AssessAttempt = (
   transcript: Transcript,
-  rubric: readonly RubricCriterion[]
+  rubric: readonly RubricCriterion[],
+  privateProfile: PrivateProfile
 ) => Promise<Assessment>;
 
 export type CreateFeedback = (
@@ -269,7 +270,11 @@ export function createAttemptCompleter({
 
     try {
       const transcript = reconstructTranscript(rawEventLog);
-      const assessment = await assessAttempt(transcript, scenario.rubric);
+      const assessment = await assessAttempt(
+        transcript,
+        scenario.rubric,
+        scenario.persona.privateProfile
+      );
       const feedback = await createFeedback(assessment, transcript);
 
       await storeAttempt({

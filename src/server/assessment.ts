@@ -201,8 +201,12 @@ function assessmentInstructions(): string {
     'The met value is strictly binary: true or false.',
     'For every verdict, provide a concise exact contiguous quote from one Transcript turn that best supports the judgment, including when the criterion was not met.',
     'Set evidenceTurnIndex to the zero-based index of that Transcript turn.',
+    'Quote the turn the verdict is actually about. Where a criterion is about something the Persona revealed, quote the Persona turn that revealed it, not the Trainee turn that asked for it.',
     'Never use a Persona turn marked cutOff as evidence because the Trainee did not necessarily hear its complete text.',
-    'Judge only from the supplied Transcript and Rubric.',
+    'The Private Profile is ground truth the Trainee could not see and it is not part of the Attempt. Use it only to decide what the Transcript shows.',
+    'Where a criterion is about surfacing the real reason, it is met only if the Transcript shows the Persona actually stating the prior incident from the Private Profile. The Persona also has a cover story about price, and being given that cover story never meets the criterion however well the Trainee drew it out.',
+    'A criterion phrased as something the Trainee did not do is met only if the Transcript shows the Trainee had the opportunity and avoided it. Do not mark it met merely because the Attempt is short or contains no counter-example.',
+    'Judge only from the supplied Transcript, Rubric, and Private Profile.',
   ].join('\n');
 }
 
@@ -316,7 +320,7 @@ export function createOpenAiAttemptAssessor({
   apiKey,
   fetch: fetchFromOpenAi = globalThis.fetch,
 }: OpenAiAttemptAssessorOptions): AssessAttempt {
-  return async (transcript, rubric) => {
+  return async (transcript, rubric, privateProfile) => {
     const response = await fetchFromOpenAi(responsesUrl, {
       method: 'POST',
       headers: {
@@ -328,7 +332,7 @@ export function createOpenAiAttemptAssessor({
         store: false,
         safety_identifier: 'conversation-practice-local-trainee',
         instructions: assessmentInstructions(),
-        input: JSON.stringify({ transcript, rubric }),
+        input: JSON.stringify({ transcript, rubric, privateProfile }),
         text: {
           format: {
             type: 'json_schema',

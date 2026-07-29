@@ -3,6 +3,16 @@ export type RubricCriterion = {
   description: string;
 };
 
+// Ground truth for the Assessment as well as material for the Persona. The
+// grader cannot tell the cover story from the real reason without it, and this
+// is the only copy — restating it in the Rubric would drift the first time
+// Jordan's backstory is tuned.
+export type PrivateProfile = {
+  actualIntent: string;
+  priorIncident: string;
+  meaningOfCancellation: string;
+};
+
 export type Scenario = {
   id: string;
   title: string;
@@ -18,11 +28,7 @@ export type Scenario = {
     characterBrief: string;
     openingLine: string;
     standingInstructions: readonly string[];
-    privateProfile: {
-      actualIntent: string;
-      priorIncident: string;
-      meaningOfCancellation: string;
-    };
+    privateProfile: PrivateProfile;
     behaviourRules: readonly string[];
     gate: {
       name: string;

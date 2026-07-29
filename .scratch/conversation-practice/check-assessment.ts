@@ -116,7 +116,11 @@ async function run(label: string, transcript: Transcript) {
   const startedAt = Date.now();
 
   try {
-    const assessment = await assessAttempt(transcript, scenario.rubric);
+    const assessment = await assessAttempt(
+      transcript,
+      scenario.rubric,
+      scenario.persona.privateProfile
+    );
     const elapsed = Date.now() - startedAt;
     console.log(`   judged in ${String(elapsed)}ms\n`);
     printAssessment(assessment);

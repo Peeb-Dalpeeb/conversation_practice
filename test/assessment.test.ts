@@ -7,6 +7,8 @@ import {
 } from '../src/server/assessment.js';
 import type { Transcript } from '../src/server/attempt-completion.js';
 
+const privateProfile = scenario.persona.privateProfile;
+
 const transcript: Transcript = [
   {
     speaker: 'persona',
@@ -77,7 +79,9 @@ describe('the OpenAI Assessment boundary', () => {
       fetch: openAiFetch,
     });
 
-    await expect(assessAttempt(transcript, scenario.rubric)).resolves.toEqual({
+    await expect(
+      assessAttempt(transcript, scenario.rubric, privateProfile)
+    ).resolves.toEqual({
       criteria: criteria.map(
         ({
           criterionId,
@@ -125,6 +129,37 @@ describe('the OpenAI Assessment boundary', () => {
     expect(JSON.stringify(body)).toContain('Can you tell me what happened?');
   });
 
+  // Without the prior incident the grader has no way to tell the cover story
+  // from the real reason, and was measured giving criterion 3 away.
+  it('sends the Private Profile as ground truth', async () => {
+    const criteria = scenario.rubric.map((criterion) => ({
+      criterionId: criterion.id,
+      met: false,
+      evidence: "I'd like to close my account.",
+      evidenceTurnIndex: 0,
+    }));
+    const openAiFetch = vi
+      .fn<OpenAiResponsesFetch>()
+      .mockResolvedValue(completedAssessmentResponse(criteria));
+    const assessAttempt = createOpenAiAttemptAssessor({
+      apiKey: 'server-api-key',
+      fetch: openAiFetch,
+    });
+
+    await assessAttempt(transcript, scenario.rubric, privateProfile);
+
+    const body = openAiFetch.mock.calls[0][1]?.body;
+
+    if (typeof body !== 'string') {
+      throw new Error('Expected the OpenAI request body to be JSON text.');
+    }
+
+    expect(body).toContain(privateProfile.priorIncident);
+    expect(JSON.parse(body)).toMatchObject({
+      instructions: expect.stringContaining('cover story') as string,
+    });
+  });
+
   it('returns every verdict in the fixed Rubric order', async () => {
     const reversedCriteria = [...scenario.rubric]
       .reverse()
@@ -142,7 +177,11 @@ describe('the OpenAI Assessment boundary', () => {
       fetch: openAiFetch,
     });
 
-    const assessment = await assessAttempt(transcript, scenario.rubric);
+    const assessment = await assessAttempt(
+      transcript,
+      scenario.rubric,
+      privateProfile
+    );
 
     expect(assessment.criteria.map(({ criterionId }) => criterionId)).toEqual(
       scenario.rubric.map(({ id }) => id)
@@ -178,7 +217,7 @@ describe('the OpenAI Assessment boundary', () => {
     });
 
     await expect(
-      assessAttempt(cutOffTranscript, scenario.rubric)
+      assessAttempt(cutOffTranscript, scenario.rubric, privateProfile)
     ).rejects.toThrow(/eligible Transcript quote/);
   });
 
@@ -205,7 +244,7 @@ describe('the OpenAI Assessment boundary', () => {
     });
 
     await expect(
-      assessAttempt(multiSentenceTranscript, scenario.rubric)
+      assessAttempt(multiSentenceTranscript, scenario.rubric, privateProfile)
     ).resolves.toEqual({
       criteria: scenario.rubric.map((criterion) => ({
         criterionId: criterion.id,
@@ -242,7 +281,8 @@ describe('the OpenAI Assessment boundary', () => {
 
     const assessment = await assessAttempt(
       typographicTranscript,
-      scenario.rubric
+      scenario.rubric,
+      privateProfile
     );
 
     expect(assessment.criteria.map(({ evidence }) => evidence)).toEqual([
@@ -279,7 +319,7 @@ describe('the OpenAI Assessment boundary', () => {
 
     const assessment = await assessorReturning(
       completedAssessmentResponse(criteria)
-    )(typographicTranscript, scenario.rubric);
+    )(typographicTranscript, scenario.rubric, privateProfile);
 
     expect(assessment.criteria.map((verdict) => verdict.evidence)).toEqual(
       scenario.rubric.map(() => transcriptText)
@@ -297,7 +337,8 @@ describe('the OpenAI Assessment boundary', () => {
     await expect(
       assessorReturning(completedAssessmentResponse(criteria))(
         transcript,
-        scenario.rubric
+        scenario.rubric,
+        privateProfile
       )
     ).rejects.toThrow(
       /eligible Transcript quote for "understood-before-solving" at turn 1: "I never said this\."/
@@ -327,7 +368,8 @@ describe('the OpenAI Assessment boundary', () => {
     await expect(
       assessorReturning(completedAssessmentResponse(criteria))(
         indexedTranscript,
-        scenario.rubric
+        scenario.rubric,
+        privateProfile
       )
     ).rejects.toThrow(/eligible Transcript quote/);
   });
@@ -343,7 +385,8 @@ describe('the OpenAI Assessment boundary', () => {
     await expect(
       assessorReturning(completedAssessmentResponse(criteria))(
         transcript,
-        scenario.rubric
+        scenario.rubric,
+        privateProfile
       )
     ).rejects.toThrow(/eligible Transcript quote/);
   });
@@ -384,7 +427,8 @@ describe('the OpenAI Assessment boundary', () => {
       await expect(
         assessorReturning(completedAssessmentResponse(criteria))(
           conservativeTranscript,
-          scenario.rubric
+          scenario.rubric,
+          privateProfile
         )
       ).rejects.toThrow(/eligible Transcript quote/);
     }
@@ -394,7 +438,8 @@ describe('the OpenAI Assessment boundary', () => {
     await expect(
       assessorReturning(new Response('', { status: 503 }))(
         transcript,
-        scenario.rubric
+        scenario.rubric,
+        privateProfile
       )
     ).rejects.toThrow(/could not assess the Attempt \(503\)/);
   });
@@ -420,7 +465,7 @@ describe('the OpenAI Assessment boundary', () => {
     },
   ])('rejects $name', async ({ response, expectedError }) => {
     await expect(
-      assessorReturning(response)(transcript, scenario.rubric)
+      assessorReturning(response)(transcript, scenario.rubric, privateProfile)
     ).rejects.toThrow(expectedError);
   });
 
@@ -458,7 +503,8 @@ describe('the OpenAI Assessment boundary', () => {
     await expect(
       assessorReturning(assessmentResponseWithText(JSON.stringify(assessment)))(
         transcript,
-        scenario.rubric
+        scenario.rubric,
+        privateProfile
       )
     ).rejects.toThrow(expectedError);
   });
@@ -481,7 +527,8 @@ describe('the OpenAI Assessment boundary', () => {
     await expect(
       assessorReturning(completedAssessmentResponse(criteria))(
         transcript,
-        scenario.rubric
+        scenario.rubric,
+        privateProfile
       )
     ).rejects.toThrow(/duplicate Rubric verdict/);
   });
@@ -504,7 +551,8 @@ describe('the OpenAI Assessment boundary', () => {
     await expect(
       assessorReturning(completedAssessmentResponse(criteria))(
         transcript,
-        scenario.rubric
+        scenario.rubric,
+        privateProfile
       )
     ).rejects.toThrow(/omitted a Rubric verdict/);
   });
