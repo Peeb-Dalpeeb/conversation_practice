@@ -1,12 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { PublicScenario } from '../scenario.js';
+import {
+  connectRealtimeAttempt,
+  type AttemptActivity,
+  type ConnectRealtimeAttempt,
+  type RealtimeAttempt,
+} from './realtime.js';
 
 type AppState =
   | { name: 'loading' }
   | { name: 'briefing'; scenario: PublicScenario }
-  | { name: 'starting'; scenario: PublicScenario }
+  | { name: 'connecting' }
+  | {
+      name: 'live';
+      activity: AttemptActivity;
+      personaName: string;
+    }
+  | { name: 'ended' }
   | { name: 'unavailable' };
+
+type AppProps = {
+  connectAttempt?: ConnectRealtimeAttempt;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -34,8 +50,10 @@ function isPublicScenario(value: unknown): value is PublicScenario {
   );
 }
 
-export function App() {
+export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
   const [state, setState] = useState<AppState>({ name: 'loading' });
+  const attemptController = useRef<AbortController | null>(null);
+  const liveAttempt = useRef<RealtimeAttempt | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -69,12 +87,64 @@ export function App() {
     return () => controller.abort();
   }, []);
 
+  useEffect(
+    () => () => {
+      attemptController.current?.abort();
+      liveAttempt.current?.stop();
+    },
+    []
+  );
+
+  const stopAttempt = () => {
+    attemptController.current?.abort();
+    liveAttempt.current?.stop();
+    attemptController.current = null;
+    liveAttempt.current = null;
+    setState({ name: 'ended' });
+  };
+
+  const startAttempt = async (scenario: PublicScenario) => {
+    const controller = new AbortController();
+    attemptController.current = controller;
+    setState({ name: 'connecting' });
+
+    try {
+      const attempt = await connectAttempt({
+        signal: controller.signal,
+        onActivity: (activity) => {
+          setState((currentState) =>
+            currentState.name === 'live'
+              ? { ...currentState, activity }
+              : currentState
+          );
+        },
+      });
+
+      if (controller.signal.aborted) {
+        attempt.stop();
+        return;
+      }
+
+      liveAttempt.current = attempt;
+      setState({
+        name: 'live',
+        activity: 'listening',
+        personaName: scenario.persona.name,
+      });
+    } catch (error) {
+      if (
+        !(error instanceof DOMException && error.name === 'AbortError') &&
+        !controller.signal.aborted
+      ) {
+        setState({ name: 'ended' });
+      }
+    }
+  };
+
   if (state.name === 'loading') {
     return (
       <main className="shell">
-        <p className="loading" role="status">
-          Preparing the Briefing…
-        </p>
+        <p className="loading">Preparing the Briefing…</p>
       </main>
     );
   }
@@ -91,17 +161,51 @@ export function App() {
     );
   }
 
-  if (state.name === 'starting') {
+  if (state.name === 'connecting') {
     return (
       <main className="shell shell--attempt">
-        <section
-          className="attempt"
-          aria-labelledby="attempt-title"
-          role="status"
-        >
-          <p className="eyebrow">{state.scenario.title}</p>
-          <h1 id="attempt-title">Starting attempt…</h1>
-          <p>Preparing the live connection.</p>
+        <section className="attempt" aria-label="Live Attempt">
+          <p className="attempt__indicator" role="status">
+            <span className="attempt__pulse" aria-hidden="true" />
+            Connecting…
+          </p>
+          <button className="stop-button" type="button" onClick={stopAttempt}>
+            Stop attempt
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (state.name === 'live') {
+    const indicator =
+      state.activity === 'speaking'
+        ? `${state.personaName} is speaking`
+        : 'Listening';
+
+    return (
+      <main className="shell shell--attempt">
+        <section className="attempt" aria-label="Live Attempt">
+          <p className="attempt__indicator" role="status" aria-live="polite">
+            <span
+              className={`attempt__pulse attempt__pulse--${state.activity}`}
+              aria-hidden="true"
+            />
+            {indicator}
+          </p>
+          <button className="stop-button" type="button" onClick={stopAttempt}>
+            Stop attempt
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (state.name === 'ended') {
+    return (
+      <main className="shell shell--attempt">
+        <section className="attempt" aria-labelledby="attempt-ended-title">
+          <h1 id="attempt-ended-title">Attempt ended</h1>
         </section>
       </main>
     );
@@ -147,7 +251,7 @@ export function App() {
           <button
             className="start-button"
             type="button"
-            onClick={() => setState({ name: 'starting', scenario })}
+            onClick={() => void startAttempt(scenario)}
           >
             Start attempt
             <span aria-hidden="true">→</span>

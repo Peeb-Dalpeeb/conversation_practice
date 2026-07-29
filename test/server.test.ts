@@ -2,11 +2,12 @@ import { rm, writeFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { resolve } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createServer as createViteServer, type ViteDevServer } from 'vite';
 
 import { scenario, type Scenario } from '../src/scenario.js';
 import { createApiServer } from '../src/server/app.js';
+import { createOpenAiRealtimeClientSecretMinter } from '../src/server/realtime.js';
 
 const servers: ReturnType<typeof createApiServer>[] = [];
 const viteServers: ViteDevServer[] = [];
@@ -95,6 +96,106 @@ describe('the server HTTP interface', () => {
         publicDescription: 'Public description supplied at startup.',
       },
     });
+  });
+
+  it('mints a Scenario-configured credential without exposing Persona instructions', async () => {
+    const realtimeScenario: Scenario = {
+      ...scenario,
+      persona: {
+        ...scenario.persona,
+        name: 'Persona supplied by the Scenario',
+        openingLine: 'Opening line supplied by the Scenario.',
+        privateProfile: {
+          actualIntent: 'Private intent supplied by the Scenario.',
+          priorIncident: 'Private incident supplied by the Scenario.',
+          meaningOfCancellation: 'Private meaning supplied by the Scenario.',
+        },
+        behaviourRules: ['Behaviour supplied by the Scenario.'],
+        gate: {
+          name: 'Gate supplied by the Scenario',
+          condition: 'Gate condition supplied by the Scenario.',
+        },
+      },
+    };
+    const openAiFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          value: 'ephemeral-browser-credential',
+          expires_at: 1_750_000_000,
+          session: {
+            instructions: 'The browser must never receive these instructions.',
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+    const server = createApiServer(
+      realtimeScenario,
+      createOpenAiRealtimeClientSecretMinter({
+        apiKey: 'server-api-key',
+        fetch: openAiFetch,
+      })
+    );
+    servers.push(server);
+
+    await new Promise<void>((resolveListening) => {
+      server.listen(0, '127.0.0.1', resolveListening);
+    });
+
+    const port = (server.address() as AddressInfo).port;
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/realtime/client-secret`,
+      { method: 'POST' }
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual({
+      value: 'ephemeral-browser-credential',
+      expiresAt: 1_750_000_000,
+    });
+
+    expect(openAiFetch).toHaveBeenCalledOnce();
+    const [input, init] = openAiFetch.mock.calls[0] as [string, RequestInit];
+    expect(input).toBe('https://api.openai.com/v1/realtime/client_secrets');
+    expect(init.headers).toMatchObject({
+      Authorization: 'Bearer server-api-key',
+      'Content-Type': 'application/json',
+    });
+
+    expect(typeof init.body).toBe('string');
+
+    if (typeof init.body !== 'string') {
+      throw new Error('Expected the OpenAI request body to be JSON text.');
+    }
+
+    const body = JSON.parse(init.body) as {
+      session: {
+        model: string;
+        output_modalities: string[];
+        instructions: string;
+      };
+    };
+    expect(body.session.model).toBe('gpt-realtime-2.1');
+    expect(body.session.output_modalities).toEqual(['audio']);
+    expect(body.session.instructions).toContain(
+      'Persona supplied by the Scenario'
+    );
+    expect(body.session.instructions).toContain(
+      'Opening line supplied by the Scenario.'
+    );
+    expect(body.session.instructions).toContain(
+      'Private incident supplied by the Scenario.'
+    );
+    expect(body.session.instructions).toContain(
+      'Behaviour supplied by the Scenario.'
+    );
+    expect(body.session.instructions).toContain(
+      'Gate condition supplied by the Scenario.'
+    );
   });
 
   it('is reachable through the page development server', async () => {

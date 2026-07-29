@@ -214,7 +214,66 @@ h1 {
 }
 
 .attempt {
+  display: grid;
+  min-height: min(24rem, 70vh);
+  align-content: center;
+  justify-items: center;
   text-align: center;
+  gap: 3rem;
+}
+
+.attempt__indicator {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  color: #3f3933;
+  font-size: clamp(1.15rem, 2.5vw, 1.5rem);
+  font-weight: 700;
+  gap: 0.9rem;
+}
+
+.attempt__pulse {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: #b57b5d;
+  box-shadow: 0 0 0 0.45rem rgb(181 123 93 / 14%);
+}
+
+.attempt__pulse--listening {
+  background: #2f7d6f;
+  box-shadow: 0 0 0 0.45rem rgb(47 125 111 / 14%);
+}
+
+.attempt__pulse--speaking {
+  background: #b75834;
+  box-shadow: 0 0 0 0.45rem rgb(183 88 52 / 16%);
+}
+
+.stop-button {
+  min-height: 3.25rem;
+  padding: 0.8rem 1.4rem;
+  border: 1px solid rgb(69 57 48 / 28%);
+  border-radius: 999px;
+  background: transparent;
+  color: #574c44;
+  cursor: pointer;
+  font-weight: 750;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.stop-button:hover {
+  border-color: #8d4128;
+  background: #f5e4db;
+  color: #7e351f;
+}
+
+.stop-button:focus-visible {
+  outline: 0.2rem solid #d08154;
+  outline-offset: 0.22rem;
 }
 
 @media (max-width: 640px) {
@@ -240,7 +299,8 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .start-button {
+  .start-button,
+  .stop-button {
     transition: none;
   }
 }
