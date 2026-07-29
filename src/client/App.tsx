@@ -22,7 +22,10 @@ type AppState =
       personaName: string;
     }
   | { name: 'data-failed' }
-  | { name: 'ended' }
+  | {
+      name: 'ended';
+      phase: 'stopped' | 'preparing' | 'judging';
+    }
   | { name: 'failed'; reason: string; scenario: PublicScenario }
   | { name: 'unavailable' };
 
@@ -107,9 +110,15 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
   );
 
   const stopAttempt = () => {
+    const judgingExpected = liveAttempt.current !== null;
     releaseAttempt();
     setState((currentState) =>
-      currentState.name === 'data-failed' ? currentState : { name: 'ended' }
+      currentState.name === 'data-failed'
+        ? currentState
+        : {
+            name: 'ended',
+            phase: judgingExpected ? 'preparing' : 'stopped',
+          }
     );
   };
 
@@ -137,11 +146,20 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
           setState((currentState) =>
             currentState.name === 'data-failed'
               ? currentState
-              : { name: 'ended' }
+              : currentState.name === 'ended'
+                ? currentState
+                : { name: 'ended', phase: 'preparing' }
           );
         },
         onAttemptDataFailed: () => {
           setState({ name: 'data-failed' });
+        },
+        onJudgingStarted: () => {
+          setState((currentState) =>
+            currentState.name === 'data-failed'
+              ? currentState
+              : { name: 'ended', phase: 'judging' }
+          );
         },
       });
 
@@ -263,11 +281,20 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
   }
 
   if (state.name === 'ended') {
+    const status =
+      state.phase === 'judging'
+        ? 'Your microphone is off. Judging is in progress…'
+        : state.phase === 'preparing'
+          ? 'Your microphone is off. Preparing your Attempt for judging…'
+          : 'Your microphone is off.';
+
     return (
       <main className="shell shell--attempt">
         <section className="attempt" aria-labelledby="attempt-ended-title">
           <h1 id="attempt-ended-title">Attempt ended</h1>
-          <p role="status">Your microphone is off. Judging is in progress…</p>
+          <p role="status" aria-live="polite">
+            {status}
+          </p>
         </section>
       </main>
     );

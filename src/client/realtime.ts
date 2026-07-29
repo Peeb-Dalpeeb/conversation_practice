@@ -9,6 +9,7 @@ type ConnectRealtimeAttemptOptions = {
   onActivity: (activity: AttemptActivity) => void;
   onEnded: () => void;
   onAttemptDataFailed: () => void;
+  onJudgingStarted: () => void;
 };
 
 export type ConnectRealtimeAttempt = (
@@ -263,6 +264,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
   onActivity,
   onEnded,
   onAttemptDataFailed,
+  onJudgingStarted,
 }) => {
   let dataChannel: RTCDataChannel | undefined;
   let localMedia: MediaStream | undefined;
@@ -302,15 +304,18 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       return Promise.resolve();
     }
 
-    rawEventLogSubmission ??= fetch('/api/attempts/raw-event-log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(rawEventLog),
-    }).then((response) => {
-      if (!response.ok) {
-        throw new Error('The raw event log could not be stored.');
-      }
-    });
+    if (!rawEventLogSubmission) {
+      onJudgingStarted();
+      rawEventLogSubmission = fetch('/api/attempts/raw-event-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rawEventLog),
+      }).then((response) => {
+        if (!response.ok) {
+          throw new Error('The raw event log could not be stored.');
+        }
+      });
+    }
 
     return rawEventLogSubmission;
   };

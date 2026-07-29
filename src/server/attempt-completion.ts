@@ -217,6 +217,8 @@ function reconstructTranscript(rawEventLog: string): Transcript {
     }
   }
 
+  // Fail closed rather than guessing through a chain or text gap: every later
+  // Assessment quote inherits this ordering and speaker attribution.
   return orderSpokenTurns(turnsById).map((turn): TranscriptTurn => {
     const text =
       turn.speaker === 'persona'
@@ -254,17 +256,30 @@ export function createAttemptCompleter({
   storeRawEventLog,
 }: AttemptCompleterOptions): CompleteAttempt {
   return async (rawEventLog) => {
-    await storeRawEventLog?.(rawEventLog);
+    // Raw archival is forensic support, not a prerequisite for the judged
+    // Attempt. Start it immediately so even a reconstruction failure is kept
+    // when possible, but do not let its failure replace the product outcome.
+    const rawEventLogStorage = storeRawEventLog
+      ? Promise.resolve()
+          .then(() => storeRawEventLog(rawEventLog))
+          .catch((error: unknown) => {
+            console.error('Raw event log could not be stored.', error);
+          })
+      : Promise.resolve();
 
-    const transcript = reconstructTranscript(rawEventLog);
-    const assessment = await assessAttempt(transcript, scenario.rubric);
-    const feedback = await createFeedback(assessment, transcript);
+    try {
+      const transcript = reconstructTranscript(rawEventLog);
+      const assessment = await assessAttempt(transcript, scenario.rubric);
+      const feedback = await createFeedback(assessment, transcript);
 
-    await storeAttempt({
-      scenarioId: scenario.id,
-      transcript,
-      assessment,
-      feedback,
-    });
+      await storeAttempt({
+        scenarioId: scenario.id,
+        transcript,
+        assessment,
+        feedback,
+      });
+    } finally {
+      await rawEventLogStorage;
+    }
   };
 }

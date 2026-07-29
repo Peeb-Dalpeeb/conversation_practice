@@ -196,11 +196,13 @@ function startAttempt() {
   const onActivity = vi.fn<(activity: AttemptActivity) => void>();
   const onAttemptDataFailed = vi.fn();
   const onEnded = vi.fn();
+  const onJudgingStarted = vi.fn();
   const attempt = connectRealtimeAttempt({
     signal: controller.signal,
     onActivity,
     onEnded,
     onAttemptDataFailed,
+    onJudgingStarted,
   });
 
   return {
@@ -209,6 +211,7 @@ function startAttempt() {
     onActivity,
     onAttemptDataFailed,
     onEnded,
+    onJudgingStarted,
   };
 }
 
@@ -506,7 +509,7 @@ describe('a live Attempt in progress', () => {
 
   it('forwards the complete raw event log when the Trainee stops', async () => {
     const { fetchMock } = stubBrowser();
-    const { attempt } = startAttempt();
+    const { attempt, onJudgingStarted } = startAttempt();
     const liveAttempt = await attempt;
     const channel = liveDataChannel();
     const identifierEvent = {
@@ -567,6 +570,7 @@ describe('a live Attempt in progress', () => {
         })
       );
     });
+    expect(onJudgingStarted).toHaveBeenCalledOnce();
     const rawEventLogRequest = fetchMock.mock.calls.find(
       ([url]) => url === rawEventLogUrl
     )?.[1];

@@ -76,10 +76,14 @@ describe('the Trainee-facing app', () => {
     respondWithScenario();
     const stop = vi.fn();
     let reportActivity: ((activity: AttemptActivity) => void) | undefined;
-    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(({ onActivity }) => {
-      reportActivity = onActivity;
-      return Promise.resolve({ stop });
-    });
+    let reportJudgingStarted: (() => void) | undefined;
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
+      ({ onActivity, onJudgingStarted }) => {
+        reportActivity = onActivity;
+        reportJudgingStarted = onJudgingStarted;
+        return Promise.resolve({ stop });
+      }
+    );
 
     render(<App connectAttempt={connectAttempt} />);
 
@@ -110,8 +114,15 @@ describe('the Trainee-facing app', () => {
     expect(stop).toHaveBeenCalledOnce();
     expect(screen.getByRole('heading', { name: 'Attempt ended' })).toBeTruthy();
     expect(screen.getByRole('status').textContent).toBe(
+      'Your microphone is off. Preparing your Attempt for judging…'
+    );
+
+    act(() => reportJudgingStarted?.());
+
+    expect(screen.getByRole('status').textContent).toBe(
       'Your microphone is off. Judging is in progress…'
     );
+    expect(screen.getByRole('status').getAttribute('aria-live')).toBe('polite');
     expect(screen.queryByRole('button')).toBeNull();
   });
 
