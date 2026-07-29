@@ -1,8 +1,9 @@
 # Conversation Practice
 
-A local application for rehearsing difficult conversations out loud. This
-first scaffold runs a Node + TypeScript server beside a React + TypeScript page
-and confirms that the two can communicate through Vite's development proxy.
+A local application for rehearsing difficult conversations out loud. A
+Trainee reads a server-provided Briefing, then presses one explicit control to
+start an Attempt. A Node + TypeScript server runs beside the React + TypeScript
+page through Vite's development proxy.
 
 ## Run locally
 
@@ -40,15 +41,19 @@ You need Node.js 20.19 or newer (or Node.js 22.12 or newer).
    npm run dev
    ```
 
-Open [http://localhost:5173](http://localhost:5173). The page reports when it
-has successfully reached the local server. Vite forwards `/api` requests to
-the server, so local development needs no separate build step or second
-terminal.
+Open [http://localhost:5173](http://localhost:5173). The Trainee reads the
+Briefing supplied by the local server and presses **Start attempt** when ready.
+Vite forwards `/api` requests to the server, so local development needs no
+separate build step or second terminal.
 
 The complete Scenario lives in `src/scenario.ts`. Edit that one file to tune
 the Briefing, Persona, Private Profile, behaviour rules, Gate, hang-up
 precondition, or Rubric. The development server restarts when it changes;
 refresh the page to read the revised Briefing. No build step is required.
+
+Because this proof of concept has one fixed Briefing layout, its four-field
+shape and labels stay in `src/client/App.tsx`; `src/scenario.ts` remains the
+single place to edit the authored Scenario text.
 
 The API key is loaded only by the Node server. Vite exposes browser variables
 only when their names begin with `VITE_`; do not use that prefix for secrets.

@@ -51,3 +51,9 @@ API key never reaches the browser.
 - [ ] The connection lifecycle runs idle → live → ended and the Trainee can tell which state
       they are in.
 - [ ] The Persona's instructions come from the Scenario file, not from code.
+
+## Comments
+
+- Ticket 02 audit handoff: when replacing the starting placeholder with the real Attempt
+  screen, remove the Scenario title. Decision 19 permits only the speaking/listening
+  indicator and stop control during an Attempt.
