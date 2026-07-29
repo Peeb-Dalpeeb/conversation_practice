@@ -72,6 +72,85 @@ const fullTranscript = transcriptFromFixture(fixture);
 // is the plausible wrong answer the whole Scenario is built to punish.
 const coverStoryTranscript = fullTranscript.slice(0, 3);
 
+// A hand-written Attempt at the length a real one runs to — the handoff budgets
+// ~22 turns for ten minutes. The recorded fixtures are all 3–9 turns, so they
+// measure judging on a fraction of the input a live Attempt produces. Written to
+// follow the Scenario's behaviour rules so the grader does real work rather than
+// skimming repeated text: firm open, cover story, the prior incident drawn out,
+// the Gate met, then a check that Jordan felt heard.
+const longAttemptTurns: [Transcript[number]['speaker'], string][] = [
+  ['persona', "I'd like to close my account."],
+  ['trainee', "Okay — I can help with that. Before I start it, can I ask what's prompted it?"],
+  ['persona', "Does it matter? I've made up my mind."],
+  [
+    'trainee',
+    "It matters to me, but it's your call. If you'd rather I just process it, I will.",
+  ],
+  [
+    'persona',
+    "The fees are too high. I found somewhere cheaper. That's really all there is to it.",
+  ],
+  ['trainee', 'That’s fair enough. How long have you been with us?'],
+  ['persona', 'Six years. Something like that. Long enough.'],
+  [
+    'trainee',
+    'Six years is a long time to stay somewhere you thought was overpriced.',
+  ],
+  [
+    'persona',
+    "I suppose it is. Look, I don't really want to get into all of it. Can we just do the paperwork?",
+  ],
+  [
+    'trainee',
+    "We can. I'm not going to try to talk you out of anything — there's nothing I could offer you anyway. I just don't want to close a six-year account without understanding what actually changed.",
+  ],
+  [
+    'persona',
+    "...Three weeks ago I rang about something small. A line on my statement I didn't recognise. Nothing complicated.",
+  ],
+  ['trainee', 'What happened when you called?'],
+  [
+    'persona',
+    "The person was in a hurry. I could hear it in their voice. They answered before I'd finished asking, and when I said I didn't follow, they sighed. Actually sighed, down the phone. Like I was wasting their time over nothing.",
+  ],
+  ['trainee', 'And how did you feel after that call ended?'],
+  [
+    'persona',
+    "Small. It made me feel stupid, honestly, over something that took thirty seconds to explain. I put the phone down and thought, why am I paying these people every month to be spoken to like that.",
+  ],
+  [
+    'trainee',
+    "You rang with a straightforward question and came off the phone feeling stupid for having asked it. That shouldn't have happened to you.",
+  ],
+  [
+    'persona',
+    "Thank you. That's — thank you. Nobody has said that. I half expected you to tell me they were having a busy day.",
+  ],
+  [
+    'trainee',
+    "They might have been. That's not a reason, and it's not your problem to carry.",
+  ],
+  [
+    'persona',
+    "I appreciate you saying it plainly. I've been stewing on this for three weeks and it's the first time anyone's just said it was wrong.",
+  ],
+  [
+    'trainee',
+    'Is there anything else from that call, or since, that I should know about?',
+  ],
+  [
+    'persona',
+    "No. That was the whole of it, really. One call. It sounds small saying it out loud.",
+  ],
+  [
+    'trainee',
+    "It doesn't sound small to me, and I don't want to move on until I'm sure I've actually understood you. Have I?",
+  ],
+];
+const longAttemptTranscript: Transcript = longAttemptTurns.map(
+  ([speaker, text]) => ({ speaker, text, cutOff: false })
+);
+
 function printTranscript(label: string, transcript: Transcript) {
   console.log(`\n${label} — ${String(transcript.length)} turns`);
   for (const [index, turn] of transcript.entries()) {
@@ -88,10 +167,11 @@ function printAssessment(assessment: Assessment) {
   }
 }
 
-function criterionThree(assessment: Assessment): boolean | undefined {
-  return assessment.criteria.find(
-    ({ criterionId }) => criterionId === 'surfaced-real-reason'
-  )?.met;
+function wordCount(transcript: Transcript): number {
+  return transcript.reduce(
+    (total, turn) => total + turn.text.split(/\s+/).filter(Boolean).length,
+    0
+  );
 }
 
 printTranscript('FULL ATTEMPT (the real reason is surfaced)', fullTranscript);
@@ -99,11 +179,15 @@ printTranscript(
   'COVER STORY ONLY (criterion 3 must be NOT MET)',
   coverStoryTranscript
 );
+printTranscript(
+  'LONG ATTEMPT (full length, for the ticket 07 latency number)',
+  longAttemptTranscript
+);
 
 if (!live) {
   console.log(
     '\nDry run — no API call made, nothing spent.' +
-      '\nRe-run with --live to make two real calls to gpt-5.6-sol (~$0.08).'
+      '\nRe-run with --live to make three real calls to gpt-5.6-sol (~$0.15).'
   );
   process.exit(0);
 }
@@ -135,41 +219,92 @@ async function run(label: string, transcript: Transcript) {
 
 const full = await run('FULL ATTEMPT', fullTranscript);
 const cover = await run('COVER STORY ONLY', coverStoryTranscript);
+const long = await run('LONG ATTEMPT', longAttemptTranscript);
 
 console.log('\n--- what this tells us ---');
 
-if (!full && !cover) {
+if (!full && !cover && !long) {
   console.log(
-    '  Both calls failed. Read the error above: if it names the schema or the\n' +
+    '  Every call failed. Read the error above: if it names the schema or the\n' +
       '  model, the request shape is wrong and no test would have caught it.'
   );
   process.exit(1);
 }
 
-const slowest = Math.max(full?.elapsed ?? 0, cover?.elapsed ?? 0);
-console.log(
-  `  Ticket 07 latency: slowest Assessment was ${String(slowest)}ms. Feedback is a\n` +
-    '  second sequential call, so budget roughly double before deciding whether\n' +
-    '  the page can block on judging.'
-);
-
-if (cover) {
-  const met = criterionThree(cover.assessment);
+console.log('\n  Judging cost, by Attempt size:');
+for (const [label, transcript, result] of [
+  ['cover story', coverStoryTranscript, cover],
+  ['fixture    ', fullTranscript, full],
+  ['full length', longAttemptTranscript, long],
+] as const) {
+  const elapsed = result ? `${String(result.elapsed)}ms` : 'failed';
   console.log(
-    met
-      ? '  Criterion 3 came back MET on a cover-story-only Attempt. The grader is\n' +
-          '    giving away the criterion the demo turns on — it needs ground truth.\n' +
-          '    Pass the Persona private profile to the Assessment call (ticket 12).'
-      : '  Criterion 3 came back NOT MET on a cover-story-only Attempt. The grader\n' +
-          '    already distinguishes the cover story from the real reason. Ground\n' +
-          '    truth is not urgent — re-check across a few more Attempts in ticket 12.'
+    `    ${label}  ${String(transcript.length).padStart(2)} turns` +
+      `  ${String(wordCount(transcript)).padStart(4)} words  ${elapsed.padStart(7)}`
   );
 }
 
-if (full && criterionThree(full.assessment) === false) {
+if (long) {
   console.log(
-    '  Criterion 3 came back NOT MET on the full Attempt, where the prior incident\n' +
-      '    IS surfaced. That is a false negative and is worse than the false\n' +
-      '    positive above — attempt two would not flip on the projector.'
+    `\n  Ticket 07: a full-length Assessment took ${String(long.elapsed)}ms. Feedback is a\n` +
+      '    second sequential call over the same Transcript plus the Assessment, and it\n' +
+      '    writes prose rather than short quotes, so the Trainee waits at least this\n' +
+      '    long again. Design the waiting state for the total, not for the Assessment.'
   );
+}
+
+// The fix under test: ground truth should make the cover story stop counting as
+// the real reason, without making the real reason stop counting. And the quote
+// should name the Persona turn that revealed it — ticket 13 opens criterion 3 on
+// a projector, and the room needs to see Jordan say it, not the question.
+for (const [label, transcript, result] of [
+  ['COVER STORY ', coverStoryTranscript, cover],
+  ['FULL ATTEMPT', fullTranscript, full],
+  ['LONG ATTEMPT', longAttemptTranscript, long],
+] as const) {
+  if (!result) {
+    continue;
+  }
+
+  const verdict = result.assessment.criteria.find(
+    ({ criterionId }) => criterionId === 'surfaced-real-reason'
+  );
+
+  if (!verdict) {
+    console.log(`\n  BAD   ${label}: criterion 3 missing from the Assessment.`);
+    continue;
+  }
+
+  const wanted = label.trim() !== 'COVER STORY';
+  const speaker = transcript.find((turn) =>
+    turn.text.includes(verdict.evidence)
+  )?.speaker;
+  const ok = verdict.met === wanted;
+
+  console.log(
+    `\n  ${ok ? 'GOOD' : 'BAD '}  ${label}: criterion 3 ${verdict.met ? 'MET' : 'NOT MET'}` +
+      ` (wanted ${wanted ? 'MET' : 'NOT MET'})`
+  );
+  console.log(
+    `        evidence: ${JSON.stringify(verdict.evidence)} [${speaker ?? 'unknown'}]`
+  );
+
+  if (!ok && !wanted) {
+    console.log(
+      '        The grader still counts the cover story as the real reason.'
+    );
+  }
+
+  if (!ok && wanted) {
+    console.log(
+      '        Worse than a false positive: attempt two would not flip on the projector.'
+    );
+  }
+
+  if (ok && wanted && speaker === 'trainee') {
+    console.log(
+      '        Verdict right, quote mis-anchored: it cites the Trainee asking rather\n' +
+        '        than Jordan revealing. That is the line ticket 13 puts on the projector.'
+    );
+  }
 }
