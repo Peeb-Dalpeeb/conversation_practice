@@ -39,13 +39,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function normalizeQuoteCharacter(character: string): string {
+// Only typographic variants of the same character, never different words. The
+// Transcript is written by one model and quoted back by another, and they
+// disagree about curly quotes and dashes far more often than about wording.
+function normalizeTypography(character: string): string {
   if (character === '\u2018' || character === '\u2019') {
     return "'";
   }
 
   if (character === '\u201c' || character === '\u201d') {
     return '"';
+  }
+
+  if (character === '\u2013' || character === '\u2014') {
+    return '-';
+  }
+
+  if (character === '\u2026') {
+    return '...';
   }
 
   return character;
@@ -84,7 +95,7 @@ function normalizeWithSourceMap(value: string): {
     }
 
     pendingWhitespace = undefined;
-    const normalizedCharacter = normalizeQuoteCharacter(character);
+    const normalizedCharacter = normalizeTypography(character);
     normalized += normalizedCharacter;
 
     for (
@@ -137,6 +148,18 @@ function sourceQuote(
   }
 
   return transcriptText.slice(firstSpan.start, lastSpan.end);
+}
+
+// A rejected quote discards the whole Attempt, so the throw has to say which
+// criterion and which quote. Tuning runs read this from the server log; without
+// it the only signal is a bare 500 long after the Attempt is over.
+function ineligibleQuoteMessage(verdict: AssessmentVerdict): string {
+  const quote =
+    verdict.evidence.length > 120
+      ? `${verdict.evidence.slice(0, 120)}…`
+      : verdict.evidence;
+
+  return `OpenAI returned evidence that is not an eligible Transcript quote for "${verdict.criterionId}" at turn ${String(verdict.evidenceTurnIndex)}: ${JSON.stringify(quote)}`;
 }
 
 function assessmentSchema(rubric: readonly RubricCriterion[]) {
@@ -271,17 +294,13 @@ function validateAssessment(
         !evidenceTurn ||
         (evidenceTurn.speaker === 'persona' && evidenceTurn.cutOff)
       ) {
-        throw new TypeError(
-          'OpenAI returned evidence that is not an eligible Transcript quote.'
-        );
+        throw new TypeError(ineligibleQuoteMessage(verdict));
       }
 
       const evidence = sourceQuote(evidenceTurn.text, verdict.evidence);
 
       if (evidence === undefined) {
-        throw new TypeError(
-          'OpenAI returned evidence that is not an eligible Transcript quote.'
-        );
+        throw new TypeError(ineligibleQuoteMessage(verdict));
       }
 
       return {

@@ -69,7 +69,11 @@ export function createApiServer(
               response.writeHead(204);
               response.end();
             },
-            () => {
+            (error: unknown) => {
+              // The page deliberately shows nothing during an Attempt, so this
+              // log is the only place a failed judging run is visible while
+              // tuning.
+              console.error('Attempt could not be completed.', error);
               response.writeHead(500, {
                 'Content-Type': 'application/json',
               });

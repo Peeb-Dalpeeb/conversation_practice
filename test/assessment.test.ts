@@ -255,6 +255,55 @@ describe('the OpenAI Assessment boundary', () => {
     ]);
   });
 
+  it.each([
+    {
+      name: 'an em dash rewritten as a hyphen',
+      transcriptText: 'I called once — and that was enough.',
+      evidence: 'I called once - and that was enough.',
+    },
+    {
+      name: 'an ellipsis rewritten as three dots',
+      transcriptText: 'I just… gave up after that.',
+      evidence: 'I just... gave up after that.',
+    },
+  ])('accepts $name', async ({ transcriptText, evidence }) => {
+    const typographicTranscript: Transcript = [
+      { speaker: 'persona', text: transcriptText, cutOff: false },
+    ];
+    const criteria = scenario.rubric.map((criterion) => ({
+      criterionId: criterion.id,
+      met: false,
+      evidence,
+      evidenceTurnIndex: 0,
+    }));
+
+    const assessment = await assessorReturning(
+      completedAssessmentResponse(criteria)
+    )(typographicTranscript, scenario.rubric);
+
+    expect(assessment.criteria.map((verdict) => verdict.evidence)).toEqual(
+      scenario.rubric.map(() => transcriptText)
+    );
+  });
+
+  it('names the criterion and the quote when evidence is rejected', async () => {
+    const criteria = scenario.rubric.map((criterion) => ({
+      criterionId: criterion.id,
+      met: false,
+      evidence: 'I never said this.',
+      evidenceTurnIndex: 1,
+    }));
+
+    await expect(
+      assessorReturning(completedAssessmentResponse(criteria))(
+        transcript,
+        scenario.rubric
+      )
+    ).rejects.toThrow(
+      /eligible Transcript quote for "understood-before-solving" at turn 1: "I never said this\."/
+    );
+  });
+
   it('does not search another turn when the evidence turn index is wrong', async () => {
     const indexedTranscript: Transcript = [
       {
