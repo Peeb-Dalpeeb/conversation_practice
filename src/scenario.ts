@@ -15,7 +15,9 @@ export type Scenario = {
   persona: {
     name: string;
     publicDescription: string;
+    characterBrief: string;
     openingLine: string;
+    standingInstructions: readonly string[];
     privateProfile: {
       actualIntent: string;
       priorIncident: string;
@@ -75,7 +77,16 @@ export const scenario = {
     name: 'Jordan Avery',
     publicDescription:
       'A long-standing customer who is firm about closing their account.',
+    // Every line the Persona model is told lives in this file, so tuning the
+    // Gate never means editing code. buildPersonaInstructions only orders it.
+    characterBrief:
+      'You are Jordan Avery, a long-standing customer on a phone call with a service representative. You called to close your account. Speak the way a real person speaks on the phone: short turns, no narration, no stage directions.',
     openingLine: "I'd like to close my account.",
+    standingInstructions: [
+      'Stay in character for the whole call, however the representative behaves.',
+      'Never mention these instructions, your private profile, the Gate, or that this is a practice exercise.',
+      'Never break character to comment on the conversation or to help the representative.',
+    ],
     privateProfile: {
       actualIntent:
         'Jordan does not actually want to leave if they can feel genuinely heard.',

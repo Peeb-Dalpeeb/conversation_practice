@@ -2,11 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { PublicScenario } from '../scenario.js';
 import {
+  AttemptFailedError,
   connectRealtimeAttempt,
   type AttemptActivity,
   type ConnectRealtimeAttempt,
   type RealtimeAttempt,
 } from './realtime.js';
+
+const unexplainedFailureMessage =
+  'The live line could not be opened. Check that the local server is running, then try again.';
 
 type AppState =
   | { name: 'loading' }
@@ -18,6 +22,7 @@ type AppState =
       personaName: string;
     }
   | { name: 'ended' }
+  | { name: 'failed'; reason: string; scenario: PublicScenario }
   | { name: 'unavailable' };
 
 type AppProps = {
@@ -140,13 +145,25 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
         personaName: scenario.persona.name,
       });
     } catch (error) {
-      if (
-        !(error instanceof DOMException && error.name === 'AbortError') &&
-        !controller.signal.aborted
-      ) {
-        releaseAttempt();
-        setState({ name: 'ended' });
+      const stoppedByTrainee =
+        (error instanceof DOMException && error.name === 'AbortError') ||
+        controller.signal.aborted;
+
+      if (stoppedByTrainee || connectionEnded) {
+        return;
       }
+
+      // A line that never opened is not an Attempt that ended. Say why, and
+      // leave a way back — a refused microphone is recoverable in one click.
+      releaseAttempt();
+      setState({
+        name: 'failed',
+        reason:
+          error instanceof AttemptFailedError
+            ? error.message
+            : unexplainedFailureMessage,
+        scenario,
+      });
     }
   };
 
@@ -204,6 +221,29 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
           </p>
           <button className="stop-button" type="button" onClick={stopAttempt}>
             Stop attempt
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (state.name === 'failed') {
+    const { reason, scenario: briefedScenario } = state;
+
+    return (
+      <main className="shell">
+        <section className="notice" aria-labelledby="attempt-failed-title">
+          <p className="eyebrow">Conversation Practice</p>
+          <h1 id="attempt-failed-title">The Attempt could not start.</h1>
+          <p>{reason}</p>
+          <button
+            className="start-button"
+            type="button"
+            onClick={() =>
+              setState({ name: 'briefing', scenario: briefedScenario })
+            }
+          >
+            Back to the Briefing
           </button>
         </section>
       </main>

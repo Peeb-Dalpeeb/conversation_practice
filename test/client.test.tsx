@@ -10,9 +10,10 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from '../src/client/App.js';
-import type {
-  AttemptActivity,
-  ConnectRealtimeAttempt,
+import {
+  AttemptFailedError,
+  type AttemptActivity,
+  type ConnectRealtimeAttempt,
 } from '../src/client/realtime.js';
 
 const publicScenario = {
@@ -130,6 +131,55 @@ describe('the Trainee-facing app', () => {
 
     expect(connectionSignal?.aborted).toBe(true);
     expect(screen.getByRole('heading', { name: 'Attempt ended' })).toBeTruthy();
+  });
+
+  it('explains a line that never opened and offers the Briefing again', async () => {
+    respondWithScenario();
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(() =>
+      Promise.reject(new AttemptFailedError('Allow microphone access.'))
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'The Attempt could not start.',
+      })
+    ).toBeTruthy();
+    expect(screen.getByText('Allow microphone access.')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Attempt ended' })).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Back to the Briefing' })
+    );
+
+    expect(screen.getByRole('button', { name: 'Start attempt' })).toBeTruthy();
+  });
+
+  it('does not blame the Trainee for a failure it cannot explain', async () => {
+    respondWithScenario();
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(() =>
+      Promise.reject(new Error('RTCPeerConnection is not defined'))
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+
+    expect(
+      (
+        await screen.findByRole('heading', {
+          name: 'The Attempt could not start.',
+        })
+      ).textContent
+    ).toBeTruthy();
+    expect(screen.queryByText(/RTCPeerConnection/)).toBeNull();
   });
 
   it('shows that an unexpectedly closed live line has ended', async () => {

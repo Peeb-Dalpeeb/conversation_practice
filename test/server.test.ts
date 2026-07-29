@@ -104,7 +104,11 @@ describe('the server HTTP interface', () => {
       persona: {
         ...scenario.persona,
         name: 'Persona supplied by the Scenario',
+        characterBrief: 'Character brief supplied by the Scenario.',
         openingLine: 'Opening line supplied by the Scenario.',
+        standingInstructions: [
+          'Standing instruction supplied by the Scenario.',
+        ],
         privateProfile: {
           actualIntent: 'Private intent supplied by the Scenario.',
           priorIncident: 'Private incident supplied by the Scenario.',
@@ -182,10 +186,13 @@ describe('the server HTTP interface', () => {
     expect(body.session.model).toBe('gpt-realtime-2.1');
     expect(body.session.output_modalities).toEqual(['audio']);
     expect(body.session.instructions).toContain(
-      'Persona supplied by the Scenario'
+      'Character brief supplied by the Scenario.'
     );
     expect(body.session.instructions).toContain(
       'Opening line supplied by the Scenario.'
+    );
+    expect(body.session.instructions).toContain(
+      'Standing instruction supplied by the Scenario.'
     );
     expect(body.session.instructions).toContain(
       'Private incident supplied by the Scenario.'

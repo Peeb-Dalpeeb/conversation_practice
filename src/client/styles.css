@@ -209,6 +209,14 @@ h1 {
   line-height: 1.6;
 }
 
+.notice > p {
+  line-height: 1.6;
+}
+
+.notice > .start-button {
+  margin-top: 2rem;
+}
+
 .shell--attempt {
   background: #ede8df;
 }

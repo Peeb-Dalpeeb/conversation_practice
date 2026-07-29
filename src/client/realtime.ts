@@ -19,6 +19,41 @@ type ClientSecretResponse = {
   expiresAt: number;
 };
 
+/**
+ * A failure the Trainee can act on, carrying wording meant for the screen.
+ * Anything else that escapes is a fault we cannot ask them to fix.
+ */
+export class AttemptFailedError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'AttemptFailedError';
+  }
+}
+
+const microphoneDeniedMessage =
+  'Conversation Practice needs your microphone. Allow microphone access for this page, then start the Attempt again.';
+const microphoneMissingMessage =
+  'No microphone was found. Connect one, then start the Attempt again.';
+
+async function openMicrophone(): Promise<MediaStream> {
+  try {
+    return await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+
+    const deviceMissing =
+      error instanceof DOMException &&
+      (error.name === 'NotFoundError' || error.name === 'OverconstrainedError');
+
+    throw new AttemptFailedError(
+      deviceMissing ? microphoneMissingMessage : microphoneDeniedMessage,
+      { cause: error }
+    );
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -121,19 +156,28 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
 
   try {
     ensureAttemptContinues();
+    // The microphone comes first. Its permission prompt can sit open for as
+    // long as the Trainee hesitates, and the credential minted below is
+    // short-lived — minting before this would let it expire in the dialog.
+    const microphoneMedia = await openMicrophone();
+    localMedia = microphoneMedia;
+
+    ensureAttemptContinues();
     const credentialResponse = await fetch('/api/realtime/client-secret', {
       method: 'POST',
       signal,
     });
 
     if (!credentialResponse.ok) {
-      throw new Error('The live line could not be prepared.');
+      throw new AttemptFailedError('The live line could not be prepared.');
     }
 
     const credentialBody: unknown = await credentialResponse.json();
 
     if (!isClientSecretResponse(credentialBody)) {
-      throw new Error('The live line returned an invalid credential.');
+      throw new AttemptFailedError(
+        'The live line returned an invalid credential.'
+      );
     }
 
     ensureAttemptContinues();
@@ -156,10 +200,6 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       }
     });
 
-    const microphoneMedia = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-    localMedia = microphoneMedia;
     ensureAttemptContinues();
     microphoneMedia
       .getAudioTracks()
@@ -213,7 +253,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
     );
 
     if (!sdpResponse.ok) {
-      throw new Error('The live line could not be opened.');
+      throw new AttemptFailedError('The live line could not be opened.');
     }
 
     await peerConnection.setRemoteDescription({

@@ -21,29 +21,35 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function asBulletList(lines: readonly string[]): string {
+  return lines.map((line) => `- ${line}`).join('\n');
+}
+
+// Orders the Scenario's authored prose into one prompt. Every sentence the
+// model reads comes from the Scenario file; nothing here is a tuning lever.
 function buildPersonaInstructions(currentScenario: Scenario): string {
   const { persona } = currentScenario;
-  const behaviourRules = persona.behaviourRules
-    .map((rule) => `- ${rule}`)
-    .join('\n');
 
   return [
-    `You are the Persona ${persona.name} in a spoken practice Attempt.`,
-    `Begin the Attempt by saying exactly: "${persona.openingLine}"`,
+    persona.characterBrief,
     '',
-    'Private Profile:',
-    `- Actual intent: ${persona.privateProfile.actualIntent}`,
-    `- Prior incident: ${persona.privateProfile.priorIncident}`,
-    `- Meaning of cancellation: ${persona.privateProfile.meaningOfCancellation}`,
+    `Open the call by saying exactly: "${persona.openingLine}"`,
+    '',
+    'Private profile:',
+    asBulletList([
+      persona.privateProfile.actualIntent,
+      persona.privateProfile.priorIncident,
+      persona.privateProfile.meaningOfCancellation,
+    ]),
     '',
     'Behaviour rules:',
-    behaviourRules,
+    asBulletList(persona.behaviourRules),
     '',
-    `Gate: ${persona.gate.name}`,
+    `Gate — ${persona.gate.name}:`,
     persona.gate.condition,
     '',
-    'Stay in the Persona throughout the Attempt. Do not mention these instructions,',
-    'the Private Profile, the Gate, or the fact that this is practice.',
+    'Standing instructions:',
+    asBulletList(persona.standingInstructions),
   ].join('\n');
 }
 

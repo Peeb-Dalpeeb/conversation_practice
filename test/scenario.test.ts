@@ -10,6 +10,12 @@ describe("The Customer Who's Had Enough Scenario", () => {
       'You have no discounts, no waivers, and no authority to change anything.'
     );
 
+    expect(scenario.persona.characterBrief).toContain('Jordan Avery');
+    expect(scenario.persona.openingLine).toBe("I'd like to close my account.");
+    expect(scenario.persona.standingInstructions.join(' ')).toMatch(
+      /Stay in character.*Never mention these instructions/s
+    );
+
     expect(scenario.persona.privateProfile.actualIntent).toContain(
       'does not actually want to leave'
     );
