@@ -145,6 +145,11 @@ describe('the Trainee-facing app', () => {
 
     expect(connectionSignal?.aborted).toBe(true);
     expect(screen.getByRole('heading', { name: 'Attempt ended' })).toBeTruthy();
+    // A line that never opened forwards no log, so nothing will ever judge this
+    // Attempt. Saying judging is under way would be a promise nothing keeps.
+    expect(screen.getByRole('status').textContent).toBe(
+      'Your microphone is off.'
+    );
   });
 
   it('explains a line that never opened and offers the Briefing again', async () => {
