@@ -20,10 +20,13 @@ const transcript: Transcript = [
   },
 ];
 
-function completedAssessmentResponse(criteria: unknown): Response {
+function assessmentResponseWithText(
+  text: string,
+  status = 'completed'
+): Response {
   return new Response(
     JSON.stringify({
-      status: 'completed',
+      status,
       output: [
         {
           type: 'message',
@@ -31,7 +34,7 @@ function completedAssessmentResponse(criteria: unknown): Response {
           content: [
             {
               type: 'output_text',
-              text: JSON.stringify({ criteria }),
+              text,
             },
           ],
         },
@@ -42,6 +45,17 @@ function completedAssessmentResponse(criteria: unknown): Response {
       headers: { 'Content-Type': 'application/json' },
     }
   );
+}
+
+function completedAssessmentResponse(criteria: unknown): Response {
+  return assessmentResponseWithText(JSON.stringify({ criteria }));
+}
+
+function assessorReturning(response: Response) {
+  return createOpenAiAttemptAssessor({
+    apiKey: 'server-api-key',
+    fetch: vi.fn<OpenAiResponsesFetch>().mockResolvedValue(response),
+  });
 }
 
 describe('the OpenAI Assessment boundary', () => {
@@ -139,7 +153,7 @@ describe('the OpenAI Assessment boundary', () => {
     const cutOffTranscript: Transcript = [
       {
         speaker: 'persona',
-        text: 'The generated ending was never heard.',
+        text: 'The fee wasn’t the point. The generated ending was never heard.',
         cutOff: true,
         audioEndMs: 1_000,
       },
@@ -152,7 +166,7 @@ describe('the OpenAI Assessment boundary', () => {
     const criteria = scenario.rubric.map((criterion) => ({
       criterionId: criterion.id,
       met: false,
-      evidence: 'The generated ending was never heard.',
+      evidence: "The fee wasn't the point.",
       evidenceTurnIndex: 0,
     }));
     const openAiFetch = vi
@@ -168,12 +182,19 @@ describe('the OpenAI Assessment boundary', () => {
     ).rejects.toThrow(/eligible Transcript quote/);
   });
 
-  it('rejects evidence that is only a fragment of a Transcript line', async () => {
+  it('accepts an exact sentence quoted from a longer Transcript turn', async () => {
+    const multiSentenceTranscript: Transcript = [
+      {
+        speaker: 'persona',
+        text: 'The fee was not the point. I felt stupid for asking.',
+        cutOff: false,
+      },
+    ];
     const criteria = scenario.rubric.map((criterion) => ({
       criterionId: criterion.id,
       met: false,
-      evidence: 'tell me what happened',
-      evidenceTurnIndex: 1,
+      evidence: 'I felt stupid for asking.',
+      evidenceTurnIndex: 0,
     }));
     const openAiFetch = vi
       .fn<OpenAiResponsesFetch>()
@@ -183,8 +204,259 @@ describe('the OpenAI Assessment boundary', () => {
       fetch: openAiFetch,
     });
 
-    await expect(assessAttempt(transcript, scenario.rubric)).rejects.toThrow(
-      /eligible Transcript quote/
+    await expect(
+      assessAttempt(multiSentenceTranscript, scenario.rubric)
+    ).resolves.toEqual({
+      criteria: scenario.rubric.map((criterion) => ({
+        criterionId: criterion.id,
+        met: false,
+        evidence: 'I felt stupid for asking.',
+      })),
+    });
+  });
+
+  it('returns the original Transcript slice after conservative quote normalization', async () => {
+    const typographicTranscript: Transcript = [
+      {
+        speaker: 'persona',
+        text: 'The fee wasn’t the point.\nI felt\tstupid for asking.',
+        cutOff: false,
+      },
+    ];
+    const criteria = scenario.rubric.map((criterion, index) => ({
+      criterionId: criterion.id,
+      met: false,
+      evidence:
+        index % 2 === 0
+          ? "The fee wasn't the point."
+          : 'I felt stupid for asking.',
+      evidenceTurnIndex: 0,
+    }));
+    const openAiFetch = vi
+      .fn<OpenAiResponsesFetch>()
+      .mockResolvedValue(completedAssessmentResponse(criteria));
+    const assessAttempt = createOpenAiAttemptAssessor({
+      apiKey: 'server-api-key',
+      fetch: openAiFetch,
+    });
+
+    const assessment = await assessAttempt(
+      typographicTranscript,
+      scenario.rubric
     );
+
+    expect(assessment.criteria.map(({ evidence }) => evidence)).toEqual([
+      'The fee wasn’t the point.',
+      'I felt\tstupid for asking.',
+      'The fee wasn’t the point.',
+      'I felt\tstupid for asking.',
+      'The fee wasn’t the point.',
+      'I felt\tstupid for asking.',
+    ]);
+  });
+
+  it('does not search another turn when the evidence turn index is wrong', async () => {
+    const indexedTranscript: Transcript = [
+      {
+        speaker: 'trainee',
+        text: 'Can you tell me what happened?',
+        cutOff: false,
+      },
+      {
+        speaker: 'persona',
+        text: 'The fees are too high.',
+        cutOff: false,
+      },
+    ];
+    const criteria = scenario.rubric.map((criterion) => ({
+      criterionId: criterion.id,
+      met: false,
+      evidence: 'Can you tell me what happened?',
+      evidenceTurnIndex: 1,
+    }));
+
+    await expect(
+      assessorReturning(completedAssessmentResponse(criteria))(
+        indexedTranscript,
+        scenario.rubric
+      )
+    ).rejects.toThrow(/eligible Transcript quote/);
+  });
+
+  it('rejects noncontiguous or invented evidence', async () => {
+    const criteria = scenario.rubric.map((criterion) => ({
+      criterionId: criterion.id,
+      met: false,
+      evidence: 'Can you what happened?',
+      evidenceTurnIndex: 1,
+    }));
+
+    await expect(
+      assessorReturning(completedAssessmentResponse(criteria))(
+        transcript,
+        scenario.rubric
+      )
+    ).rejects.toThrow(/eligible Transcript quote/);
+  });
+
+  it.each([
+    {
+      name: 'case changes',
+      transcriptText: 'Can you tell me what happened?',
+      evidence: 'can you tell me what happened?',
+    },
+    {
+      name: 'non-quote punctuation changes',
+      transcriptText: 'Can you tell me what happened?',
+      evidence: 'Can you tell me what happened.',
+    },
+    {
+      name: 'half of a supplementary character',
+      transcriptText: 'That response felt 😀.',
+      evidence: '\ud83d',
+    },
+  ])(
+    'rejects $name during conservative quote matching',
+    async ({ transcriptText, evidence }) => {
+      const conservativeTranscript: Transcript = [
+        {
+          speaker: 'trainee',
+          text: transcriptText,
+          cutOff: false,
+        },
+      ];
+      const criteria = scenario.rubric.map((criterion) => ({
+        criterionId: criterion.id,
+        met: false,
+        evidence,
+        evidenceTurnIndex: 0,
+      }));
+
+      await expect(
+        assessorReturning(completedAssessmentResponse(criteria))(
+          conservativeTranscript,
+          scenario.rubric
+        )
+      ).rejects.toThrow(/eligible Transcript quote/);
+    }
+  );
+
+  it('surfaces an OpenAI HTTP failure', async () => {
+    await expect(
+      assessorReturning(new Response('', { status: 503 }))(
+        transcript,
+        scenario.rubric
+      )
+    ).rejects.toThrow(/could not assess the Attempt \(503\)/);
+  });
+
+  it.each([
+    {
+      name: 'an incomplete response',
+      response: assessmentResponseWithText('{}', 'incomplete'),
+      expectedError: /incomplete Assessment response/,
+    },
+    {
+      name: 'a response without structured output',
+      response: new Response(
+        JSON.stringify({ status: 'completed', output: [] }),
+        { status: 200 }
+      ),
+      expectedError: /no structured Assessment/,
+    },
+    {
+      name: 'malformed structured JSON',
+      response: assessmentResponseWithText('not JSON'),
+      expectedError: /malformed Assessment JSON/,
+    },
+  ])('rejects $name', async ({ response, expectedError }) => {
+    await expect(
+      assessorReturning(response)(transcript, scenario.rubric)
+    ).rejects.toThrow(expectedError);
+  });
+
+  it.each([
+    {
+      name: 'a non-array criteria value',
+      assessment: { criteria: 'not-an-array' },
+      expectedError: /invalid Assessment/,
+    },
+    {
+      name: 'a non-binary verdict',
+      assessment: {
+        criteria: scenario.rubric.map((criterion) => ({
+          criterionId: criterion.id,
+          met: 'partial',
+          evidence: "I'd like to close my account.",
+          evidenceTurnIndex: 0,
+        })),
+      },
+      expectedError: /invalid Assessment criterion/,
+    },
+    {
+      name: 'the wrong verdict count',
+      assessment: {
+        criteria: scenario.rubric.slice(0, -1).map((criterion) => ({
+          criterionId: criterion.id,
+          met: false,
+          evidence: "I'd like to close my account.",
+          evidenceTurnIndex: 0,
+        })),
+      },
+      expectedError: /wrong number of Rubric verdicts/,
+    },
+  ])('rejects $name', async ({ assessment, expectedError }) => {
+    await expect(
+      assessorReturning(assessmentResponseWithText(JSON.stringify(assessment)))(
+        transcript,
+        scenario.rubric
+      )
+    ).rejects.toThrow(expectedError);
+  });
+
+  it('rejects a duplicate criterion that leaves another criterion omitted', async () => {
+    const criteria = scenario.rubric.map((criterion) => ({
+      criterionId: criterion.id,
+      met: false,
+      evidence: "I'd like to close my account.",
+      evidenceTurnIndex: 0,
+    }));
+    const finalCriterion = criteria.at(-1);
+
+    if (!finalCriterion) {
+      throw new Error('Expected the fixed Rubric to contain criteria.');
+    }
+
+    finalCriterion.criterionId = scenario.rubric[0].id;
+
+    await expect(
+      assessorReturning(completedAssessmentResponse(criteria))(
+        transcript,
+        scenario.rubric
+      )
+    ).rejects.toThrow(/duplicate Rubric verdict/);
+  });
+
+  it('rejects an unknown criterion that leaves a fixed criterion omitted', async () => {
+    const criteria = scenario.rubric.map((criterion) => ({
+      criterionId: criterion.id,
+      met: false,
+      evidence: "I'd like to close my account.",
+      evidenceTurnIndex: 0,
+    }));
+    const finalCriterion = criteria.at(-1);
+
+    if (!finalCriterion) {
+      throw new Error('Expected the fixed Rubric to contain criteria.');
+    }
+
+    finalCriterion.criterionId = 'unknown-criterion';
+
+    await expect(
+      assessorReturning(completedAssessmentResponse(criteria))(
+        transcript,
+        scenario.rubric
+      )
+    ).rejects.toThrow(/omitted a Rubric verdict/);
   });
 });

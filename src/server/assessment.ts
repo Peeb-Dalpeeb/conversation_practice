@@ -18,8 +18,125 @@ type AssessmentVerdict = Assessment['criteria'][number] & {
   evidenceTurnIndex: number;
 };
 
+type SourceSpan = {
+  start: number;
+  end: number;
+};
+
+function isSameSourceSpan(
+  left: SourceSpan | undefined,
+  right: SourceSpan | undefined
+): boolean {
+  return (
+    left !== undefined &&
+    right !== undefined &&
+    left.start === right.start &&
+    left.end === right.end
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function normalizeQuoteCharacter(character: string): string {
+  if (character === '\u2018' || character === '\u2019') {
+    return "'";
+  }
+
+  if (character === '\u201c' || character === '\u201d') {
+    return '"';
+  }
+
+  return character;
+}
+
+function normalizeWithSourceMap(value: string): {
+  normalized: string;
+  sourceSpans: SourceSpan[];
+} {
+  let normalized = '';
+  const sourceSpans: SourceSpan[] = [];
+  let pendingWhitespace: SourceSpan | undefined;
+
+  for (let index = 0; index < value.length;) {
+    const codePoint = value.codePointAt(index);
+
+    if (codePoint === undefined) {
+      break;
+    }
+
+    const character = String.fromCodePoint(codePoint);
+    const end = index + character.length;
+
+    if (/\s/u.test(character)) {
+      pendingWhitespace = {
+        start: pendingWhitespace?.start ?? index,
+        end,
+      };
+      index = end;
+      continue;
+    }
+
+    if (pendingWhitespace && normalized) {
+      normalized += ' ';
+      sourceSpans.push(pendingWhitespace);
+    }
+
+    pendingWhitespace = undefined;
+    const normalizedCharacter = normalizeQuoteCharacter(character);
+    normalized += normalizedCharacter;
+
+    for (
+      let normalizedIndex = 0;
+      normalizedIndex < normalizedCharacter.length;
+      normalizedIndex += 1
+    ) {
+      sourceSpans.push({ start: index, end });
+    }
+
+    index = end;
+  }
+
+  return { normalized, sourceSpans };
+}
+
+function sourceQuote(
+  transcriptText: string,
+  proposedEvidence: string
+): string | undefined {
+  const normalizedEvidence =
+    normalizeWithSourceMap(proposedEvidence).normalized;
+
+  if (!normalizedEvidence) {
+    return undefined;
+  }
+
+  const normalizedTranscript = normalizeWithSourceMap(transcriptText);
+  const matchStart =
+    normalizedTranscript.normalized.indexOf(normalizedEvidence);
+
+  if (matchStart === -1) {
+    return undefined;
+  }
+
+  const matchEnd = matchStart + normalizedEvidence.length;
+  const firstSpan = normalizedTranscript.sourceSpans[matchStart];
+  const lastSpan = normalizedTranscript.sourceSpans[matchEnd - 1];
+
+  if (
+    !firstSpan ||
+    !lastSpan ||
+    isSameSourceSpan(
+      normalizedTranscript.sourceSpans[matchStart - 1],
+      firstSpan
+    ) ||
+    isSameSourceSpan(normalizedTranscript.sourceSpans[matchEnd], lastSpan)
+  ) {
+    return undefined;
+  }
+
+  return transcriptText.slice(firstSpan.start, lastSpan.end);
 }
 
 function assessmentSchema(rubric: readonly RubricCriterion[]) {
@@ -59,7 +176,7 @@ function assessmentInstructions(): string {
     'Judge the completed Attempt against its Rubric.',
     'Return one verdict for every criterion, using each supplied criterionId exactly once.',
     'The met value is strictly binary: true or false.',
-    'For every verdict, quote one complete non-empty line from one Transcript turn that best supports the judgment, including when the criterion was not met.',
+    'For every verdict, provide a concise exact contiguous quote from one Transcript turn that best supports the judgment, including when the criterion was not met.',
     'Set evidenceTurnIndex to the zero-based index of that Transcript turn.',
     'Never use a Persona turn marked cutOff as evidence because the Trainee did not necessarily hear its complete text.',
     'Judge only from the supplied Transcript and Rubric.',
@@ -148,19 +265,20 @@ function validateAssessment(
         throw new TypeError('OpenAI omitted a Rubric verdict.');
       }
 
-      const evidence = verdict.evidence.trim();
       const evidenceTurn = transcript[verdict.evidenceTurnIndex];
-      const evidenceLines = evidenceTurn?.text
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
 
       if (
-        !evidence ||
         !evidenceTurn ||
-        (evidenceTurn.speaker === 'persona' && evidenceTurn.cutOff) ||
-        !evidenceLines?.includes(evidence)
+        (evidenceTurn.speaker === 'persona' && evidenceTurn.cutOff)
       ) {
+        throw new TypeError(
+          'OpenAI returned evidence that is not an eligible Transcript quote.'
+        );
+      }
+
+      const evidence = sourceQuote(evidenceTurn.text, verdict.evidence);
+
+      if (evidence === undefined) {
         throw new TypeError(
           'OpenAI returned evidence that is not an eligible Transcript quote.'
         );
