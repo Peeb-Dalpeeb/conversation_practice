@@ -42,6 +42,15 @@ author makes by listening.
 Expect dozens of Attempts to accumulate on disk. That is fine and expected; ticket 11's
 relative labelling is what makes it harmless.
 
+**Two Attempts ticket 12 needs are not produced by tuning the Persona.** Every Attempt
+captured so far is a good one — a Trainee who asks an open question and reaches the prior
+incident. Ticket 12 tunes the Rubric against the opposite, and cannot: strictness checked
+only against Attempts that succeeded cannot show whether criterion 3 is being given away.
+So while the Scenario is already running here, perform two failures deliberately and note
+their Attempt numbers: one Trainee who accepts the cover story and stops there, and one who
+is warm, courteous and professional throughout but never asks what happened. They cost
+nothing extra — the Scenario is already up and the runs are already happening.
+
 **Blocked by:** 09 — Hidden debug view.
 
 **Status:** ready-for-agent
@@ -57,3 +66,6 @@ relative labelling is what makes it harmless.
 - [ ] The above hold across repeated Attempts, not once — verified by running the Scenario
       enough times to trust it under pressure.
 - [ ] All tuning was done against `gpt-realtime-2.1`.
+- [ ] Two deliberate Trainee failures are performed and their Attempt numbers noted for
+      ticket 12: one that accepts the cover story and stops there, and one that is warm and
+      courteous throughout but never asks what happened.
