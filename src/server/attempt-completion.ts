@@ -1,0 +1,270 @@
+import type { RubricCriterion, Scenario } from '../scenario.js';
+import type { StoreAttempt } from './attempt-store.js';
+import type { StoreRawEventLog } from './raw-event-log.js';
+
+export type TranscriptTurn =
+  | {
+      speaker: 'persona' | 'trainee';
+      text: string;
+      cutOff: false;
+    }
+  | {
+      speaker: 'persona';
+      text: string;
+      cutOff: true;
+      audioEndMs: number;
+    };
+
+export type Transcript = TranscriptTurn[];
+
+export type Assessment = {
+  criteria: {
+    criterionId: string;
+    met: boolean;
+    evidence: string;
+  }[];
+};
+
+export type AssessAttempt = (
+  transcript: Transcript,
+  rubric: readonly RubricCriterion[]
+) => Promise<Assessment>;
+
+export type CreateFeedback = (
+  assessment: Assessment,
+  transcript: Transcript
+) => Promise<string>;
+
+export type CompleteAttempt = (rawEventLog: string) => Promise<void>;
+
+type RealtimeEvent = Record<string, unknown>;
+
+type SpokenTurn = {
+  id: string;
+  previousItemId: string | null;
+  speaker: 'persona' | 'trainee';
+};
+
+type AttemptCompleterOptions = {
+  scenario: Scenario;
+  assessAttempt: AssessAttempt;
+  createFeedback: CreateFeedback;
+  storeAttempt: StoreAttempt;
+  storeRawEventLog?: StoreRawEventLog;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function parseRealtimeEvents(rawEventLog: string): RealtimeEvent[] {
+  const envelopes: unknown = JSON.parse(rawEventLog);
+
+  if (!Array.isArray(envelopes)) {
+    throw new TypeError('The raw event log must be an array.');
+  }
+
+  return envelopes.flatMap((envelope) => {
+    if (!isRecord(envelope) || typeof envelope.event !== 'string') {
+      return [];
+    }
+
+    const event: unknown = JSON.parse(envelope.event);
+    return isRecord(event) ? [event] : [];
+  });
+}
+
+function itemFromEvent(event: RealtimeEvent) {
+  return isRecord(event.item) ? event.item : undefined;
+}
+
+function hasSpokenContent(item: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(item.content) &&
+    item.content.some(
+      (content) =>
+        isRecord(content) &&
+        (content.type === 'input_audio' || content.type === 'output_audio')
+    )
+  );
+}
+
+function spokenTurnFromEvent(event: RealtimeEvent): SpokenTurn | undefined {
+  if (
+    event.type !== 'conversation.item.added' &&
+    event.type !== 'conversation.item.done'
+  ) {
+    return undefined;
+  }
+
+  const item = itemFromEvent(event);
+
+  if (
+    !item ||
+    typeof item.id !== 'string' ||
+    (item.role !== 'assistant' && item.role !== 'user') ||
+    (event.type === 'conversation.item.done' && !hasSpokenContent(item))
+  ) {
+    return undefined;
+  }
+
+  const previousItemId = event.previous_item_id;
+
+  if (previousItemId !== null && typeof previousItemId !== 'string') {
+    return undefined;
+  }
+
+  return {
+    id: item.id,
+    previousItemId,
+    speaker: item.role === 'user' ? 'trainee' : 'persona',
+  };
+}
+
+function outputText(response: Record<string, unknown>): string | undefined {
+  if (!Array.isArray(response.output)) {
+    return undefined;
+  }
+
+  for (const output of response.output) {
+    if (!isRecord(output) || !Array.isArray(output.content)) {
+      continue;
+    }
+
+    for (const content of output.content) {
+      if (
+        isRecord(content) &&
+        content.type === 'output_text' &&
+        typeof content.text === 'string'
+      ) {
+        return content.text;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function orderSpokenTurns(turnsById: Map<string, SpokenTurn>): SpokenTurn[] {
+  const nextTurnByPreviousId = new Map<string | null, SpokenTurn>();
+
+  for (const turn of turnsById.values()) {
+    if (nextTurnByPreviousId.has(turn.previousItemId)) {
+      throw new TypeError('The raw event log has an ambiguous turn chain.');
+    }
+
+    nextTurnByPreviousId.set(turn.previousItemId, turn);
+  }
+
+  const orderedTurns: SpokenTurn[] = [];
+  let nextTurn = nextTurnByPreviousId.get(null);
+
+  while (nextTurn) {
+    orderedTurns.push(nextTurn);
+    nextTurn = nextTurnByPreviousId.get(nextTurn.id);
+  }
+
+  if (orderedTurns.length !== turnsById.size) {
+    throw new TypeError('The raw event log has an incomplete turn chain.');
+  }
+
+  return orderedTurns;
+}
+
+function reconstructTranscript(rawEventLog: string): Transcript {
+  const events = parseRealtimeEvents(rawEventLog);
+  const turnsById = new Map<string, SpokenTurn>();
+  const personaTextByItemId = new Map<string, string>();
+  const traineeTextByItemId = new Map<string, string>();
+  const truncationByItemId = new Map<string, number>();
+
+  for (const event of events) {
+    const spokenTurn = spokenTurnFromEvent(event);
+
+    if (spokenTurn) {
+      turnsById.set(spokenTurn.id, spokenTurn);
+    }
+
+    if (
+      event.type === 'response.output_audio_transcript.done' &&
+      typeof event.item_id === 'string' &&
+      typeof event.transcript === 'string'
+    ) {
+      personaTextByItemId.set(event.item_id, event.transcript);
+    }
+
+    if (event.type === 'response.done' && isRecord(event.response)) {
+      const metadata = isRecord(event.response.metadata)
+        ? event.response.metadata
+        : undefined;
+      const text = outputText(event.response);
+
+      if (
+        metadata?.purpose === 'turn_transcription' &&
+        typeof metadata.source_item_id === 'string' &&
+        text !== undefined
+      ) {
+        traineeTextByItemId.set(metadata.source_item_id, text);
+      }
+    }
+
+    if (
+      event.type === 'conversation.item.truncated' &&
+      typeof event.item_id === 'string' &&
+      typeof event.audio_end_ms === 'number'
+    ) {
+      truncationByItemId.set(event.item_id, event.audio_end_ms);
+    }
+  }
+
+  return orderSpokenTurns(turnsById).map((turn): TranscriptTurn => {
+    const text =
+      turn.speaker === 'persona'
+        ? personaTextByItemId.get(turn.id)
+        : traineeTextByItemId.get(turn.id);
+
+    if (text === undefined) {
+      throw new TypeError(`The raw event log has no text for turn ${turn.id}.`);
+    }
+
+    const audioEndMs = truncationByItemId.get(turn.id);
+
+    if (turn.speaker === 'persona' && audioEndMs !== undefined) {
+      return {
+        speaker: 'persona',
+        text,
+        cutOff: true,
+        audioEndMs,
+      };
+    }
+
+    return {
+      speaker: turn.speaker,
+      text,
+      cutOff: false,
+    };
+  });
+}
+
+export function createAttemptCompleter({
+  scenario,
+  assessAttempt,
+  createFeedback,
+  storeAttempt,
+  storeRawEventLog,
+}: AttemptCompleterOptions): CompleteAttempt {
+  return async (rawEventLog) => {
+    await storeRawEventLog?.(rawEventLog);
+
+    const transcript = reconstructTranscript(rawEventLog);
+    const assessment = await assessAttempt(transcript, scenario.rubric);
+    const feedback = await createFeedback(assessment, transcript);
+
+    await storeAttempt({
+      scenarioId: scenario.id,
+      transcript,
+      assessment,
+      feedback,
+    });
+  };
+}

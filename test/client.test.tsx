@@ -109,6 +109,9 @@ describe('the Trainee-facing app', () => {
 
     expect(stop).toHaveBeenCalledOnce();
     expect(screen.getByRole('heading', { name: 'Attempt ended' })).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe(
+      'Your microphone is off. Judging is in progress…'
+    );
     expect(screen.queryByRole('button')).toBeNull();
   });
 

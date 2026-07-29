@@ -968,6 +968,28 @@ describe('a live Attempt in progress', () => {
     expect(FakePeerConnection.latest?.closed).toBe(true);
   });
 
+  it('does not report a settled log as incomplete at the stop deadline', async () => {
+    vi.useFakeTimers();
+    const { fetchMock } = stubBrowser();
+    const { attempt, onAttemptDataFailed } = startAttempt();
+    const liveAttempt = await attempt;
+    const channel = liveDataChannel();
+
+    liveAttempt.stop();
+    settleEmptyStopCommands(channel);
+    const keepReceivingSettledEvents = setInterval(() => {
+      channel.deliver({ type: 'rate_limits.updated' });
+    }, 100);
+
+    await vi.advanceTimersByTimeAsync(15_000);
+    clearInterval(keepReceivingSettledEvents);
+
+    expect(onAttemptDataFailed).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([url]) => url === rawEventLogUrl)).toBe(
+      true
+    );
+  });
+
   it('surfaces and forwards an incomplete log at the stop deadline', async () => {
     vi.useFakeTimers();
     const { fetchMock } = stubBrowser();

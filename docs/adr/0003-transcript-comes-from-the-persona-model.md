@@ -19,6 +19,8 @@ whether the Trainee surfaced the real reason — is binary, and one slipped clau
 ## Consequences
 
 Turn ordering is not guaranteed and must be reassembled from `item_id` and
-`input_audio_buffer.committed.previous_item_id`. A Transcript is therefore a
-reconstruction, not a recording, and should never be presented as a verbatim record of
-what was said.
+`previous_item_id` on `conversation.item.added` and `conversation.item.done`. Those events
+carry the complete chain for both speakers; `input_audio_buffer.committed` covers only
+Trainee turns and is corroborating data rather than the ordering source. A Transcript is
+therefore a reconstruction, not a recording, and should never be presented as a verbatim
+record of what was said.

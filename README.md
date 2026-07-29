@@ -58,15 +58,23 @@ single place to edit the authored Scenario text.
 The API key is loaded only by the Node server. Vite exposes browser variables
 only when their names begin with `VITE_`; do not use that prefix for secrets.
 
-When an Attempt ends, its Realtime event log is written under
-`data/raw-event-logs/`. Each entry records its direction and the exact
-data-channel payload string; binary frames are retained as base64. These local
-logs can contain spoken content and are ignored by Git.
+When an Attempt ends, its Realtime event log is written untouched under
+`data/raw-event-logs/`. The server also reconstructs the Transcript, runs the
+injected Assessment and Feedback steps in sequence, and writes the resulting
+Attempt under `data/attempts/<scenario-id>/0001.json`, incrementing the number
+for that Scenario. These local files can contain spoken content and are ignored
+by Git.
+
+Each raw-log entry records its direction and the exact data-channel payload
+string; binary frames are retained as base64.
 
 Both speakers' text is in that log, from one model and no transcription
 service. The Trainee's turns are transcribed by a second, out-of-band response
 on the same session; the Persona's turns are already carried by
 `response.output_audio_transcript.done`, the text its audio was generated from.
+Persona turns that were interrupted retain that complete generated text in the
+Transcript and are marked with the observed audio cutoff; the server does not
+guess which words were heard.
 
 ## Checks
 

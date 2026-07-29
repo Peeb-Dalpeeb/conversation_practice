@@ -1,15 +1,15 @@
 import { createServer } from 'node:http';
 
 import { toPublicScenario, type Scenario } from '../scenario.js';
-import type { StoreRawEventLog } from './raw-event-log.js';
+import type { CompleteAttempt } from './attempt-completion.js';
 import type { MintRealtimeClientSecret } from './realtime.js';
 
 const unavailableRealtimeClientSecret: MintRealtimeClientSecret = () =>
   Promise.reject(
     new Error('Realtime client secret minting is not configured.')
   );
-const unavailableRawEventLogStore: StoreRawEventLog = () =>
-  Promise.reject(new Error('Raw event log storage is not configured.'));
+const unavailableAttemptCompleter: CompleteAttempt = () =>
+  Promise.reject(new Error('Attempt completion is not configured.'));
 const defaultRawEventLogByteLimit = 8 * 1024 * 1024;
 
 async function readRequestBody(
@@ -35,7 +35,7 @@ async function readRequestBody(
 export function createApiServer(
   currentScenario: Scenario,
   mintRealtimeClientSecret: MintRealtimeClientSecret = unavailableRealtimeClientSecret,
-  storeRawEventLog: StoreRawEventLog = unavailableRawEventLogStore,
+  completeAttempt: CompleteAttempt = unavailableAttemptCompleter,
   rawEventLogByteLimit = defaultRawEventLogByteLimit
 ) {
   return createServer((request, response) => {
@@ -64,7 +64,7 @@ export function createApiServer(
 
       void readRequestBody(request, rawEventLogByteLimit).then(
         (rawEventLog) =>
-          storeRawEventLog(rawEventLog).then(
+          completeAttempt(rawEventLog).then(
             () => {
               response.writeHead(204);
               response.end();
@@ -74,7 +74,7 @@ export function createApiServer(
                 'Content-Type': 'application/json',
               });
               response.end(
-                JSON.stringify({ error: 'Raw event log could not be stored.' })
+                JSON.stringify({ error: 'Attempt could not be completed.' })
               );
             }
           ),

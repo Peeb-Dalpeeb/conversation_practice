@@ -267,6 +267,7 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
       <main className="shell shell--attempt">
         <section className="attempt" aria-labelledby="attempt-ended-title">
           <h1 id="attempt-ended-title">Attempt ended</h1>
+          <p role="status">Your microphone is off. Judging is in progress…</p>
         </section>
       </main>
     );

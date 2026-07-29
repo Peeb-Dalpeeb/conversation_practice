@@ -418,7 +418,10 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       return;
     }
 
-    forcedFinalization = setTimeout(() => finalizeAttempt(true), 15_000);
+    forcedFinalization = setTimeout(
+      () => finalizeAttempt(!canFinalizeStoppedAttempt()),
+      15_000
+    );
     sendStopCommand('commit', { type: 'input_audio_buffer.commit' });
     sendStopCommand('cancel', { type: 'response.cancel' });
     // Silencing playback is sent and forgotten. Nothing in the log depends on
