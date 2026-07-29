@@ -131,4 +131,28 @@ describe('the Trainee-facing app', () => {
     expect(connectionSignal?.aborted).toBe(true);
     expect(screen.getByRole('heading', { name: 'Attempt ended' })).toBeTruthy();
   });
+
+  it('shows that an unexpectedly closed live line has ended', async () => {
+    respondWithScenario();
+    const stop = vi.fn();
+    let reportEnded: (() => void) | undefined;
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(({ onEnded }) => {
+      reportEnded = onEnded;
+      return Promise.resolve({ stop });
+    });
+
+    render(<App connectAttempt={connectAttempt} />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    expect((await screen.findByRole('status')).textContent).toContain(
+      'Listening'
+    );
+
+    act(() => reportEnded?.());
+
+    expect(stop).toHaveBeenCalledOnce();
+    expect(screen.getByRole('heading', { name: 'Attempt ended' })).toBeTruthy();
+  });
 });

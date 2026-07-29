@@ -7,6 +7,7 @@ export type RealtimeAttempt = {
 type ConnectRealtimeAttemptOptions = {
   signal: AbortSignal;
   onActivity: (activity: AttemptActivity) => void;
+  onEnded: () => void;
 };
 
 export type ConnectRealtimeAttempt = (
@@ -76,6 +77,7 @@ function waitForDataChannel(
 export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
   signal,
   onActivity,
+  onEnded,
 }) => {
   let dataChannel: RTCDataChannel | undefined;
   let localMedia: MediaStream | undefined;
@@ -106,6 +108,14 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       throw stoppedAttemptError();
     }
   };
+  const handleUnexpectedEnd = () => {
+    if (stopped) {
+      return;
+    }
+
+    stop();
+    onEnded();
+  };
 
   signal.addEventListener('abort', stop, { once: true });
 
@@ -128,6 +138,14 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
 
     ensureAttemptContinues();
     peerConnection = new RTCPeerConnection();
+    peerConnection.addEventListener('connectionstatechange', () => {
+      if (
+        peerConnection?.connectionState === 'failed' ||
+        peerConnection?.connectionState === 'closed'
+      ) {
+        handleUnexpectedEnd();
+      }
+    });
     remoteAudio = new Audio();
     remoteAudio.autoplay = true;
     peerConnection.addEventListener('track', (event) => {
@@ -165,11 +183,14 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
         return;
       }
 
-      if (serverEvent.type === 'response.created') {
+      if (serverEvent.type === 'output_audio_buffer.started') {
         onActivity('speaking');
       }
 
-      if (serverEvent.type === 'response.done') {
+      if (
+        serverEvent.type === 'output_audio_buffer.stopped' ||
+        serverEvent.type === 'output_audio_buffer.cleared'
+      ) {
         onActivity('listening');
       }
     });
@@ -202,6 +223,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
     ensureAttemptContinues();
     await waitForDataChannel(dataChannel, signal);
     ensureAttemptContinues();
+    dataChannel.addEventListener('close', handleUnexpectedEnd, { once: true });
 
     dataChannel.send(
       JSON.stringify({

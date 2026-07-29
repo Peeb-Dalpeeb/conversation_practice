@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { PublicScenario } from '../scenario.js';
 import {
@@ -54,6 +54,12 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
   const [state, setState] = useState<AppState>({ name: 'loading' });
   const attemptController = useRef<AbortController | null>(null);
   const liveAttempt = useRef<RealtimeAttempt | null>(null);
+  const releaseAttempt = useCallback(() => {
+    attemptController.current?.abort();
+    liveAttempt.current?.stop();
+    attemptController.current = null;
+    liveAttempt.current = null;
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -89,22 +95,19 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
 
   useEffect(
     () => () => {
-      attemptController.current?.abort();
-      liveAttempt.current?.stop();
+      releaseAttempt();
     },
-    []
+    [releaseAttempt]
   );
 
   const stopAttempt = () => {
-    attemptController.current?.abort();
-    liveAttempt.current?.stop();
-    attemptController.current = null;
-    liveAttempt.current = null;
+    releaseAttempt();
     setState({ name: 'ended' });
   };
 
   const startAttempt = async (scenario: PublicScenario) => {
     const controller = new AbortController();
+    let connectionEnded = false;
     attemptController.current = controller;
     setState({ name: 'connecting' });
 
@@ -118,9 +121,14 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
               : currentState
           );
         },
+        onEnded: () => {
+          connectionEnded = true;
+          releaseAttempt();
+          setState({ name: 'ended' });
+        },
       });
 
-      if (controller.signal.aborted) {
+      if (controller.signal.aborted || connectionEnded) {
         attempt.stop();
         return;
       }
@@ -136,6 +144,7 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
         !(error instanceof DOMException && error.name === 'AbortError') &&
         !controller.signal.aborted
       ) {
+        releaseAttempt();
         setState({ name: 'ended' });
       }
     }
