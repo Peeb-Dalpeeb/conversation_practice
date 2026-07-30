@@ -1,4 +1,4 @@
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import type { Assessment, Transcript } from './attempt-completion.js';
@@ -13,6 +13,9 @@ export type Attempt = {
 
 export type UnnumberedAttempt = Omit<Attempt, 'number'>;
 export type StoreAttempt = (attempt: UnnumberedAttempt) => Promise<Attempt>;
+export type ReadLatestAttempt = (
+  scenarioId: string
+) => Promise<Attempt | undefined>;
 
 function isFileExistsError(error: unknown): error is NodeJS.ErrnoException {
   return (
@@ -22,13 +25,22 @@ function isFileExistsError(error: unknown): error is NodeJS.ErrnoException {
   );
 }
 
+function scenarioAttemptDirectory(directory: string, scenarioId: string) {
+  return resolve(directory, encodeURIComponent(scenarioId));
+}
+
+function attemptNumberFromFilename(filename: string): number | undefined {
+  const match = /^(\d+)\.json$/.exec(filename);
+  return match ? Number(match[1]) : undefined;
+}
+
 export function createAttemptStore(
   directory = resolve('data', 'attempts')
 ): StoreAttempt {
   return async (attempt) => {
-    const scenarioDirectory = resolve(
+    const scenarioDirectory = scenarioAttemptDirectory(
       directory,
-      encodeURIComponent(attempt.scenarioId)
+      attempt.scenarioId
     );
     await mkdir(scenarioDirectory, { recursive: true });
 
@@ -36,10 +48,7 @@ export function createAttemptStore(
     let number =
       Math.max(
         0,
-        ...filenames.map((filename) => {
-          const match = /^(\d+)\.json$/.exec(filename);
-          return match ? Number(match[1]) : 0;
-        })
+        ...filenames.map((filename) => attemptNumberFromFilename(filename) ?? 0)
       ) + 1;
 
     for (;;) {
@@ -61,5 +70,47 @@ export function createAttemptStore(
         number += 1;
       }
     }
+  };
+}
+
+export function createLatestAttemptReader(
+  directory = resolve('data', 'attempts')
+): ReadLatestAttempt {
+  return async (scenarioId) => {
+    const scenarioDirectory = scenarioAttemptDirectory(directory, scenarioId);
+    let filenames: string[];
+
+    try {
+      filenames = await readdir(scenarioDirectory);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        (error as NodeJS.ErrnoException).code === 'ENOENT'
+      ) {
+        return undefined;
+      }
+
+      throw error;
+    }
+
+    const latestAttemptNumber = Math.max(
+      0,
+      ...filenames.map((filename) => attemptNumberFromFilename(filename) ?? 0)
+    );
+
+    if (latestAttemptNumber === 0) {
+      return undefined;
+    }
+
+    const contents = await readFile(
+      resolve(
+        scenarioDirectory,
+        `${String(latestAttemptNumber).padStart(4, '0')}.json`
+      ),
+      'utf8'
+    );
+
+    return JSON.parse(contents) as Attempt;
   };
 }

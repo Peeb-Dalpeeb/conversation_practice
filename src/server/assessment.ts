@@ -4,10 +4,12 @@ import type {
   Assessment,
   Transcript,
 } from './attempt-completion.js';
+import {
+  requestCompletedText,
+  type OpenAiResponsesFetch,
+} from './openai-responses.js';
 
-const responsesUrl = 'https://api.openai.com/v1/responses';
-
-export type OpenAiResponsesFetch = typeof globalThis.fetch;
+export type { OpenAiResponsesFetch } from './openai-responses.js';
 
 type OpenAiAttemptAssessorOptions = {
   apiKey: string;
@@ -210,34 +212,6 @@ function assessmentInstructions(): string {
   ].join('\n');
 }
 
-function outputText(response: Record<string, unknown>): string | undefined {
-  if (!Array.isArray(response.output)) {
-    return undefined;
-  }
-
-  for (const output of response.output) {
-    if (
-      !isRecord(output) ||
-      output.type !== 'message' ||
-      !Array.isArray(output.content)
-    ) {
-      continue;
-    }
-
-    for (const content of output.content) {
-      if (
-        isRecord(content) &&
-        content.type === 'output_text' &&
-        typeof content.text === 'string'
-      ) {
-        return content.text;
-      }
-    }
-  }
-
-  return undefined;
-}
-
 function parseVerdicts(value: unknown): AssessmentVerdict[] {
   if (!isRecord(value) || !Array.isArray(value.criteria)) {
     throw new TypeError('OpenAI returned an invalid Assessment.');
@@ -321,13 +295,10 @@ export function createOpenAiAttemptAssessor({
   fetch: fetchFromOpenAi = globalThis.fetch,
 }: OpenAiAttemptAssessorOptions): AssessAttempt {
   return async (transcript, rubric, privateProfile) => {
-    const response = await fetchFromOpenAi(responsesUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const text = await requestCompletedText({
+      apiKey,
+      fetch: fetchFromOpenAi,
+      request: {
         model: 'gpt-5.6-sol',
         store: false,
         safety_identifier: 'conversation-practice-local-trainee',
@@ -341,26 +312,14 @@ export function createOpenAiAttemptAssessor({
             schema: assessmentSchema(rubric),
           },
         },
-      }),
+      },
+      errors: {
+        requestFailed: (status) =>
+          `OpenAI could not assess the Attempt (${status}).`,
+        incomplete: 'OpenAI returned an incomplete Assessment response.',
+        missingText: 'OpenAI returned no structured Assessment.',
+      },
     });
-
-    if (!response.ok) {
-      throw new Error(
-        `OpenAI could not assess the Attempt (${response.status}).`
-      );
-    }
-
-    const body: unknown = await response.json();
-
-    if (!isRecord(body) || body.status !== 'completed') {
-      throw new TypeError('OpenAI returned an incomplete Assessment response.');
-    }
-
-    const text = outputText(body);
-
-    if (text === undefined) {
-      throw new TypeError('OpenAI returned no structured Assessment.');
-    }
 
     let assessment: unknown;
 

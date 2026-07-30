@@ -1,5 +1,5 @@
 import type { PrivateProfile, RubricCriterion, Scenario } from '../scenario.js';
-import type { StoreAttempt } from './attempt-store.js';
+import type { Attempt, StoreAttempt } from './attempt-store.js';
 import type { StoreRawEventLog } from './raw-event-log.js';
 
 export type TranscriptTurn =
@@ -36,7 +36,7 @@ export type CreateFeedback = (
   transcript: Transcript
 ) => Promise<string>;
 
-export type CompleteAttempt = (rawEventLog: string) => Promise<void>;
+export type CompleteAttempt = (rawEventLog: string) => Promise<Attempt>;
 
 type RealtimeEvent = Record<string, unknown>;
 
@@ -277,7 +277,7 @@ export function createAttemptCompleter({
       );
       const feedback = await createFeedback(assessment, transcript);
 
-      await storeAttempt({
+      return await storeAttempt({
         scenarioId: scenario.id,
         transcript,
         assessment,

@@ -1,4 +1,11 @@
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -13,6 +20,7 @@ import {
 } from '../src/server/attempt-completion.js';
 import { createApiServer } from '../src/server/app.js';
 import {
+  createLatestAttemptReader,
   createAttemptStore,
   type Attempt,
 } from '../src/server/attempt-store.js';
@@ -105,7 +113,13 @@ async function startCompletionServer(
     storeAttempt: createAttemptStore(attemptDirectory),
     storeRawEventLog,
   });
-  const server = createApiServer(scenario, undefined, completeAttempt);
+  const server = createApiServer(
+    scenario,
+    undefined,
+    completeAttempt,
+    undefined,
+    createLatestAttemptReader(attemptDirectory)
+  );
   servers.push(server);
 
   await new Promise<void>((resolveListening) => {
@@ -243,15 +257,13 @@ describe('completed Attempts', () => {
 
     const response = await postRawEventLog(port, rawEventLog);
 
-    expect(response.status).toBe(204);
+    expect(response.status).toBe(200);
     const scenarioDirectory = resolve(
       attemptDirectory,
       'customer-whos-had-enough'
     );
     expect(await readdir(scenarioDirectory)).toEqual(['0001.json']);
-    await expect(
-      readFile(resolve(scenarioDirectory, '0001.json'), 'utf8').then(JSON.parse)
-    ).resolves.toEqual({
+    const expectedAttempt: Attempt = {
       scenarioId: 'customer-whos-had-enough',
       number: 1,
       transcript: expectedCleanTranscript,
@@ -265,7 +277,11 @@ describe('completed Attempts', () => {
         ],
       },
       feedback: 'Assessment and Transcript received.',
-    });
+    };
+    await expect(response.json()).resolves.toEqual(expectedAttempt);
+    await expect(
+      readFile(resolve(scenarioDirectory, '0001.json'), 'utf8').then(JSON.parse)
+    ).resolves.toEqual(expectedAttempt);
     await expect(readOnlyFile(rawEventLogDirectory)).resolves.toBe(rawEventLog);
   });
 
@@ -280,7 +296,7 @@ describe('completed Attempts', () => {
     const shuffledResponse = await postRawEventLog(port, shuffledEventLog);
 
     expect(shuffledEnvelopes).not.toEqual(envelopes);
-    expect(shuffledResponse.status).toBe(204);
+    expect(shuffledResponse.status).toBe(200);
     const attempt = await readPersistedAttempt(attemptDirectory, 1);
     expect(attempt.transcript).toEqual(expectedCleanTranscript);
   });
@@ -294,7 +310,7 @@ describe('completed Attempts', () => {
 
     const response = await postFixture(port, 'clean-stop-in-silence.json');
 
-    expect(response.status).toBe(204);
+    expect(response.status).toBe(200);
     const attempt = await readPersistedAttempt(attemptDirectory, 1);
     expect(attempt.transcript).toEqual(expectedCleanTranscript);
   });
@@ -324,7 +340,7 @@ describe('completed Attempts', () => {
 
     const completeResponse = await postRawEventLog(port, rawEventLog);
 
-    expect(completeResponse.status).toBe(204);
+    expect(completeResponse.status).toBe(200);
     const firstAttempt = await readPersistedAttempt(attemptDirectory, 1);
     expect(firstAttempt.number).toBe(1);
   });
@@ -339,9 +355,62 @@ describe('completed Attempts', () => {
       'clean-stop-in-silence.json'
     );
 
-    expect(secondResponse.status).toBe(204);
+    expect(secondResponse.status).toBe(200);
     const secondAttempt = await readPersistedAttempt(attemptDirectory, 2);
     expect(secondAttempt.number).toBe(2);
+  });
+
+  it('reads the latest persisted Attempt for the current Scenario', async () => {
+    const attemptDirectory = await createTemporaryDirectory();
+    const port = await startCompletionServer(attemptDirectory);
+
+    const missingResponse = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/latest`
+    );
+
+    expect(missingResponse.status).toBe(404);
+
+    await postFixture(port, 'clean-stop-in-silence.json');
+    await postFixture(port, 'clean-stop-in-silence.json');
+    const latestResponse = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/latest`
+    );
+
+    expect(latestResponse.status).toBe(200);
+    await expect(latestResponse.json()).resolves.toMatchObject({
+      scenarioId: scenario.id,
+      number: 2,
+      feedback: 'Assessment and Transcript received.',
+    });
+  });
+
+  it('reads the latest Attempt by number beyond the padded filename range', async () => {
+    const attemptDirectory = await createTemporaryDirectory();
+    const scenarioDirectory = resolve(
+      attemptDirectory,
+      encodeURIComponent(scenario.id)
+    );
+    await mkdir(scenarioDirectory);
+    const persistedAttempt = {
+      scenarioId: scenario.id,
+      transcript: [],
+      assessment: { criteria: [] },
+      feedback: 'Persisted Feedback.',
+    };
+    await Promise.all([
+      writeFile(
+        resolve(scenarioDirectory, '9999.json'),
+        JSON.stringify({ ...persistedAttempt, number: 9_999 })
+      ),
+      writeFile(
+        resolve(scenarioDirectory, '10000.json'),
+        JSON.stringify({ ...persistedAttempt, number: 10_000 })
+      ),
+    ]);
+
+    await expect(
+      createLatestAttemptReader(attemptDirectory)(scenario.id)
+    ).resolves.toMatchObject({ number: 10_000 });
   });
 
   it('marks a Persona turn cut off when the Trainee stops mid-conversation', async () => {
@@ -353,7 +422,7 @@ describe('completed Attempts', () => {
       'stop-while-persona-speaking.json'
     );
 
-    expect(response.status).toBe(204);
+    expect(response.status).toBe(200);
     const attempt = await readPersistedAttempt(attemptDirectory, 1);
     expect(attempt.transcript.at(-1)).toEqual({
       speaker: 'persona',
@@ -369,7 +438,7 @@ describe('completed Attempts', () => {
 
     const response = await postFixture(port, 'trainee-interrupts-persona.json');
 
-    expect(response.status).toBe(204);
+    expect(response.status).toBe(200);
     const attempt = await readPersistedAttempt(attemptDirectory, 1);
     expect(attempt.transcript).toEqual([
       {

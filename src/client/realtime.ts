@@ -4,12 +4,19 @@ export type RealtimeAttempt = {
   stop(): void;
 };
 
+export type CompletedAttempt = {
+  scenarioId: string;
+  number: number;
+  feedback: string;
+};
+
 type ConnectRealtimeAttemptOptions = {
   signal: AbortSignal;
   onActivity: (activity: AttemptActivity) => void;
   onEnded: () => void;
   onAttemptDataFailed: () => void;
   onJudgingStarted: () => void;
+  onAttemptCompleted: (attempt: CompletedAttempt) => void;
 };
 
 export type ConnectRealtimeAttempt = (
@@ -30,6 +37,41 @@ type RawRealtimeEvent =
       direction: 'server';
       binary: string;
     };
+
+async function completedAttemptFromResponse(
+  response: Response
+): Promise<CompletedAttempt> {
+  const attempt: unknown = await response.json();
+
+  if (
+    !isRecord(attempt) ||
+    typeof attempt.scenarioId !== 'string' ||
+    !Number.isInteger(attempt.number) ||
+    typeof attempt.feedback !== 'string'
+  ) {
+    throw new TypeError('The completed Attempt response was invalid.');
+  }
+
+  return attempt as CompletedAttempt;
+}
+
+async function readLatestCompletedAttempt(): Promise<
+  CompletedAttempt | undefined
+> {
+  const response = await fetch('/api/attempts/latest', {
+    cache: 'no-store',
+  });
+
+  if (response.status === 404) {
+    return undefined;
+  }
+
+  if (!response.ok) {
+    throw new Error('The latest Attempt could not be read.');
+  }
+
+  return completedAttemptFromResponse(response);
+}
 
 /**
  * A failure the Trainee can act on, carrying wording meant for the screen.
@@ -265,6 +307,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
   onEnded,
   onAttemptDataFailed,
   onJudgingStarted,
+  onAttemptCompleted,
 }) => {
   let dataChannel: RTCDataChannel | undefined;
   let localMedia: MediaStream | undefined;
@@ -306,15 +349,72 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
 
     if (!rawEventLogSubmission) {
       onJudgingStarted();
-      rawEventLogSubmission = fetch('/api/attempts/raw-event-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(rawEventLog),
-      }).then((response) => {
-        if (!response.ok) {
-          throw new Error('The raw event log could not be stored.');
+      rawEventLogSubmission = (async () => {
+        let previousAttemptNumber: number | undefined;
+
+        try {
+          previousAttemptNumber =
+            (await readLatestCompletedAttempt())?.number ?? 0;
+        } catch {
+          // A baseline is only needed for unambiguous timeout recovery. It
+          // must not prevent the normal completion request.
         }
-      });
+
+        const recoverNewerAttempt = async (
+          originalError: unknown
+        ): Promise<CompletedAttempt> => {
+          const baselineAttemptNumber = previousAttemptNumber;
+
+          if (baselineAttemptNumber === undefined) {
+            throw originalError;
+          }
+
+          const latestAttempt = await readLatestCompletedAttempt();
+
+          if (!latestAttempt || latestAttempt.number <= baselineAttemptNumber) {
+            throw originalError;
+          }
+
+          return latestAttempt;
+        };
+        let response: Response;
+
+        try {
+          response = await fetch('/api/attempts/raw-event-log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(rawEventLog),
+          });
+        } catch (error) {
+          onAttemptCompleted(await recoverNewerAttempt(error));
+          return;
+        }
+
+        if (!response.ok) {
+          onAttemptCompleted(
+            await recoverNewerAttempt(
+              new Error('The raw event log could not be stored.')
+            )
+          );
+          return;
+        }
+
+        let attempt: CompletedAttempt;
+
+        try {
+          attempt = await completedAttemptFromResponse(response);
+        } catch {
+          const latestAttempt = await readLatestCompletedAttempt();
+
+          if (!latestAttempt) {
+            throw new Error('The completed Attempt could not be recovered.');
+          }
+
+          attempt = latestAttempt;
+        }
+
+        onAttemptCompleted(attempt);
+      })();
     }
 
     return rawEventLogSubmission;

@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 
 import { toPublicScenario, type Scenario } from '../scenario.js';
 import type { CompleteAttempt } from './attempt-completion.js';
+import type { ReadLatestAttempt } from './attempt-store.js';
 import type { MintRealtimeClientSecret } from './realtime.js';
 
 const unavailableRealtimeClientSecret: MintRealtimeClientSecret = () =>
@@ -10,6 +11,8 @@ const unavailableRealtimeClientSecret: MintRealtimeClientSecret = () =>
   );
 const unavailableAttemptCompleter: CompleteAttempt = () =>
   Promise.reject(new Error('Attempt completion is not configured.'));
+const unavailableLatestAttemptReader: ReadLatestAttempt = () =>
+  Promise.resolve(undefined);
 const defaultRawEventLogByteLimit = 8 * 1024 * 1024;
 
 async function readRequestBody(
@@ -36,12 +39,37 @@ export function createApiServer(
   currentScenario: Scenario,
   mintRealtimeClientSecret: MintRealtimeClientSecret = unavailableRealtimeClientSecret,
   completeAttempt: CompleteAttempt = unavailableAttemptCompleter,
-  rawEventLogByteLimit = defaultRawEventLogByteLimit
+  rawEventLogByteLimit = defaultRawEventLogByteLimit,
+  readLatestAttempt: ReadLatestAttempt = unavailableLatestAttemptReader
 ) {
   return createServer((request, response) => {
     if (request.method === 'GET' && request.url === '/api/health') {
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({ status: 'ok' }));
+      return;
+    }
+
+    if (request.method === 'GET' && request.url === '/api/attempts/latest') {
+      void readLatestAttempt(currentScenario.id).then(
+        (attempt) => {
+          response.writeHead(attempt ? 200 : 404, {
+            'Cache-Control': 'no-store',
+            'Content-Type': 'application/json',
+          });
+          response.end(
+            JSON.stringify(
+              attempt ?? { error: 'No completed Attempt is available.' }
+            )
+          );
+        },
+        () => {
+          response.writeHead(500, {
+            'Cache-Control': 'no-store',
+            'Content-Type': 'application/json',
+          });
+          response.end(JSON.stringify({ error: 'Attempt could not be read.' }));
+        }
+      );
       return;
     }
 
@@ -65,9 +93,12 @@ export function createApiServer(
       void readRequestBody(request, rawEventLogByteLimit).then(
         (rawEventLog) =>
           completeAttempt(rawEventLog).then(
-            () => {
-              response.writeHead(204);
-              response.end();
+            (attempt) => {
+              response.writeHead(200, {
+                'Cache-Control': 'no-store',
+                'Content-Type': 'application/json',
+              });
+              response.end(JSON.stringify(attempt));
             },
             (error: unknown) => {
               // The page deliberately shows nothing during an Attempt, so this

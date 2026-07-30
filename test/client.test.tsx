@@ -126,6 +126,57 @@ describe('the Trainee-facing app', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
+  it('shows the Feedback as soon as judging completes', async () => {
+    respondWithScenario();
+    let reportJudgingStarted: (() => void) | undefined;
+    let reportAttemptCompleted:
+      | ((attempt: {
+          scenarioId: string;
+          number: number;
+          feedback: string;
+        }) => void)
+      | undefined;
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
+      ({ onAttemptCompleted, onJudgingStarted }) => {
+        reportAttemptCompleted = onAttemptCompleted;
+        reportJudgingStarted = onJudgingStarted;
+        return Promise.resolve({ stop: vi.fn() });
+      }
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Stop attempt' })
+    );
+
+    act(() => reportJudgingStarted?.());
+    expect(screen.getByRole('status').textContent).toContain(
+      'Judging is in progress'
+    );
+
+    act(() =>
+      reportAttemptCompleted?.({
+        scenarioId: publicScenario.id,
+        number: 1,
+        feedback:
+          'You opened with a useful question. Next time, ask what experience sits behind the price concern.',
+      })
+    );
+
+    expect(screen.getByRole('heading', { name: 'Your Feedback' })).toBeTruthy();
+    expect(
+      screen.getByText(
+        'You opened with a useful question. Next time, ask what experience sits behind the price concern.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
   it('lets the Trainee stop while the live line is still connecting', async () => {
     respondWithScenario();
     let connectionSignal: AbortSignal | undefined;

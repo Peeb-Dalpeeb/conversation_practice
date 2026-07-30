@@ -26,6 +26,7 @@ type AppState =
       name: 'ended';
       phase: 'stopped' | 'preparing' | 'judging';
     }
+  | { name: 'feedback'; feedback: string }
   | { name: 'failed'; reason: string; scenario: PublicScenario }
   | { name: 'unavailable' };
 
@@ -160,6 +161,9 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
               ? currentState
               : { name: 'ended', phase: 'judging' }
           );
+        },
+        onAttemptCompleted: (attempt) => {
+          setState({ name: 'feedback', feedback: attempt.feedback });
         },
       });
 
@@ -310,6 +314,18 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
           </h1>
           <p>Keep this page open and check that the local server is running.</p>
         </section>
+      </main>
+    );
+  }
+
+  if (state.name === 'feedback') {
+    return (
+      <main className="shell">
+        <article className="feedback" aria-labelledby="feedback-title">
+          <p className="eyebrow">Attempt complete</p>
+          <h1 id="feedback-title">Your Feedback</h1>
+          <p className="feedback__copy">{state.feedback}</p>
+        </article>
       </main>
     );
   }

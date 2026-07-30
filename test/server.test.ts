@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createServer as createViteServer, type ViteDevServer } from 'vite';
 
 import { scenario, type Scenario } from '../src/scenario.js';
+import type { Attempt } from '../src/server/attempt-store.js';
 import { createApiServer } from '../src/server/app.js';
 import { createOpenAiRealtimeClientSecretMinter } from '../src/server/realtime.js';
 
@@ -14,6 +15,13 @@ const viteServers: ViteDevServer[] = [];
 const proxyMode = `proxy-test-${process.pid}`;
 const proxyEnvironmentPath = resolve(`.env.${proxyMode}`);
 const inheritedServerPort = process.env.SERVER_PORT;
+const completedAttempt: Attempt = {
+  scenarioId: scenario.id,
+  number: 1,
+  transcript: [],
+  assessment: { criteria: [] },
+  feedback: 'Keep asking about the experience behind the request.',
+};
 
 async function startApiServer(
   currentScenario: Scenario = scenario
@@ -212,7 +220,7 @@ describe('the server HTTP interface', () => {
     const server = createApiServer(scenario, undefined, (rawEventLog) => {
       storedLogs.push(rawEventLog);
 
-      return Promise.resolve();
+      return Promise.resolve(completedAttempt);
     });
     servers.push(server);
 
@@ -232,12 +240,13 @@ describe('the server HTTP interface', () => {
       }
     );
 
-    expect(response.status).toBe(204);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual(completedAttempt);
     expect(storedLogs).toEqual([rawEventLog]);
   });
 
   it('rejects non-JSON and oversized raw event logs before storage', async () => {
-    const storeRawEventLog = vi.fn(() => Promise.resolve());
+    const storeRawEventLog = vi.fn(() => Promise.resolve(completedAttempt));
     const server = createApiServer(scenario, undefined, storeRawEventLog, 64);
     servers.push(server);
 

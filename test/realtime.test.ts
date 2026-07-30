@@ -10,7 +10,15 @@ import {
 
 const clientSecretUrl = '/api/realtime/client-secret';
 const rawEventLogUrl = '/api/attempts/raw-event-log';
+const latestAttemptUrl = '/api/attempts/latest';
 const realtimeCallsUrl = 'https://api.openai.com/v1/realtime/calls';
+const completedAttempt = {
+  scenarioId: 'customer-whos-had-enough',
+  number: 1,
+  transcript: [],
+  assessment: { criteria: [] },
+  feedback: 'Ask what experience sits behind the price concern.',
+};
 
 class FakeDataChannel extends EventTarget {
   readyState: 'connecting' | 'open' | 'closed' = 'connecting';
@@ -116,12 +124,16 @@ type BrowserStubOptions = {
   getUserMedia?: () => Promise<MediaStream>;
   requestLog?: string[];
   rawEventLogOk?: boolean;
+  rawEventLogRejects?: boolean;
+  rawEventLogJsonRejects?: boolean;
+  latestAttempts?: Array<typeof completedAttempt | undefined>;
   clientSecretOk?: boolean;
   clientSecretBody?: unknown;
   sdpOk?: boolean;
 };
 
 function stubBrowser(options: BrowserStubOptions = {}) {
+  let latestAttemptIndex = 0;
   const microphone = createMicrophone();
   const getUserMedia = vi.fn(
     options.getUserMedia ??
@@ -163,8 +175,28 @@ function stubBrowser(options: BrowserStubOptions = {}) {
     }
 
     if (url === rawEventLogUrl) {
+      if (options.rawEventLogRejects) {
+        return Promise.reject(new TypeError('The request timed out.'));
+      }
+
       return Promise.resolve({
         ok: options.rawEventLogOk ?? true,
+        json: () =>
+          options.rawEventLogJsonRejects
+            ? Promise.reject(new TypeError('The response connection closed.'))
+            : Promise.resolve(completedAttempt),
+      } as unknown as Response);
+    }
+
+    if (url === latestAttemptUrl) {
+      const latestAttempt = options.latestAttempts
+        ? options.latestAttempts[latestAttemptIndex++]
+        : completedAttempt;
+
+      return Promise.resolve({
+        ok: latestAttempt !== undefined,
+        status: latestAttempt === undefined ? 404 : 200,
+        json: () => Promise.resolve(latestAttempt),
       } as unknown as Response);
     }
 
@@ -197,12 +229,14 @@ function startAttempt() {
   const onAttemptDataFailed = vi.fn();
   const onEnded = vi.fn();
   const onJudgingStarted = vi.fn();
+  const onAttemptCompleted = vi.fn();
   const attempt = connectRealtimeAttempt({
     signal: controller.signal,
     onActivity,
     onEnded,
     onAttemptDataFailed,
     onJudgingStarted,
+    onAttemptCompleted,
   });
 
   return {
@@ -212,6 +246,7 @@ function startAttempt() {
     onAttemptDataFailed,
     onEnded,
     onJudgingStarted,
+    onAttemptCompleted,
   };
 }
 
@@ -509,7 +544,7 @@ describe('a live Attempt in progress', () => {
 
   it('forwards the complete raw event log when the Trainee stops', async () => {
     const { fetchMock } = stubBrowser();
-    const { attempt, onJudgingStarted } = startAttempt();
+    const { attempt, onAttemptCompleted, onJudgingStarted } = startAttempt();
     const liveAttempt = await attempt;
     const channel = liveDataChannel();
     const identifierEvent = {
@@ -571,6 +606,9 @@ describe('a live Attempt in progress', () => {
       );
     });
     expect(onJudgingStarted).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(onAttemptCompleted).toHaveBeenCalledWith(completedAttempt);
+    });
     const rawEventLogRequest = fetchMock.mock.calls.find(
       ([url]) => url === rawEventLogUrl
     )?.[1];
@@ -896,6 +934,60 @@ describe('a live Attempt in progress', () => {
     await vi.waitFor(() => {
       expect(onAttemptDataFailed).toHaveBeenCalledOnce();
     });
+  });
+
+  it('recovers the persisted Attempt when its successful response body is lost', async () => {
+    const { fetchMock } = stubBrowser({ rawEventLogJsonRejects: true });
+    const { attempt, onAttemptCompleted, onAttemptDataFailed } = startAttempt();
+
+    const liveAttempt = await attempt;
+    liveAttempt.stop();
+    settleEmptyStopCommands(liveDataChannel());
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(latestAttemptUrl, {
+        cache: 'no-store',
+      });
+      expect(onAttemptCompleted).toHaveBeenCalledWith(completedAttempt);
+    });
+    expect(onAttemptDataFailed).not.toHaveBeenCalled();
+  });
+
+  it('recovers a newer persisted Attempt after the completion request times out', async () => {
+    const { fetchMock } = stubBrowser({
+      rawEventLogRejects: true,
+      latestAttempts: [undefined, completedAttempt],
+    });
+    const { attempt, onAttemptCompleted, onAttemptDataFailed } = startAttempt();
+
+    const liveAttempt = await attempt;
+    liveAttempt.stop();
+    settleEmptyStopCommands(liveDataChannel());
+
+    await vi.waitFor(() => {
+      expect(
+        fetchMock.mock.calls.filter(([url]) => url === latestAttemptUrl)
+      ).toHaveLength(2);
+      expect(onAttemptCompleted).toHaveBeenCalledWith(completedAttempt);
+    });
+    expect(onAttemptDataFailed).not.toHaveBeenCalled();
+  });
+
+  it('recovers a newer persisted Attempt after a proxy timeout response', async () => {
+    stubBrowser({
+      rawEventLogOk: false,
+      latestAttempts: [undefined, completedAttempt],
+    });
+    const { attempt, onAttemptCompleted, onAttemptDataFailed } = startAttempt();
+
+    const liveAttempt = await attempt;
+    liveAttempt.stop();
+    settleEmptyStopCommands(liveDataChannel());
+
+    await vi.waitFor(() => {
+      expect(onAttemptCompleted).toHaveBeenCalledWith(completedAttempt);
+    });
+    expect(onAttemptDataFailed).not.toHaveBeenCalled();
   });
 
   it('does not wait for the timeout when a transcription request is rejected', async () => {
