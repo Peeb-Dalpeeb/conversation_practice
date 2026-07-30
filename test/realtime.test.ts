@@ -555,21 +555,21 @@ describe('a live Attempt in progress', () => {
     expect(onActivity).not.toHaveBeenCalled();
   });
 
-  it('stops and starts judging when the Persona calls the end-call tool', async () => {
+  it('stops and starts judging when the Persona calls the hang-up tool', async () => {
     const { fetchMock } = stubBrowser();
     const { attempt, onEnded, onJudgingStarted } = startAttempt();
     await attempt;
     const channel = liveDataChannel();
-    const endCallEvent = {
+    const hangUpEvent = {
       type: 'response.function_call_arguments.done',
       response_id: 'persona-response',
-      item_id: 'end-call-item',
-      call_id: 'end-call',
+      item_id: 'hang-up-item',
+      call_id: 'hang-up',
       name: 'hang_up',
       arguments: '{}',
     };
 
-    channel.deliver(endCallEvent);
+    channel.deliver(hangUpEvent);
     settleEmptyStopCommands(channel);
 
     await vi.waitFor(() => {
@@ -579,14 +579,14 @@ describe('a live Attempt in progress', () => {
 
       expect(submittedLog).toContainEqual({
         direction: 'server',
-        event: JSON.stringify(endCallEvent),
+        event: JSON.stringify(hangUpEvent),
       });
     });
     expect(onJudgingStarted).toHaveBeenCalledOnce();
     expect(onEnded).not.toHaveBeenCalled();
   });
 
-  it('lets the Persona finish speaking before acting on the end-call tool', async () => {
+  it('lets the Persona finish speaking before acting on the hang-up tool', async () => {
     const { fetchMock } = stubBrowser();
     const { attempt, onJudgingStarted } = startAttempt();
     await attempt;
@@ -599,8 +599,8 @@ describe('a live Attempt in progress', () => {
     channel.deliver({
       type: 'response.function_call_arguments.done',
       response_id: 'persona-response',
-      item_id: 'end-call-item',
-      call_id: 'end-call',
+      item_id: 'hang-up-item',
+      call_id: 'hang-up',
       name: 'hang_up',
       arguments: '{}',
     });
@@ -622,7 +622,7 @@ describe('a live Attempt in progress', () => {
     });
   });
 
-  it('still acts on the end-call tool when the Trainee interrupts the final line', async () => {
+  it('still acts on the hang-up tool when the Trainee interrupts the final line', async () => {
     stubBrowser();
     const { attempt, onJudgingStarted } = startAttempt();
     await attempt;
