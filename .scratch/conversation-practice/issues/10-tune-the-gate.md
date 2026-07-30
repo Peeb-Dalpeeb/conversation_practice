@@ -125,9 +125,10 @@ nothing extra — the Scenario is already up and the runs are already happening.
   Attempts 1 and 4 record Jordan rejecting repeated early offers. Attempts 2 and 3 record
   Jordan cooperating when the Trainee proceeds directly to cancellation. Attempt 5 records the
   cover story first, reveals the prior incident only after a further open question, and does
-  not treat "made you feel not heard" as a specific acknowledgement of being made to feel
+  not treat “made you feel not heard” as a specific acknowledgement of being made to feel
   stupid. These text observations do not establish whether the Persona sounded cold, flat, or
-  softened.
+  softened. The Realtime session is configured for `gpt-realtime-2.1` in
+  `src/server/realtime.ts`.
 
   No saved Attempt exercises blaming the colleague, a hollow scripted apology, or a specific
   acknowledgement without excuses that should meet the Gate. The records also do not contain
@@ -141,4 +142,5 @@ nothing extra — the Scenario is already up and the runs are already happening.
   Continue in a microphone-enabled browser against the existing `gpt-realtime-2.1` pin,
   judge every behaviour by ear, use the hidden Transcript and persisted records to diagnose
   misses, and write the two deliberate failure Attempt numbers here before resolving the
-  ticket.
+  ticket. The ticket is `ready-for-human` because those remaining acceptance criteria require
+  a human Trainee to speak the Attempts and judge the Persona's delivery.
