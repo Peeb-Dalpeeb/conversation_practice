@@ -117,7 +117,9 @@ describe('the server HTTP interface', () => {
         ...scenario.persona,
         name: 'Persona supplied by the Scenario',
         characterBrief: 'Character brief supplied by the Scenario.',
+        voice: 'cedar',
         openingLine: 'Opening line supplied by the Scenario.',
+        deliveryRules: ['Delivery rule supplied by the Scenario.'],
         standingInstructions: [
           'Standing instruction supplied by the Scenario.',
         ],
@@ -206,11 +208,17 @@ describe('the server HTTP interface', () => {
           parameters: Record<string, unknown>;
         }[];
         truncation: string;
+        audio: {
+          output: {
+            voice: string;
+          };
+        };
       };
     };
     expect(body.session.model).toBe('gpt-realtime-2.1');
     expect(body.session.output_modalities).toEqual(['audio']);
     expect(body.session.truncation).toBe('disabled');
+    expect(body.session.audio.output.voice).toBe('cedar');
     expect(body.session.tools).toEqual([
       {
         type: 'function',
@@ -230,6 +238,9 @@ describe('the server HTTP interface', () => {
     );
     expect(body.session.instructions).toContain(
       'Opening line supplied by the Scenario.'
+    );
+    expect(body.session.instructions).toContain(
+      'Delivery rule supplied by the Scenario.'
     );
     expect(body.session.instructions).toContain(
       'Standing instruction supplied by the Scenario.'

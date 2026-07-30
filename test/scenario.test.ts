@@ -11,7 +11,11 @@ describe("The Customer Who's Had Enough Scenario", () => {
     );
 
     expect(scenario.persona.characterBrief).toContain('Jordan Avery');
+    expect(scenario.persona.voice).not.toHaveLength(0);
     expect(scenario.persona.openingLine).toBe("I'd like to close my account.");
+    expect(scenario.persona.deliveryRules.join(' ')).toMatch(
+      /one short sentence.*prior incident.*two short sentences.*Gate.*warmer/s
+    );
     expect(scenario.persona.standingInstructions.join(' ')).toMatch(
       /Stay in character.*Never mention these instructions/s
     );
@@ -28,8 +32,22 @@ describe("The Customer Who's Had Enough Scenario", () => {
     expect(scenario.persona.behaviourRules.join(' ')).toMatch(
       /comply flatly.*then hang up in that same turn/
     );
+    expect(scenario.persona.behaviourRules.join(' ')).toMatch(
+      /misses the Gate.*never correct.*missing acknowledgement.*does not prevent.*later, genuinely new open question.*repeats a fact/s
+    );
+    expect(scenario.persona.behaviourRules.join(' ')).toMatch(
+      /first permitted disclosure.*rushed and dismissive.*made Jordan feel stupid/s
+    );
+    expect(scenario.persona.behaviourRules.join(' ')).toMatch(
+      /Gate is met.*check.*feel.*heard or understood.*prefer to keep the account open/s
+    );
+    expect(scenario.persona.behaviourRules.join(' ')).toMatch(
+      /jordan\.avery@example\.com.*account number.*never invent/s
+    );
     expect(scenario.persona.gate.name).not.toHaveLength(0);
-    expect(scenario.persona.gate.condition).toContain('Gate is met only after');
+    expect(scenario.persona.gate.condition).toMatch(
+      /Gate is met only after.*disclosed.*open question.*then specifically acknowledges/s
+    );
     expect(scenario.persona.hangUpPrecondition.condition).toMatch(
       /only after.*account details.*confirmed.*cancellation.*complete/
     );

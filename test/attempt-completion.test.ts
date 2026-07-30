@@ -25,6 +25,7 @@ import {
   createLatestAttemptReader,
   createAttemptStore,
   type Attempt,
+  type StoreAttempt,
 } from '../src/server/attempt-store.js';
 import {
   createRawEventLogStore,
@@ -167,6 +168,16 @@ async function readOnlyFile(directory: string) {
   }
 
   return readFile(resolve(directory, filenames[0]), 'utf8');
+}
+
+function rawEventLogIdFromFilename(filename: string | undefined) {
+  const match = filename ? /^\d+-(.+)\.json$/u.exec(filename) : undefined;
+
+  if (!match?.[1]) {
+    throw new Error(`Unexpected raw event-log filename: ${String(filename)}`);
+  }
+
+  return match[1];
 }
 
 function removeFirstTraineeTranscription(rawEventLog: string) {
@@ -416,6 +427,10 @@ describe('completed Attempts', () => {
     const response = await postRawEventLog(port, rawEventLog);
 
     expect(response.status).toBe(200);
+    const rawEventLogFilenames = await readdir(rawEventLogDirectory);
+    expect(rawEventLogFilenames).toHaveLength(1);
+    const rawEventLogFilename = rawEventLogFilenames[0];
+    const rawEventLogId = rawEventLogIdFromFilename(rawEventLogFilename);
     const scenarioDirectory = resolve(
       attemptDirectory,
       'customer-whos-had-enough'
@@ -424,6 +439,7 @@ describe('completed Attempts', () => {
     const expectedAttempt: Attempt = {
       scenarioId: 'customer-whos-had-enough',
       number: 1,
+      rawEventLogId,
       transcript: expectedCleanTranscript,
       assessment: {
         criteria: [
@@ -563,7 +579,56 @@ describe('completed Attempts', () => {
     expect(response.status).toBe(200);
     const attempt = await readPersistedAttempt(attemptDirectory, 1);
     expect(attempt.transcript).toEqual(expectedCleanTranscript);
+    expect(attempt.rawEventLogId).toMatch(/^[0-9a-f-]+$/u);
   });
+
+  it.each([
+    { name: 'completed Feedback', feedbackFails: false },
+    { name: 'failed Feedback', feedbackFails: true },
+  ])(
+    'persists an Attempt with $name before raw archival settles',
+    async ({ feedbackFails }) => {
+      const rawEventLog = await readFixture('clean-stop-in-silence.json');
+      let finishRawArchival: (() => void) | undefined;
+      const rawArchival = new Promise<void>((resolveArchival) => {
+        finishRawArchival = resolveArchival;
+      });
+      const storeRawEventLog = vi.fn<StoreRawEventLog>(() => rawArchival);
+      const storeAttempt = vi.fn<StoreAttempt>((attempt) =>
+        Promise.resolve({
+          ...attempt,
+          number: 1,
+        })
+      );
+      const completeAttempt = createAttemptCompleter({
+        scenario,
+        assessAttempt: () => Promise.resolve({ criteria: [] }),
+        createFeedback: () =>
+          feedbackFails
+            ? Promise.reject(new Error('Feedback unavailable.'))
+            : Promise.resolve('Feedback complete.'),
+        storeAttempt,
+        storeRawEventLog,
+      });
+
+      const completion = completeAttempt(rawEventLog);
+
+      await vi.waitFor(() => {
+        expect(storeAttempt).toHaveBeenCalledOnce();
+      });
+      expect(storeAttempt.mock.calls[0]?.[0].rawEventLogId).toMatch(
+        /^[0-9a-f-]+$/u
+      );
+
+      finishRawArchival?.();
+
+      if (feedbackFails) {
+        await expect(completion).rejects.toMatchObject({ kind: 'judging' });
+      } else {
+        await expect(completion).resolves.toMatchObject({ number: 1 });
+      }
+    }
+  );
 
   it('keeps the raw log but rejects an Attempt with a reconstruction gap', async () => {
     const attemptDirectory = await createTemporaryDirectory();
@@ -645,8 +710,11 @@ describe('completed Attempts', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
     const attemptDirectory = await createTemporaryDirectory();
-    const port = await startCompletionServer(attemptDirectory, undefined, () =>
-      Promise.reject(new Error('Feedback service unavailable.'))
+    const rawEventLogDirectory = await createTemporaryDirectory('raw-logs');
+    const port = await startCompletionServer(
+      attemptDirectory,
+      createRawEventLogStore(rawEventLogDirectory),
+      () => Promise.reject(new Error('Feedback service unavailable.'))
     );
 
     const response = await postFixture(port, 'clean-stop-in-silence.json');
@@ -656,6 +724,11 @@ describe('completed Attempts', () => {
       code: 'attempt_judging_failed',
     });
     const attempt = await readPersistedAttempt(attemptDirectory, 1);
+    const rawEventLogFilenames = await readdir(rawEventLogDirectory);
+    expect(rawEventLogFilenames).toHaveLength(1);
+    expect(attempt.rawEventLogId).toBe(
+      rawEventLogIdFromFilename(rawEventLogFilenames[0])
+    );
     expect(attempt.transcript).toEqual(expectedCleanTranscript);
     expect(attempt.assessment.criteria[0]).toMatchObject({
       criterionId: 'asked-open-question',

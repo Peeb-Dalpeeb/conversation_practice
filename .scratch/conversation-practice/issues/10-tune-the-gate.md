@@ -130,3 +130,15 @@ nothing extra — the Scenario is already up and the runs are already happening.
   by-ear verification is therefore still required. The ticket is `ready-for-human` because its
   remaining acceptance criteria require a human Trainee to speak the Attempts and judge the
   Persona's delivery; no Scenario wording was changed without that evidence.
+
+- **Authored tuning levers added after review on 2026-07-30:** `src/scenario.ts` now owns the
+  Persona voice and a dedicated set of delivery rules. The rules make pre-Gate brevity and
+  restraint explicit, define a noticeably warmer post-Gate delivery, forbid coaching a
+  near-miss by repeating the missing acknowledgement, and give the successful Gate path a
+  concrete two-step payoff without giving away the separate “felt heard” check. Account-detail
+  replies are fixed as well, so they no longer drift between Attempts.
+
+  Persisted Attempts now include the correlation ID carried in their untouched raw event-log
+  filename, making the two tuning instruments directly correlatable. These changes provide
+  better levers and evidence; they do not satisfy the unchecked by-ear criteria without new
+  live Attempts.

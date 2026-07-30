@@ -11,6 +11,7 @@ export type RealtimeAttempt = {
 export type CompletedAttempt = {
   scenarioId: string;
   number: number;
+  rawEventLogId?: string;
   feedback:
     | {
         status: 'completed';
@@ -61,6 +62,8 @@ async function completedAttemptFromResponse(
     !isRecord(attempt) ||
     typeof attempt.scenarioId !== 'string' ||
     !Number.isInteger(attempt.number) ||
+    (attempt.rawEventLogId !== undefined &&
+      typeof attempt.rawEventLogId !== 'string') ||
     !isRecord(attempt.feedback) ||
     !(
       (attempt.feedback.status === 'completed' &&

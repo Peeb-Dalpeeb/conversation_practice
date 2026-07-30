@@ -46,6 +46,9 @@ function buildPersonaInstructions(currentScenario: Scenario): string {
     'Behaviour rules:',
     asBulletList(persona.behaviourRules),
     '',
+    'Delivery rules:',
+    asBulletList(persona.deliveryRules),
+    '',
     `Gate — ${persona.gate.name}:`,
     persona.gate.condition,
     '',
@@ -102,7 +105,7 @@ export function createOpenAiRealtimeClientSecretMinter({
               },
             },
             output: {
-              voice: 'marin',
+              voice: currentScenario.persona.voice,
             },
           },
         },

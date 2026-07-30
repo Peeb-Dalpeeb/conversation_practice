@@ -47,9 +47,10 @@ Vite forwards `/api` requests to the server, so local development needs no
 separate build step or second terminal.
 
 The complete Scenario lives in `src/scenario.ts`. Edit that one file to tune
-the Briefing, Persona, Private Profile, behaviour rules, Gate, hang-up
-precondition, or Rubric. The development server restarts when it changes;
-refresh the page to read the revised Briefing. No build step is required.
+the Briefing, Persona voice and delivery rules, Private Profile, behaviour
+rules, Gate, hang-up precondition, or Rubric. The development server restarts
+when it changes; refresh the page to read the revised Briefing. No build step
+is required.
 
 Because this proof of concept has one fixed Briefing layout, its four-field
 shape and labels stay in `src/client/App.tsx`; `src/scenario.ts` remains the
@@ -62,8 +63,10 @@ When an Attempt ends, its Realtime event log is written untouched under
 `data/raw-event-logs/`. The server also reconstructs the Transcript, runs the
 injected Assessment and Feedback steps in sequence, and writes the resulting
 Attempt under `data/attempts/<scenario-id>/0001.json`, incrementing the number
-for that Scenario. These local files can contain spoken content and are ignored
-by Git.
+for that Scenario. Each persisted Attempt carries a `rawEventLogId`, and its
+corresponding raw event-log filename ends with that same ID. Failed
+reconstructions still leave only the raw log. These local files can contain
+spoken content and are ignored by Git.
 
 Each raw-log entry records its direction and the exact data-channel payload
 string; binary frames are retained as base64.

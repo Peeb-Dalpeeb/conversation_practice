@@ -17,6 +17,7 @@ export type FeedbackOutcome =
 export type Attempt = {
   scenarioId: string;
   number: number;
+  rawEventLogId?: string;
   transcript: Transcript;
   assessment: Assessment;
   feedback: FeedbackOutcome;

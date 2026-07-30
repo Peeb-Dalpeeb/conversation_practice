@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { PrivateProfile, RubricCriterion, Scenario } from '../scenario.js';
 import type {
   Transcript,
@@ -360,13 +362,15 @@ export function createAttemptCompleter({
     // Raw archival is forensic support, not a prerequisite for the judged
     // Attempt. Start it immediately so even a reconstruction failure is kept
     // when possible, but do not let its failure replace the product outcome.
-    const rawEventLogStorage = storeRawEventLog
-      ? Promise.resolve()
-          .then(() => storeRawEventLog(rawEventLog))
-          .catch((error: unknown) => {
-            console.error('Raw event log could not be stored.', error);
-          })
-      : Promise.resolve();
+    const rawEventLogId = storeRawEventLog ? randomUUID() : undefined;
+    const rawEventLogStorage =
+      storeRawEventLog && rawEventLogId
+        ? Promise.resolve()
+            .then(() => storeRawEventLog(rawEventLog, rawEventLogId))
+            .catch((error: unknown) => {
+              console.error('Raw event log could not be stored.', error);
+            })
+        : Promise.resolve();
 
     try {
       let transcript: Transcript;
@@ -407,6 +411,7 @@ export function createAttemptCompleter({
         try {
           attempt = await storeAttempt({
             scenarioId: scenario.id,
+            ...(rawEventLogId ? { rawEventLogId } : {}),
             transcript,
             assessment,
             feedback: {
@@ -435,6 +440,7 @@ export function createAttemptCompleter({
       try {
         return await storeAttempt({
           scenarioId: scenario.id,
+          ...(rawEventLogId ? { rawEventLogId } : {}),
           transcript,
           assessment,
           feedback: { status: 'completed', prose: feedback },
