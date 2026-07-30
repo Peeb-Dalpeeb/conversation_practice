@@ -15,6 +15,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { scenario } from '../src/scenario.js';
 import {
   createAttemptCompleter,
+  reconstructTranscript,
+  reconstructTranscriptSnapshot,
   type Assessment,
   type CreateFeedback,
 } from '../src/server/attempt-completion.js';
@@ -797,5 +799,95 @@ describe('completed Attempts', () => {
         cutOff: false,
       },
     ]);
+  });
+});
+
+describe('the live Transcript snapshot', () => {
+  // Every prefix of a recorded log is a body the debug view will actually ask
+  // the server to reassemble, because it polls while the Attempt is running.
+  const recordedAttempts = [
+    'clean-stop-in-silence.json',
+    'persona-hangs-up.json',
+    'stop-while-persona-speaking.json',
+    'trainee-interrupts-persona.json',
+  ];
+
+  it('reconstructs at every point during a recorded Attempt', async () => {
+    for (const fixtureName of recordedAttempts) {
+      const envelopes = JSON.parse(await readFixture(fixtureName)) as unknown[];
+      const failures: string[] = [];
+      let sawTurnAwaitingText = false;
+
+      for (
+        let envelopeCount = 1;
+        envelopeCount <= envelopes.length;
+        envelopeCount++
+      ) {
+        const partialLog = JSON.stringify(envelopes.slice(0, envelopeCount));
+
+        try {
+          const snapshot = reconstructTranscriptSnapshot(partialLog);
+
+          sawTurnAwaitingText ||= snapshot.some((turn) => 'status' in turn);
+        } catch (error) {
+          failures.push(
+            `${fixtureName} after ${String(envelopeCount)} envelopes: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      expect(failures).toEqual([]);
+      // A turn is registered when it starts and gains its text when it ends, so
+      // a real Attempt is mid-turn for most of its length. If this stops
+      // holding, the sweep above has stopped covering the case it exists for.
+      expect(sawTurnAwaitingText).toBe(true);
+    }
+  });
+
+  it('keeps completion strict where the live snapshot is lenient', async () => {
+    for (const fixtureName of recordedAttempts) {
+      const envelopes = JSON.parse(await readFixture(fixtureName)) as unknown[];
+      let logWithTurnAwaitingText: string | undefined;
+
+      for (
+        let envelopeCount = 1;
+        envelopeCount <= envelopes.length &&
+        logWithTurnAwaitingText === undefined;
+        envelopeCount++
+      ) {
+        const partialLog = JSON.stringify(envelopes.slice(0, envelopeCount));
+
+        if (
+          reconstructTranscriptSnapshot(partialLog).some(
+            (turn) => 'status' in turn
+          )
+        ) {
+          logWithTurnAwaitingText = partialLog;
+        }
+      }
+
+      if (logWithTurnAwaitingText === undefined) {
+        throw new Error(`${fixtureName} never shows a turn awaiting text.`);
+      }
+
+      // The same body the debug view renders happily must still refuse to be
+      // judged: an Assessment quoting a half-built Transcript is the failure
+      // the strict path exists to prevent.
+      expect(() => reconstructTranscript(logWithTurnAwaitingText)).toThrow(
+        /no text for turn/u
+      );
+    }
+  });
+
+  it('leaves no turn awaiting text once a recorded Attempt is complete', async () => {
+    for (const fixtureName of recordedAttempts) {
+      const snapshot = reconstructTranscriptSnapshot(
+        await readFixture(fixtureName)
+      );
+
+      // "Awaiting text" is how a real transcription failure shows itself, so it
+      // has to be absent from a healthy Attempt or it means nothing.
+      expect(snapshot.filter((turn) => 'status' in turn)).toEqual([]);
+    }
   });
 });

@@ -203,7 +203,9 @@ describe('the Trainee-facing app', () => {
     ).toBeNull();
   });
 
-  it('recognizes the macOS shortcut when Option changes the key value', async () => {
+  // US-International resolves this chord through AltGr and types Ð, so the
+  // shortcut has to be recognised by physical key rather than by character.
+  it('recognizes the shortcut on a layout that remaps the typed character', async () => {
     respondWithScenario();
     const readTranscript = vi.fn(() => Promise.resolve([]));
     const connectAttempt = vi.fn<ConnectRealtimeAttempt>(() =>
@@ -217,9 +219,9 @@ describe('the Trainee-facing app', () => {
     await screen.findByText('Listening');
 
     fireEvent.keyDown(window, {
-      key: '∂',
+      key: 'Ð',
       code: 'KeyD',
-      metaKey: true,
+      ctrlKey: true,
       altKey: true,
       shiftKey: true,
     });
@@ -228,6 +230,33 @@ describe('the Trainee-facing app', () => {
       await screen.findByRole('complementary', { name: 'Debug Transcript' })
     ).toBeTruthy();
     expect(readTranscript).toHaveBeenCalledOnce();
+  });
+
+  it('ignores the Windows key standing in for Control', async () => {
+    respondWithScenario();
+    const readTranscript = vi.fn(() => Promise.resolve([]));
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(() =>
+      Promise.resolve({ readTranscript, stop: vi.fn() })
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    await screen.findByText('Listening');
+
+    fireEvent.keyDown(window, {
+      key: 'd',
+      code: 'KeyD',
+      metaKey: true,
+      altKey: true,
+      shiftKey: true,
+    });
+
+    expect(
+      screen.queryByRole('complementary', { name: 'Debug Transcript' })
+    ).toBeNull();
+    expect(readTranscript).not.toHaveBeenCalled();
   });
 
   it('keeps the debug shortcut inert outside a live Attempt', async () => {

@@ -123,14 +123,17 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
 
   useEffect(() => {
     const toggleDebugTranscript = (event: KeyboardEvent) => {
-      const primaryModifierPressed = event.ctrlKey || event.metaKey;
+      // Match the physical key, not the character it types. Windows treats
+      // Ctrl+Alt as AltGr, so on US-International this chord types Ð and an
+      // `event.key` check would silently stop working — with no affordance on
+      // screen, a shortcut that quietly does nothing is undebuggable.
       const debugKeyPressed =
         event.code === 'KeyD' || event.key.toLowerCase() === 'd';
 
       if (
         event.repeat ||
         liveAttempt.current === null ||
-        !primaryModifierPressed ||
+        !event.ctrlKey ||
         !event.altKey ||
         !event.shiftKey ||
         !debugKeyPressed

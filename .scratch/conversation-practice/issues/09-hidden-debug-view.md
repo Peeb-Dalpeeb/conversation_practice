@@ -56,12 +56,48 @@ build and it does not get quietly walked back for the author's own convenience.
   submission or is silently served a stale one. It needs its own request path.
 
 - **Implemented 2026-07-30.** During a live Attempt,
-  `Ctrl+Alt+Shift+D` (`Cmd+Alt+Shift+D` on macOS) reveals the debug Transcript and the same
+  `Ctrl+Alt+Shift+D` reveals the debug Transcript and the same
   shortcut hides it. While visible, the page asks the side-effect-free
   `POST /api/attempts/transcript` endpoint for a fresh server reconstruction once per second;
   valid turns whose text has not arrived yet are shown in order as awaiting text, without
   hiding completed turns. Structural reconstruction failures are logged in the server terminal;
   the panel labels a failed refresh and retains its last successful snapshot. Completion
   reconstruction remains strict, and the completion submission remains separate and once-only.
-  Turn numbers make order explicit, and the physical `KeyD` binding keeps the macOS shortcut
-  working when Option changes the typed character.
+  Turn numbers make order explicit, and the shortcut matches the physical `KeyD` rather than
+  the character it types, so it survives layouts that remap the chord.
+
+- **The shortcut is Control-only, and reads the physical key on purpose.** Windows resolves
+  Ctrl+Alt as AltGr, so on the US-International layout this chord types `Ð` — an `event.key`
+  check alone would stop matching, and a hidden shortcut that quietly does nothing has no
+  affordance to debug it with. The `event.code === 'KeyD'` test costs two lines and removes
+  that whole class of failure. It was originally added and described as macOS support, which
+  was the wrong reason for the right code.
+
+  `event.metaKey` was dropped. It was the genuinely Mac-only part, this organisation is not
+  running macOS, and on Windows it silently bound Win+Alt+Shift+D as a second way in that
+  nobody asked for. Control is now the only accepted modifier, with a test holding the
+  Windows key out.
+
+- **The lenient snapshot is measured against recorded Attempts, not argued for.** The first
+  implementation reused the strict completion reassembly, which fails closed on a turn with no
+  text yet. Mid-Attempt that is the normal state, not an exception: a turn is registered at
+  `conversation.item.added` when it starts and gains its text only when it ends, so replaying
+  every prefix of the five captured logs in `.scratch/conversation-practice/evidence/` threw on
+  56–67% of them — the panel would have read "reconstruction is currently failing" for most of a
+  healthy Attempt, including the whole time anyone was speaking. Against the same 3,094 prefixes
+  the snapshot now throws on none. The strict path was checked separately and is byte-identical
+  to its pre-split behaviour, thrown error messages included, across 1,117 prefixes.
+
+  `test/attempt-completion.test.ts` holds that down with a sweep over every prefix of the four
+  `test/fixtures/raw-event-logs/` fixtures: the snapshot never throws, completion still refuses
+  the same partial body, and a *complete* log leaves no turn awaiting text — the last one is
+  what keeps "Awaiting text…" meaningful, since a marker that also appears on healthy finished
+  Attempts would signal nothing. Restoring the old fail-closed behaviour fails the first two.
+  Reassembly costs 0.4–0.7 ms per poll on a normal log and 4.6 ms on the 877 KB runaway capture,
+  so the once-per-second read is free next to the live session.
+
+- **Still unverified live.** Everything above is stubs and replayed logs. Nobody has pressed
+  `Ctrl+Alt+Shift+D` during a real Attempt, so the listener reaching `window` while WebRTC holds
+  focus, the panel over the live screen, and the poll under real audio are all untested — as is
+  criterion 3's "obvious at a glance", which is a judgment only the author can make by looking.
+  Worth doing on the next tuning run rather than first discovering it during ticket 10.
