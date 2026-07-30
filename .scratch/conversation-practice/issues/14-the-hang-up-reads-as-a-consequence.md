@@ -41,6 +41,13 @@ three.
    call ended normally, and coaches them to ask "Is there anything else you'd like me to know
    before I complete the cancellation?" — a question the Hang-up denied them.
 
+**Build them in the order 2, 1, 3.** The closing line is the tempting place to start, because
+it is prompt-only and costs nothing to change. Resist it. Nothing about any of the three can be
+checked without a microphone, and one live Attempt confirms all three at once — but only if the
+recording is already in place to capture it. Starting with the wording spends two sessions at
+the microphone where one would do, which is the same trap ticket 07 fell into from the other
+direction.
+
 **Tone is the risk in the third change, and it belongs to ticket 12, not here.** A Feedback
 model told "the customer hung up on you" will reach for drama. This ticket makes the fact
 available and states it plainly once; if the prose overreaches, that is strictness-and-tone
