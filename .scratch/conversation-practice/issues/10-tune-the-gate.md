@@ -53,9 +53,9 @@ nothing extra — the Scenario is already up and the runs are already happening.
 
 **Blocked by:** 09 — Hidden debug view.
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] The Gate is written in the Scenario file as an explicit flip condition, not as a
+- [x] The Gate is written in the Scenario file as an explicit flip condition, not as a
       described mood or a warmth gradient.
 - [ ] An Attempt opening with "I can offer you a discount" leaves Jordan colder, and Jordan
       does not soften at any point in that Attempt.
@@ -113,3 +113,20 @@ nothing extra — the Scenario is already up and the runs are already happening.
   named in the last checkbox have to happen while the Scenario is already up, with their
   Attempt numbers written back into this ticket. They are easy to forget across dozens of
   tuning runs and expensive to recreate once the Scenario has moved on.
+
+- **Agent handoff on 2026-07-30:** The repository already has useful but incomplete live
+  evidence. The saved Transcripts for Attempts 1 and 4 record Jordan rejecting repeated early
+  offers. Attempts 2 and 3 record Jordan cooperating when the Trainee proceeds directly to
+  cancellation. Attempt 5 records the cover story first, reveals the prior incident only after
+  a further open question, and does not treat “made you feel not heard” as a specific
+  acknowledgement of being made to feel stupid. These are text-only observations; whether the
+  Persona sounded cold, flat, or softened remains a human by-ear judgment. The Realtime session
+  is configured for `gpt-realtime-2.1` in `src/server/realtime.ts`.
+
+  No saved Attempt exercises blaming the colleague, a hollow scripted apology, or a specific
+  acknowledgement without excuses that should meet the Gate. The existing records also do not
+  contain the two exact deliberate failures required for ticket 12: accepting the cover story
+  and stopping there, and remaining warm and courteous without asking what happened. Repeated
+  by-ear verification is therefore still required. The ticket is `ready-for-human` because its
+  remaining acceptance criteria require a human Trainee to speak the Attempts and judge the
+  Persona's delivery; no Scenario wording was changed without that evidence.
