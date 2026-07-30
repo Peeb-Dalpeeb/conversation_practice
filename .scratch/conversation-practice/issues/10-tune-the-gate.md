@@ -114,22 +114,37 @@ nothing extra — the Scenario is already up and the runs are already happening.
   Attempt numbers written back into this ticket. They are easy to forget across dozens of
   tuning runs and expensive to recreate once the Scenario has moved on.
 
-- **Agent handoff on 2026-07-30:** The repository already has useful but incomplete live
-  evidence. The saved Transcripts for Attempts 1 and 4 record Jordan rejecting repeated early
-  offers. Attempts 2 and 3 record Jordan cooperating when the Trainee proceeds directly to
-  cancellation. Attempt 5 records the cover story first, reveals the prior incident only after
-  a further open question, and does not treat “made you feel not heard” as a specific
-  acknowledgement of being made to feel stupid. These are text-only observations; whether the
-  Persona sounded cold, flat, or softened remains a human by-ear judgment. The Realtime session
-  is configured for `gpt-realtime-2.1` in `src/server/realtime.ts`.
+- **Agent handoff on 2026-07-30:** the authored Gate logic is now internally explicit before
+  live tuning. The Private Profile no longer offers "feeling heard" as an alternate softening
+  condition. A discount or retention offer in the Trainee's first response locks Jordan cold
+  for that Attempt and makes the Gate unavailable. The first request for a reason now always
+  receives only the price cover story, even when that request is open-ended; the prior incident
+  is available only after that cover story and only to a subsequent open question.
+
+  The repository already has useful but incomplete text evidence. The saved Transcripts for
+  Attempts 1 and 4 record Jordan rejecting repeated early offers. Attempts 2 and 3 record
+  Jordan cooperating when the Trainee proceeds directly to cancellation. Attempt 5 records the
+  cover story first, reveals the prior incident only after a further open question, and does
+  not treat “made you feel not heard” as a specific acknowledgement of being made to feel
+  stupid. These text observations do not establish whether the Persona sounded cold, flat, or
+  softened. The Realtime session is configured for `gpt-realtime-2.1` in
+  `src/server/realtime.ts`.
 
   No saved Attempt exercises blaming the colleague, a hollow scripted apology, or a specific
   acknowledgement without excuses that should meet the Gate. The existing records also do not
   contain the two exact deliberate failures required for ticket 12: accepting the cover story
   and stopping there, and remaining warm and courteous without asking what happened. Repeated
-  by-ear verification is therefore still required. The ticket is `ready-for-human` because its
+  by-ear verification is therefore still required.
+
+  `npm.cmd test -- --run test/scenario.test.ts` and `npm.cmd run typecheck` passed in the branch
+  implementation. These are regression and plumbing checks, not evidence of Persona behaviour.
+  No live Attempt was performed in that agent pass, so criteria 2–9 remain unchecked and neither
+  deliberate failure has an Attempt number. Continue in a microphone-enabled browser against
+  the existing `gpt-realtime-2.1` pin, judge every behaviour by ear, use the hidden Transcript
+  and persisted records to diagnose misses, and write the two deliberate failure Attempt
+  numbers here before resolving the ticket. The ticket is `ready-for-human` because those
   remaining acceptance criteria require a human Trainee to speak the Attempts and judge the
-  Persona's delivery; no Scenario wording was changed without that evidence.
+  Persona's delivery.
 
 - **Authored tuning levers added after review on 2026-07-30:** `src/scenario.ts` now owns the
   Persona voice and a dedicated set of delivery rules. The rules make pre-Gate brevity and

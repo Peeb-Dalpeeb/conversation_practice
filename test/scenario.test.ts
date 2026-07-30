@@ -23,6 +23,9 @@ describe("The Customer Who's Had Enough Scenario", () => {
     expect(scenario.persona.privateProfile.actualIntent).toContain(
       'does not actually want to leave'
     );
+    expect(scenario.persona.privateProfile.actualIntent).toMatch(
+      /must not soften.*unless the Gate is met/
+    );
     expect(scenario.persona.privateProfile.priorIncident).toMatch(
       /Three weeks ago.*simple question.*rushed and dismissive.*feeling stupid/
     );
@@ -31,6 +34,18 @@ describe("The Customer Who's Had Enough Scenario", () => {
     );
     expect(scenario.persona.behaviourRules.join(' ')).toMatch(
       /comply flatly.*then hang up in that same turn/
+    );
+    expect(scenario.persona.behaviourRules.join(' ')).toMatch(
+      /first response.*discount.*remain cold for the rest of the Attempt.*Gate cannot be met/s
+    );
+    expect(scenario.persona.behaviourRules.join(' ')).toMatch(
+      /tries to solve.*before understanding.*become colder/s
+    );
+    expect(scenario.persona.behaviourRules.join(' ')).toMatch(
+      /first time.*asks why.*only the cover story.*even if.*open-ended.*do not reveal the prior incident in that turn/s
+    );
+    expect(scenario.persona.behaviourRules.join(' ')).toMatch(
+      /After giving the cover story.*subsequent open question.*yes-or-no question.*guess.*offer.*apology.*first permitted disclosure/s
     );
     expect(scenario.persona.behaviourRules.join(' ')).toMatch(
       /misses the Gate.*never correct.*missing acknowledgement.*does not prevent.*later, genuinely new open question.*repeats a fact/s

@@ -116,7 +116,7 @@ export const scenario = {
     ],
     privateProfile: {
       actualIntent:
-        'Jordan does not actually want to leave if they can feel genuinely heard.',
+        'Jordan does not actually want to leave, but must not soften or show any willingness to stay unless the Gate is met.',
       priorIncident:
         'Three weeks ago Jordan called with a simple question. The service representative sounded rushed and dismissive, leaving Jordan feeling stupid for asking.',
       meaningOfCancellation:
@@ -124,9 +124,10 @@ export const scenario = {
     },
     behaviourRules: [
       'Begin firm and clipped, and remain guarded until the Gate is met.',
+      "If the Trainee's first response offers a discount or another retention offer intended to save the account, become colder and remain cold for the rest of the Attempt. In that Attempt the Gate cannot be met.",
       'If the Trainee tries to solve the problem or makes an offer before understanding why Jordan wants to leave, become colder.',
-      'When first pressed for a reason, say that the fees are too high and somewhere else is cheaper.',
-      'Reveal the prior incident only in response to an open question that invites Jordan to explain what happened. On that first permitted disclosure, say plainly that the representative was rushed and dismissive and made Jordan feel stupid for asking.',
+      'The first time the Trainee asks why Jordan is leaving, always give only the cover story: the fees are too high and somewhere else is cheaper. Do this even if the first question is open-ended, and do not reveal the prior incident in that turn.',
+      'After giving the cover story, reveal the prior incident only in response to a subsequent open question that invites Jordan to explain what happened. Do not reveal it in response to a yes-or-no question, a guess, an offer, or an apology. On that first permitted disclosure, say plainly that the representative was rushed and dismissive and made Jordan feel stupid for asking.',
       'Stay cold if the Trainee blames another representative, the company, a policy, or a system.',
       'Treat a generic or scripted apology as insufficient to meet the Gate.',
       "In the immediate response after the complete prior incident has been disclosed, if the Trainee's acknowledgement misses the Gate, never correct it, volunteer a missing fact as a hint, suggest exact wording, or explain the missing acknowledgement. Say only that they still have not understood, and remain guarded. This does not prevent Jordan from answering a later, genuinely new open question honestly, even when that answer repeats a fact.",
