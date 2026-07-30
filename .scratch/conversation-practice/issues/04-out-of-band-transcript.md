@@ -41,20 +41,20 @@ logs from real Attempts, and this is where they get captured.
 
 **Blocked by:** 03 — A live Attempt over WebRTC.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each Trainee turn is transcribed by a second response on the same session with
+- [x] Each Trainee turn is transcribed by a second response on the same session with
       `conversation: "none"`, text-only output, scoped to the latest turn.
-- [ ] Each Persona turn's text is its own `response.output_audio_transcript.done`, present in
+- [x] Each Persona turn's text is its own `response.output_audio_transcript.done`, present in
       the forwarded log; no second response is issued for it.
-- [ ] No in-session ASR / dedicated transcription model is used anywhere.
-- [ ] Out-of-band transcription responses do not affect the spoken conversation — the Persona
+- [x] No in-session ASR / dedicated transcription model is used anywhere.
+- [x] Out-of-band transcription responses do not affect the spoken conversation — the Persona
       does not react to them, and the Trainee hears nothing extra.
-- [ ] When an Attempt ends, the page forwards the complete raw event log to the server.
-- [ ] The forwarded log is stored untouched and preserves `item_id`,
+- [x] When an Attempt ends, the page forwards the complete raw event log to the server.
+- [x] The forwarded log is stored untouched and preserves `item_id`,
       `previous_item_id`, and `conversation.item.truncated` on every event that carries them.
-- [ ] The page performs no reassembly, ordering, or Transcript accumulation.
-- [ ] Real event logs are captured and kept for ticket 05's fixtures, including one where
+- [x] The page performs no reassembly, ordering, or Transcript accumulation.
+- [x] Real event logs are captured and kept for ticket 05's fixtures, including one where
       the Trainee stopped mid-conversation and one where the Trainee interrupted the
       Persona mid-sentence.
 

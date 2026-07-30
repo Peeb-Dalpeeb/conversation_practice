@@ -36,21 +36,21 @@ API key never reaches the browser.
 
 **Blocked by:** 02 — The Scenario file and the Briefing screen.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Pressing start mints an ephemeral credential server-side and opens a realtime session
+- [x] Pressing start mints an ephemeral credential server-side and opens a realtime session
       from the browser; the API key is not in the browser bundle or in any response the
       browser receives beyond the ephemeral credential itself.
-- [ ] The Persona speaks first, unprompted, with the Scenario's opening line.
+- [x] The Persona speaks first, unprompted, with the Scenario's opening line.
 - [ ] The Trainee speaks out loud and is heard with nothing to press; the Persona replies in
       speech and in character.
 - [ ] The Trainee can interrupt the Persona, and the Persona can interrupt the Trainee.
-- [ ] During an Attempt the screen shows only a speaking/listening indicator and a stop
+- [x] During an Attempt the screen shows only a speaking/listening indicator and a stop
       control — no Briefing, no captions, no Transcript.
-- [ ] The stop control is present for the entire Attempt and ends it.
-- [ ] The connection lifecycle runs idle → live → ended and the Trainee can tell which state
+- [x] The stop control is present for the entire Attempt and ends it.
+- [x] The connection lifecycle runs idle → live → ended and the Trainee can tell which state
       they are in.
-- [ ] The Persona's instructions come from the Scenario file, not from code.
+- [x] The Persona's instructions come from the Scenario file, not from code.
 
 ## Comments
 

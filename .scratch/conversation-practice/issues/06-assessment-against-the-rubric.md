@@ -34,12 +34,12 @@ model call.
 
 **Blocked by:** 05 — Attempt completion: reassembly and persistence (the seam).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every Attempt is judged against the same six criteria, in a fixed order.
-- [ ] Each criterion returns met or not met, with no partial credit and no middle value.
-- [ ] Each criterion carries a quoted line from the Transcript as evidence.
-- [ ] The Assessment runs as its own call to `gpt-5.6-sol` with structured output, in its own
+- [x] Every Attempt is judged against the same six criteria, in a fixed order.
+- [x] Each criterion returns met or not met, with no partial credit and no middle value.
+- [x] Each criterion carries a quoted line from the Transcript as evidence.
+- [x] The Assessment runs as its own call to `gpt-5.6-sol` with structured output, in its own
       context — never the Persona's conversation, never the Persona's model.
-- [ ] The Assessment is persisted as part of the Attempt record.
-- [ ] The completion endpoint's tests still run against an injected stub.
+- [x] The Assessment is persisted as part of the Attempt record.
+- [x] The completion endpoint's tests still run against an injected stub.

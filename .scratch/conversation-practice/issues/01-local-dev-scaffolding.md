@@ -15,15 +15,15 @@ deployment.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] One documented command starts both the server and the page; no second terminal, no
+- [x] One documented command starts both the server and the page; no second terminal, no
       manual build step.
-- [ ] The page loads in a desktop browser and successfully calls a server endpoint through
+- [x] The page loads in a desktop browser and successfully calls a server endpoint through
       the dev proxy.
-- [ ] Both server and page are TypeScript, sharing one language across the project.
-- [ ] The server reads the OpenAI API key from the environment; the key appears nowhere in
+- [x] Both server and page are TypeScript, sharing one language across the project.
+- [x] The server reads the OpenAI API key from the environment; the key appears nowhere in
       the browser bundle.
-- [ ] An example environment file is committed naming the required variables; the real
+- [x] An example environment file is committed naming the required variables; the real
       environment file is ignored by version control.
-- [ ] A fresh clone can be brought up from the README with no undocumented steps.
+- [x] A fresh clone can be brought up from the README with no undocumented steps.

@@ -26,15 +26,15 @@ to perform this live without domain expertise.
 
 **Blocked by:** 01 — Local dev scaffolding, one command.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The Scenario is one file, read by the server, holding the Briefing, the Persona's
+- [x] The Scenario is one file, read by the server, holding the Briefing, the Persona's
       public description, the Private Profile, the behaviour rules, the named Gate, the
       hang-up precondition, and the six Rubric criteria.
-- [ ] The Trainee sees the Briefing before an Attempt begins, and it states there are no
+- [x] The Trainee sees the Briefing before an Attempt begins, and it states there are no
       discounts, no waivers and no authority to change anything.
-- [ ] A single explicit start control is on the Briefing screen; no Attempt begins without
+- [x] A single explicit start control is on the Briefing screen; no Attempt begins without
       it.
-- [ ] Editing the Scenario file and restarting changes the Briefing on screen — no rebuild
+- [x] Editing the Scenario file and restarting changes the Briefing on screen — no rebuild
       ritual, no second place to update.
-- [ ] The Scenario contains no company-specific or proprietary detail.
+- [x] The Scenario contains no company-specific or proprietary detail.

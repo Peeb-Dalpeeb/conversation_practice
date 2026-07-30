@@ -59,23 +59,23 @@ the rest of the repository. There is none to inherit; this is the first code wit
 
 **Blocked by:** 04 — Out-of-band Transcript and the raw event log.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Posting a completed event log to the server produces a persisted Attempt as JSON on
+- [x] Posting a completed event log to the server produces a persisted Attempt as JSON on
       disk, numbered per Scenario.
-- [ ] Turns are reassembled into correct order by walking the `previous_item_id` chain on
+- [x] Turns are reassembled into correct order by walking the `previous_item_id` chain on
       `conversation.item.added` / `conversation.item.done`, and the same Transcript comes
       back when the same log's envelopes are shuffled.
-- [ ] Speaker attribution is correct — a line credited to the Trainee is one the Trainee
+- [x] Speaker attribution is correct — a line credited to the Trainee is one the Trainee
       said.
-- [ ] A Persona turn cut off by an interruption or by the stop is recorded with its
+- [x] A Persona turn cut off by an interruption or by the stop is recorded with its
       `audio_end_ms` and marked as cut off, so no later Assessment can quote it as
       something the Trainee heard.
-- [ ] A Trainee-initiated stop terminates the Attempt and triggers judging.
-- [ ] The Assessment and Feedback calls are injected, so tests run against stubs; Assessment
+- [x] A Trainee-initiated stop terminates the Attempt and triggers judging.
+- [x] The Assessment and Feedback calls are injected, so tests run against stubs; Assessment
       runs before Feedback, and Feedback receives both the Assessment and the Transcript.
-- [ ] The Trainee sees that the Attempt has ended and that judging is in progress.
-- [ ] Tests run at the completion endpoint against recorded event logs from real Attempts,
+- [x] The Trainee sees that the Attempt has ended and that judging is in progress.
+- [x] Tests run at the completion endpoint against recorded event logs from real Attempts,
       covering a mid-conversation stop, an interrupted Persona turn, and a shuffled log.
 - [ ] No test asserts on internal function calls, module structure, or intermediate values.
 
