@@ -96,8 +96,11 @@ build and it does not get quietly walked back for the author's own convenience.
   Reassembly costs 0.4–0.7 ms per poll on a normal log and 4.6 ms on the 877 KB runaway capture,
   so the once-per-second read is free next to the live session.
 
-- **Still unverified live.** Everything above is stubs and replayed logs. Nobody has pressed
-  `Ctrl+Alt+Shift+D` during a real Attempt, so the listener reaching `window` while WebRTC holds
-  focus, the panel over the live screen, and the poll under real audio are all untested — as is
-  criterion 3's "obvious at a glance", which is a judgment only the author can make by looking.
-  Worth doing on the next tuning run rather than first discovering it during ticket 10.
+- **Verified live 2026-07-30.** Everything above it is stubs and replayed logs, so the shortcut
+  was exercised against a real Attempt before ticket 10 started depending on it.
+  `Ctrl+Alt+Shift+D` reveals the panel, the listener reaches `window` while WebRTC holds the
+  page, and turns appear as they complete. A Persona turn the Trainee cut off shows her full
+  text *and* the truncation point, so an interruption reads as an interruption rather than as a
+  transcription failure — the one case where the panel could plausibly have misled the author
+  about what the Transcript actually holds. Criterion 3's "obvious at a glance" was checked the
+  only way it can be, by looking at it.

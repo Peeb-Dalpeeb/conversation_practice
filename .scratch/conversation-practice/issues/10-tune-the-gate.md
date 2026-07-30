@@ -69,3 +69,47 @@ nothing extra — the Scenario is already up and the runs are already happening.
 - [ ] Two deliberate Trainee failures are performed and their Attempt numbers noted for
       ticket 12: one that accepts the cover story and stops there, and one that is warm and
       courteous throughout but never asks what happened.
+
+## Comments
+
+- **The Gate is already a flip condition. This ticket verifies it under pressure rather than
+  authoring it.** `src/scenario.ts:115` holds `gate.condition` as an explicit trigger — the
+  Trainee acknowledging that the rushed, dismissive call left Jordan feeling stupid, without
+  explaining it away, blaming anyone else, or pivoting straight to a solution. That is the
+  shape this ticket asks for and not a described mood, so criterion 1 is largely met on paper
+  already. Every behaviour in the list above also has a home in `behaviourRules`
+  (`src/scenario.ts:105`): firm opening, colder at an early offer, flat compliance when the
+  cancellation is simply processed, the cover story when first pressed, the real reason only
+  on an open question, cold at blame, cold at a scripted apology, and softening once the Gate
+  is met.
+
+  Read that as a starting point to be broken by live runs, not as a finished job. None of that
+  wording has been held against a model whose default is to be relentlessly agreeable, which is
+  the failure this ticket exists to catch. Tuning means editing those strings and re-running:
+  `buildPersonaInstructions`
+  (`src/server/realtime.ts:31`) only orders what the Scenario file already says, so a run that
+  goes wrong is fixed in `behaviourRules` or `gate.condition` and never in code.
+
+- **Only criterion 1 is desk work. Criteria 2–9 cannot be delegated to an agent.** They need
+  live Attempts against `gpt-realtime-2.1` with the author speaking as the Trainee and judging
+  by ear whether Jordan actually went colder at the discount opener, held the cover story, or
+  softened too easily. An agent cannot speak, listen, or make that judgment. Do not check those
+  boxes and do not write evidence for Attempts that were not performed: a confident "verified
+  across repeated Attempts" for runs that never happened is worse than an unchecked box,
+  because ticket 12's Rubric strictness and ticket 13's dry run both rest on this being real.
+
+- **The instrument is working; read runs back instead of guessing at them.** Ticket 09's debug
+  view was verified live on 2026-07-30. During an Attempt, `Ctrl+Alt+Shift+D` reveals the
+  server-reconstructed Transcript — numbered, speaker-attributed, refreshed once a second, with
+  a turn still in progress reading "Awaiting text…" and a cut-off Persona turn showing her full
+  text plus the truncation point. Control only; the Windows key is deliberately not a modifier.
+  The other half of the instrument is on disk: judged Attempts in `data/attempts`, and the raw
+  event log of every run in `data/raw-event-logs` for when the Transcript alone does not explain
+  what happened.
+
+- **Do not lose the two deliberate failures.** Every Attempt captured so far is a good one — a
+  Trainee who asks an open question and reaches the prior incident. Ticket 12 cannot check
+  whether criterion 3 is being given away using only Attempts that succeeded, so the two runs
+  named in the last checkbox have to happen while the Scenario is already up, with their
+  Attempt numbers written back into this ticket. They are easy to forget across dozens of
+  tuning runs and expensive to recreate once the Scenario has moved on.
