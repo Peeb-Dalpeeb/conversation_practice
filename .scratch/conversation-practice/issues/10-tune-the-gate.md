@@ -157,3 +157,31 @@ nothing extra — the Scenario is already up and the runs are already happening.
   filename, making the two tuning instruments directly correlatable. These changes provide
   better levers and evidence; they do not satisfy the unchecked by-ear criteria without new
   live Attempts.
+
+- **Two corrections to that pass, before any live run — 2026-07-30.** Both are Scenario
+  wording, so the repeat count for criterion 7 starts from here and no earlier.
+
+  `privateProfile.actualIntent` had been rewritten to "does not actually want to leave, but
+  must not soften or show any willingness to stay unless the Gate is met". That field is handed
+  to the grader as ground truth — `assessAttempt` receives it alongside the Transcript and the
+  Rubric, under the instruction to treat it as fact the Trainee could not see. A stage direction
+  addressed to the Persona does not belong there, and burying the wanting-to-stay fact behind it
+  leaves rubric criterion 6, "checked that the customer felt heard", with nothing to check
+  against. The field is ground truth again; the constraint it carried is now its own behaviour
+  rule, which is the channel the Persona actually reads.
+
+  The anti-coaching rule applied only "in the immediate response after the complete prior
+  incident has been disclosed", and then carved out answering "a later, genuinely new open
+  question honestly, even when that answer repeats a fact". Attempt 5 walks straight through
+  both halves: the coaching at turn 8 is followed at turn 10 by the incident restated in full to
+  "can you tell me more about that", which the carve-out permits. The rule now applies to any
+  missed acknowledgement at any point, and the carve-out is narrowed so a fact is never supplied
+  in the same turn that rejects an acknowledgement — which is the shape of the one coaching
+  failure on record, "Not quite" followed by the missing wording.
+
+- **Still open, and deliberately not fixed here.** Starting another Attempt needs a page reload;
+  ticket 11 owns that control and adding it now would put an affordance on the near-empty
+  Attempt screen that ticket 03 and ticket 09 both guard. The Attempt number is still not shown
+  on screen, so the numbers for the last checkbox come from the `data/attempts` listing. Every
+  raw log ends with `input_audio_buffer_commit_empty` and `response_cancel_not_active` from the
+  stop sequence itself; both are expected and neither indicates a bad run.

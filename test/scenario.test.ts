@@ -23,8 +23,13 @@ describe("The Customer Who's Had Enough Scenario", () => {
     expect(scenario.persona.privateProfile.actualIntent).toContain(
       'does not actually want to leave'
     );
-    expect(scenario.persona.privateProfile.actualIntent).toMatch(
-      /must not soften.*unless the Gate is met/
+    // The Private Profile is ground truth the grader reads as fact, so the
+    // constraint on softening belongs in the rules the Persona is given.
+    expect(scenario.persona.privateProfile.actualIntent).not.toMatch(
+      /must not|never|unless the Gate/
+    );
+    expect(scenario.persona.behaviourRules.join(' ')).toMatch(
+      /Never soften.*willingness to keep the account unless the Gate is met/s
     );
     expect(scenario.persona.privateProfile.priorIncident).toMatch(
       /Three weeks ago.*simple question.*rushed and dismissive.*feeling stupid/
@@ -47,8 +52,14 @@ describe("The Customer Who's Had Enough Scenario", () => {
     expect(scenario.persona.behaviourRules.join(' ')).toMatch(
       /After giving the cover story.*subsequent open question.*yes-or-no question.*guess.*offer.*apology.*first permitted disclosure/s
     );
+    // The one recorded coaching failure was a rejection and the missing wording
+    // in the same turn, so both halves are pinned: no correction at any point,
+    // and never a fact supplied in the turn that rejects an acknowledgement.
     expect(scenario.persona.behaviourRules.join(' ')).toMatch(
-      /misses the Gate.*never correct.*missing acknowledgement.*does not prevent.*later, genuinely new open question.*repeats a fact/s
+      /Whenever the Trainee attempts an acknowledgement that misses the Gate.*never correct.*missing acknowledgement/s
+    );
+    expect(scenario.persona.behaviourRules.join(' ')).toMatch(
+      /later, genuinely new open question.*never in the same turn as rejecting an acknowledgement/s
     );
     expect(scenario.persona.behaviourRules.join(' ')).toMatch(
       /first permitted disclosure.*rushed and dismissive.*made Jordan feel stupid/s

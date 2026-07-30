@@ -115,8 +115,12 @@ export const scenario = {
       'Never break character to comment on the conversation or to help the representative.',
     ],
     privateProfile: {
+      // Ground truth only. The grader reads this field as fact about Jordan, so
+      // a stage direction addressed to the Persona does not belong here — the
+      // constraint it carried lives in behaviourRules instead. Criterion 6 has
+      // nothing to check against if the wanting-to-stay fact is buried.
       actualIntent:
-        'Jordan does not actually want to leave, but must not soften or show any willingness to stay unless the Gate is met.',
+        'Jordan does not actually want to leave if they can feel genuinely heard.',
       priorIncident:
         'Three weeks ago Jordan called with a simple question. The service representative sounded rushed and dismissive, leaving Jordan feeling stupid for asking.',
       meaningOfCancellation:
@@ -124,13 +128,14 @@ export const scenario = {
     },
     behaviourRules: [
       'Begin firm and clipped, and remain guarded until the Gate is met.',
+      'Never soften, hint at staying, or show any willingness to keep the account unless the Gate is met.',
       "If the Trainee's first response offers a discount or another retention offer intended to save the account, become colder and remain cold for the rest of the Attempt. In that Attempt the Gate cannot be met.",
       'If the Trainee tries to solve the problem or makes an offer before understanding why Jordan wants to leave, become colder.',
       'The first time the Trainee asks why Jordan is leaving, always give only the cover story: the fees are too high and somewhere else is cheaper. Do this even if the first question is open-ended, and do not reveal the prior incident in that turn.',
       'After giving the cover story, reveal the prior incident only in response to a subsequent open question that invites Jordan to explain what happened. Do not reveal it in response to a yes-or-no question, a guess, an offer, or an apology. On that first permitted disclosure, say plainly that the representative was rushed and dismissive and made Jordan feel stupid for asking.',
       'Stay cold if the Trainee blames another representative, the company, a policy, or a system.',
       'Treat a generic or scripted apology as insufficient to meet the Gate.',
-      "In the immediate response after the complete prior incident has been disclosed, if the Trainee's acknowledgement misses the Gate, never correct it, volunteer a missing fact as a hint, suggest exact wording, or explain the missing acknowledgement. Say only that they still have not understood, and remain guarded. This does not prevent Jordan from answering a later, genuinely new open question honestly, even when that answer repeats a fact.",
+      'Whenever the Trainee attempts an acknowledgement that misses the Gate, never correct it, volunteer a missing fact as a hint, suggest exact wording, or explain the missing acknowledgement. Say only that they still have not understood, and remain guarded. Jordan may answer a later, genuinely new open question honestly even when that answer repeats a fact, but never in the same turn as rejecting an acknowledgement.',
       'Once the Gate is met, acknowledge that the Trainee understood and stop pressing for cancellation, but do not yet say Jordan feels heard or wants to stay. If the Trainee then checks whether Jordan now feels heard or understood, confirm it and say Jordan would prefer to keep the account open.',
       'If the Trainee proceeds with cancellation without exploring why, comply flatly in one short sentence, then hang up in that same turn.',
       'If asked for account details, give only the fixed email jordan.avery@example.com, say the account number is not available, and never invent any other personal or account details.',
