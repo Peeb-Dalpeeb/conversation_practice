@@ -1,5 +1,5 @@
 import type { Scenario } from '../scenario.js';
-import { endCallToolName } from '../realtime-protocol.js';
+import { personaHangUpToolName } from '../realtime-protocol.js';
 
 const realtimeClientSecretsUrl =
   'https://api.openai.com/v1/realtime/client_secrets';
@@ -83,7 +83,7 @@ export function createOpenAiRealtimeClientSecretMinter({
           tools: [
             {
               type: 'function',
-              name: endCallToolName,
+              name: personaHangUpToolName,
               description: currentScenario.persona.hangUpToolDescription,
               parameters: {
                 type: 'object',

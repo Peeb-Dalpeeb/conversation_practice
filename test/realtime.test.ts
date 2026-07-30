@@ -565,7 +565,7 @@ describe('a live Attempt in progress', () => {
       response_id: 'persona-response',
       item_id: 'end-call-item',
       call_id: 'end-call',
-      name: 'end_call',
+      name: 'hang_up',
       arguments: '{}',
     };
 
@@ -601,7 +601,7 @@ describe('a live Attempt in progress', () => {
       response_id: 'persona-response',
       item_id: 'end-call-item',
       call_id: 'end-call',
-      name: 'end_call',
+      name: 'hang_up',
       arguments: '{}',
     });
 
@@ -615,6 +615,26 @@ describe('a live Attempt in progress', () => {
       type: 'output_audio_buffer.stopped',
       response_id: 'persona-response',
     });
+    settleEmptyStopCommands(channel);
+
+    await vi.waitFor(() => {
+      expect(onJudgingStarted).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('still acts on the end-call tool when the Trainee interrupts the final line', async () => {
+    stubBrowser();
+    const { attempt, onJudgingStarted } = startAttempt();
+    await attempt;
+    const channel = liveDataChannel();
+
+    channel.deliver({ type: 'output_audio_buffer.started' });
+    channel.deliver({
+      type: 'response.function_call_arguments.done',
+      name: 'hang_up',
+      arguments: '{}',
+    });
+    channel.deliver({ type: 'output_audio_buffer.cleared' });
     settleEmptyStopCommands(channel);
 
     await vi.waitFor(() => {

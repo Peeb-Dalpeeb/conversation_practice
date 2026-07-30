@@ -1,4 +1,4 @@
-import { endCallToolName } from '../realtime-protocol.js';
+import { personaHangUpToolName } from '../realtime-protocol.js';
 
 export type AttemptActivity = 'listening' | 'speaking';
 
@@ -369,8 +369,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
   let finalized = false;
   let hardCap: ReturnType<typeof setTimeout> | undefined;
   let forcedFinalization: ReturnType<typeof setTimeout> | undefined;
-  let personaAudioPlaying = false;
-  let personaHangUpPending = false;
+  let personaAudioState: 'idle' | 'playing' | 'hang-up-pending' = 'idle';
   let quietFinalization: ReturnType<typeof setTimeout> | undefined;
   let rawEventLogSubmission: Promise<void> | undefined;
   let stopped = false;
@@ -517,6 +516,12 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       remoteAudio.srcObject = null;
     }
   };
+  const clearHardCap = () => {
+    if (hardCap) {
+      clearTimeout(hardCap);
+      hardCap = undefined;
+    }
+  };
   // The page no longer judges its own log. Turn tracking still decides *when* to
   // finalize, but whether the log is usable is the server's answer — it is the
   // side that reassembles the Transcript, and it says so in the failure code.
@@ -526,11 +531,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
     }
 
     finalized = true;
-
-    if (hardCap) {
-      clearTimeout(hardCap);
-      hardCap = undefined;
-    }
+    clearHardCap();
 
     if (forcedFinalization) {
       clearTimeout(forcedFinalization);
@@ -600,12 +601,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
 
     stopped = true;
     signal.removeEventListener('abort', stop);
-
-    if (hardCap) {
-      clearTimeout(hardCap);
-      hardCap = undefined;
-    }
-
+    clearHardCap();
     releaseInputAndOutput();
 
     if (!attemptOpened) {
@@ -745,10 +741,10 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
 
       if (
         serverEvent.type === 'response.function_call_arguments.done' &&
-        serverEvent.name === endCallToolName
+        serverEvent.name === personaHangUpToolName
       ) {
-        if (personaAudioPlaying) {
-          personaHangUpPending = true;
+        if (personaAudioState === 'playing') {
+          personaAudioState = 'hang-up-pending';
         } else {
           stop();
         }
@@ -837,7 +833,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       }
 
       if (!stopped && serverEvent.type === 'output_audio_buffer.started') {
-        personaAudioPlaying = true;
+        personaAudioState = 'playing';
         onActivity('speaking');
       }
 
@@ -846,14 +842,11 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
         (serverEvent.type === 'output_audio_buffer.stopped' ||
           serverEvent.type === 'output_audio_buffer.cleared')
       ) {
-        personaAudioPlaying = false;
+        const shouldHangUp = personaAudioState === 'hang-up-pending';
+        personaAudioState = 'idle';
         onActivity('listening');
 
-        if (
-          personaHangUpPending &&
-          serverEvent.type === 'output_audio_buffer.stopped'
-        ) {
-          personaHangUpPending = false;
+        if (shouldHangUp) {
           stop();
         }
       }

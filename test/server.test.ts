@@ -213,7 +213,7 @@ describe('the server HTTP interface', () => {
     expect(body.session.tools).toEqual([
       {
         type: 'function',
-        name: 'end_call',
+        name: 'hang_up',
         description: 'Hang-up tool description supplied by the Scenario.',
         parameters: {
           type: 'object',

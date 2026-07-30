@@ -1,1 +1,1 @@
-export const endCallToolName = 'end_call';
+export const personaHangUpToolName = 'hang_up';
