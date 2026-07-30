@@ -417,12 +417,63 @@ describe('a live Attempt in progress', () => {
     );
   });
 
+  it('accepts a live Transcript turn that is awaiting text', async () => {
+    stubBrowser({
+      transcriptBody: [
+        {
+          speaker: 'persona',
+          text: "I'd like to close my account.",
+          cutOff: false,
+        },
+        {
+          speaker: 'trainee',
+          status: 'awaiting-text',
+          itemId: 'trainee-turn',
+        },
+      ],
+    });
+    const { attempt } = startAttempt();
+    const liveAttempt = await attempt;
+
+    await expect(liveAttempt.readTranscript()).resolves.toEqual([
+      {
+        speaker: 'persona',
+        text: "I'd like to close my account.",
+        cutOff: false,
+      },
+      {
+        speaker: 'trainee',
+        status: 'awaiting-text',
+        itemId: 'trainee-turn',
+      },
+    ]);
+  });
+
   it('rejects an invalid Transcript returned by the server', async () => {
     stubBrowser({
       transcriptBody: [
         {
           speaker: 'unknown',
           text: 'This must not reach the debug view.',
+          cutOff: false,
+        },
+      ],
+    });
+    const { attempt } = startAttempt();
+    const liveAttempt = await attempt;
+
+    await expect(liveAttempt.readTranscript()).rejects.toThrow(
+      /Transcript response was invalid/
+    );
+  });
+
+  it('rejects a completed Transcript turn with an unexpected status', async () => {
+    stubBrowser({
+      transcriptBody: [
+        {
+          speaker: 'persona',
+          status: 'unexpected',
+          text: 'This text must not be hidden by an invalid discriminator.',
           cutOff: false,
         },
       ],

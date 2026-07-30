@@ -1,8 +1,5 @@
-import type {
-  CreateFeedback,
-  Assessment,
-  Transcript,
-} from './attempt-completion.js';
+import type { Transcript } from '../transcript.js';
+import type { CreateFeedback, Assessment } from './attempt-completion.js';
 import {
   requestCompletedText,
   type OpenAiResponsesFetch,

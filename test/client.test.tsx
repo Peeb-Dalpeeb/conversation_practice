@@ -51,6 +51,7 @@ function stubRealtimeAttempt(stop = vi.fn()): RealtimeAttempt {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.unstubAllGlobals();
 });
@@ -149,6 +150,11 @@ describe('the Trainee-facing app', () => {
           text: 'Can you tell me what happened?',
           cutOff: false as const,
         },
+        {
+          speaker: 'persona' as const,
+          status: 'awaiting-text' as const,
+          itemId: 'next-persona-turn',
+        },
       ])
     );
     const connectAttempt = vi.fn<ConnectRealtimeAttempt>(() =>
@@ -180,6 +186,10 @@ describe('the Trainee-facing app', () => {
     expect(transcript.textContent).toContain("I'd like to close my account.");
     expect(transcript.textContent).toContain('Trainee');
     expect(transcript.textContent).toContain('Can you tell me what happened?');
+    expect(screen.getByText('1 · Persona')).toBeTruthy();
+    expect(screen.getByText('2 · Trainee')).toBeTruthy();
+    expect(screen.getByText('3 · Persona')).toBeTruthy();
+    expect(screen.getByText('Awaiting text…')).toBeTruthy();
 
     fireEvent.keyDown(window, {
       key: 'd',
@@ -191,6 +201,166 @@ describe('the Trainee-facing app', () => {
     expect(
       screen.queryByRole('complementary', { name: 'Debug Transcript' })
     ).toBeNull();
+  });
+
+  it('recognizes the macOS shortcut when Option changes the key value', async () => {
+    respondWithScenario();
+    const readTranscript = vi.fn(() => Promise.resolve([]));
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(() =>
+      Promise.resolve({ readTranscript, stop: vi.fn() })
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    await screen.findByText('Listening');
+
+    fireEvent.keyDown(window, {
+      key: '∂',
+      code: 'KeyD',
+      metaKey: true,
+      altKey: true,
+      shiftKey: true,
+    });
+
+    expect(
+      await screen.findByRole('complementary', { name: 'Debug Transcript' })
+    ).toBeTruthy();
+    expect(readTranscript).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the debug shortcut inert outside a live Attempt', async () => {
+    respondWithScenario();
+    const readTranscript = vi.fn(() => Promise.resolve([]));
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(() =>
+      Promise.resolve({ readTranscript, stop: vi.fn() })
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+    const startButton = await screen.findByRole('button', {
+      name: 'Start attempt',
+    });
+
+    fireEvent.keyDown(window, {
+      key: 'd',
+      code: 'KeyD',
+      ctrlKey: true,
+      altKey: true,
+      shiftKey: true,
+    });
+    expect(
+      screen.queryByRole('complementary', { name: 'Debug Transcript' })
+    ).toBeNull();
+
+    fireEvent.click(startButton);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Stop attempt' })
+    );
+    fireEvent.keyDown(window, {
+      key: 'd',
+      code: 'KeyD',
+      ctrlKey: true,
+      altKey: true,
+      shiftKey: true,
+    });
+
+    expect(
+      screen.queryByRole('complementary', { name: 'Debug Transcript' })
+    ).toBeNull();
+    expect(readTranscript).not.toHaveBeenCalled();
+  });
+
+  it('shows a reconstruction failure when no snapshot has loaded yet', async () => {
+    respondWithScenario();
+    const readTranscript = vi.fn(() =>
+      Promise.reject(new Error('The Transcript could not be read.'))
+    );
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(() =>
+      Promise.resolve({ readTranscript, stop: vi.fn() })
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    await screen.findByText('Listening');
+
+    fireEvent.keyDown(window, {
+      key: 'd',
+      code: 'KeyD',
+      ctrlKey: true,
+      altKey: true,
+      shiftKey: true,
+    });
+
+    expect(
+      await screen.findByText('Transcript reconstruction is currently failing.')
+    ).toBeTruthy();
+    expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it('keeps the last Transcript snapshot visible when a refresh fails', async () => {
+    respondWithScenario();
+    const readTranscript = vi
+      .fn<RealtimeAttempt['readTranscript']>()
+      .mockResolvedValueOnce([
+        {
+          speaker: 'persona',
+          text: "I'd like to close my account.",
+          cutOff: false,
+        },
+      ])
+      .mockRejectedValueOnce(new Error('The Transcript could not be read.'))
+      .mockResolvedValueOnce([
+        {
+          speaker: 'persona',
+          text: 'The latest Transcript snapshot is available.',
+          cutOff: false,
+        },
+      ]);
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(() =>
+      Promise.resolve({ readTranscript, stop: vi.fn() })
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    await screen.findByText('Listening');
+    vi.useFakeTimers();
+
+    fireEvent.keyDown(window, {
+      key: 'd',
+      code: 'KeyD',
+      ctrlKey: true,
+      altKey: true,
+      shiftKey: true,
+    });
+    await act(async () => Promise.resolve());
+
+    expect(screen.getByText("I'd like to close my account.")).toBeTruthy();
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_000));
+
+    expect(
+      screen.getByText(
+        'Transcript refresh failed. Showing the last successful snapshot.'
+      )
+    ).toBeTruthy();
+    expect(screen.getByText("I'd like to close my account.")).toBeTruthy();
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_000));
+
+    expect(
+      screen.queryByText(
+        'Transcript refresh failed. Showing the last successful snapshot.'
+      )
+    ).toBeNull();
+    expect(
+      screen.getByText('The latest Transcript snapshot is available.')
+    ).toBeTruthy();
+    expect(screen.queryByText("I'd like to close my account.")).toBeNull();
   });
 
   it('leaves the live screen as soon as an Attempt ends autonomously', async () => {

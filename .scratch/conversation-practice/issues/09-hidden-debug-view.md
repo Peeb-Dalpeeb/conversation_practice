@@ -59,6 +59,9 @@ build and it does not get quietly walked back for the author's own convenience.
   `Ctrl+Alt+Shift+D` (`Cmd+Alt+Shift+D` on macOS) reveals the debug Transcript and the same
   shortcut hides it. While visible, the page asks the side-effect-free
   `POST /api/attempts/transcript` endpoint for a fresh server reconstruction once per second;
-  a reconstruction gap is shown as a failure rather than a stale success. The completion
-  submission remains separate and once-only. The full suite passes with 111 tests, and
-  typecheck, lint, formatting, and the production build all pass.
+  valid turns whose text has not arrived yet are shown in order as awaiting text, without
+  hiding completed turns. Structural reconstruction failures are logged in the server terminal;
+  the panel labels a failed refresh and retains its last successful snapshot. Completion
+  reconstruction remains strict, and the completion submission remains separate and once-only.
+  Turn numbers make order explicit, and the physical `KeyD` binding keeps the macOS shortcut
+  working when Option changes the typed character.

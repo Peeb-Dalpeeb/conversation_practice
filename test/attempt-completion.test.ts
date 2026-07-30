@@ -17,7 +17,6 @@ import {
   createAttemptCompleter,
   type Assessment,
   type CreateFeedback,
-  type Transcript,
 } from '../src/server/attempt-completion.js';
 import { createApiServer } from '../src/server/app.js';
 import {
@@ -29,6 +28,7 @@ import {
   createRawEventLogStore,
   type StoreRawEventLog,
 } from '../src/server/raw-event-log.js';
+import type { Transcript } from '../src/transcript.js';
 
 const fixtureDirectory = resolve('test', 'fixtures', 'raw-event-logs');
 const servers: ReturnType<typeof createApiServer>[] = [];

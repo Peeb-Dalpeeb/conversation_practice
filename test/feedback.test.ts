@@ -4,10 +4,8 @@ import {
   createOpenAiFeedbackCreator,
   type OpenAiResponsesFetch,
 } from '../src/server/feedback.js';
-import type {
-  Assessment,
-  Transcript,
-} from '../src/server/attempt-completion.js';
+import type { Assessment } from '../src/server/attempt-completion.js';
+import type { Transcript } from '../src/transcript.js';
 
 const assessment: Assessment = {
   criteria: [

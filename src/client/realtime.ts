@@ -1,10 +1,10 @@
 import { personaHangUpToolName } from '../realtime-protocol.js';
-import type { Transcript } from '../server/attempt-completion.js';
+import type { TranscriptSnapshot } from '../transcript.js';
 
 export type AttemptActivity = 'listening' | 'speaking';
 
 export type RealtimeAttempt = {
-  readTranscript(): Promise<Transcript>;
+  readTranscript(): Promise<TranscriptSnapshot>;
   stop(): void;
 };
 
@@ -155,20 +155,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function isTranscript(value: unknown): value is Transcript {
+function isTranscriptSnapshotTurn(turn: unknown): boolean {
+  if (
+    !isRecord(turn) ||
+    (turn.speaker !== 'persona' && turn.speaker !== 'trainee')
+  ) {
+    return false;
+  }
+
+  if ('status' in turn) {
+    return turn.status === 'awaiting-text' && typeof turn.itemId === 'string';
+  }
+
+  return (
+    typeof turn.text === 'string' &&
+    typeof turn.cutOff === 'boolean' &&
+    (turn.cutOff === false ||
+      (turn.speaker === 'persona' &&
+        typeof turn.audioEndMs === 'number' &&
+        Number.isFinite(turn.audioEndMs)))
+  );
+}
+
+function isTranscriptSnapshot(value: unknown): value is TranscriptSnapshot {
   return (
     Array.isArray(value) &&
-    value.every(
-      (turn) =>
-        isRecord(turn) &&
-        (turn.speaker === 'persona' || turn.speaker === 'trainee') &&
-        typeof turn.text === 'string' &&
-        typeof turn.cutOff === 'boolean' &&
-        (turn.cutOff === false ||
-          (turn.speaker === 'persona' &&
-            typeof turn.audioEndMs === 'number' &&
-            Number.isFinite(turn.audioEndMs)))
-    )
+    value.every((turn) => isTranscriptSnapshotTurn(turn))
   );
 }
 
@@ -681,7 +693,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
     onEnded();
   };
 
-  const readTranscript = async (): Promise<Transcript> => {
+  const readTranscript = async (): Promise<TranscriptSnapshot> => {
     const response = await fetch('/api/attempts/transcript', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -692,13 +704,13 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       throw new Error('The Transcript could not be read.');
     }
 
-    const transcript: unknown = await response.json();
+    const transcriptSnapshot: unknown = await response.json();
 
-    if (!isTranscript(transcript)) {
+    if (!isTranscriptSnapshot(transcriptSnapshot)) {
       throw new TypeError('The Transcript response was invalid.');
     }
 
-    return transcript;
+    return transcriptSnapshot;
   };
 
   signal.addEventListener('abort', stop, { once: true });

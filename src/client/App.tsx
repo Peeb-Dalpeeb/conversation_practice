@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { PublicScenario } from '../scenario.js';
-import type { Transcript } from '../server/attempt-completion.js';
+import type { TranscriptSnapshot } from '../transcript.js';
 import {
   AttemptFailedError,
   connectRealtimeAttempt,
@@ -39,8 +39,8 @@ type AppProps = {
 type DebugTranscriptState =
   | { name: 'hidden' }
   | { name: 'loading' }
-  | { name: 'ready'; transcript: Transcript }
-  | { name: 'failed' };
+  | { name: 'ready'; transcript: TranscriptSnapshot }
+  | { name: 'failed'; transcript?: TranscriptSnapshot };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -124,6 +124,8 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
   useEffect(() => {
     const toggleDebugTranscript = (event: KeyboardEvent) => {
       const primaryModifierPressed = event.ctrlKey || event.metaKey;
+      const debugKeyPressed =
+        event.code === 'KeyD' || event.key.toLowerCase() === 'd';
 
       if (
         event.repeat ||
@@ -131,7 +133,7 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
         !primaryModifierPressed ||
         !event.altKey ||
         !event.shiftKey ||
-        event.key.toLowerCase() !== 'd'
+        !debugKeyPressed
       ) {
         return;
       }
@@ -175,7 +177,14 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
         }
       } catch {
         if (active) {
-          setDebugTranscript({ name: 'failed' });
+          setDebugTranscript((currentDebugTranscript) => ({
+            name: 'failed',
+            transcript:
+              currentDebugTranscript.name === 'ready' ||
+              currentDebugTranscript.name === 'failed'
+                ? currentDebugTranscript.transcript
+                : undefined,
+          }));
         }
       } finally {
         requestInFlight = false;
@@ -346,6 +355,10 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
       state.activity === 'speaking'
         ? `${state.personaName} is speaking`
         : 'Listening';
+    const debugTranscriptTurns =
+      debugTranscript.name === 'ready' || debugTranscript.name === 'failed'
+        ? debugTranscript.transcript
+        : undefined;
 
     return (
       <main className="shell shell--attempt">
@@ -368,21 +381,40 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
               <p>Reading the current event log…</p>
             ) : null}
             {debugTranscript.name === 'failed' ? (
-              <p>Transcript reconstruction is currently failing.</p>
+              <p className="debug-transcript__failure">
+                {debugTranscript.transcript
+                  ? 'Transcript refresh failed. Showing the last successful snapshot.'
+                  : 'Transcript reconstruction is currently failing.'}
+              </p>
             ) : null}
-            {debugTranscript.name === 'ready' ? (
+            {debugTranscriptTurns ? (
               <ol>
-                {debugTranscript.transcript.map((turn, index) => (
-                  <li key={`${String(index)}-${turn.speaker}-${turn.text}`}>
+                {debugTranscriptTurns.map((turn, index) => (
+                  <li
+                    key={
+                      'status' in turn
+                        ? turn.itemId
+                        : `${String(index)}-${turn.speaker}-${turn.text}`
+                    }
+                  >
                     <p className="debug-transcript__speaker">
+                      {String(index + 1)} ·{' '}
                       {turn.speaker === 'persona' ? 'Persona' : 'Trainee'}
                     </p>
-                    <p>{turn.text}</p>
-                    {turn.cutOff ? (
-                      <p className="debug-transcript__cut-off">
-                        Cut off at {turn.audioEndMs} ms
+                    {'status' in turn ? (
+                      <p className="debug-transcript__pending">
+                        Awaiting text…
                       </p>
-                    ) : null}
+                    ) : (
+                      <>
+                        <p>{turn.text}</p>
+                        {turn.cutOff ? (
+                          <p className="debug-transcript__cut-off">
+                            Cut off at {turn.audioEndMs} ms
+                          </p>
+                        ) : null}
+                      </>
+                    )}
                   </li>
                 ))}
               </ol>

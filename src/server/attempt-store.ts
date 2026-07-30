@@ -1,7 +1,8 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import type { Assessment, Transcript } from './attempt-completion.js';
+import type { Transcript } from '../transcript.js';
+import type { Assessment } from './attempt-completion.js';
 
 export type FeedbackOutcome =
   | {

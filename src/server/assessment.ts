@@ -1,9 +1,6 @@
 import type { RubricCriterion } from '../scenario.js';
-import type {
-  AssessAttempt,
-  Assessment,
-  Transcript,
-} from './attempt-completion.js';
+import type { Transcript } from '../transcript.js';
+import type { AssessAttempt, Assessment } from './attempt-completion.js';
 import {
   requestCompletedText,
   type OpenAiResponsesFetch,

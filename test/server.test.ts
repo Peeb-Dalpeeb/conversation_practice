@@ -1,4 +1,4 @@
-import { rm, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { resolve } from 'node:path';
 
@@ -40,6 +40,7 @@ async function startApiServer(
 }
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(viteServers.splice(0).map((server) => server.close()));
   await Promise.all(
     servers.splice(0).map(
@@ -369,6 +370,192 @@ describe('the server HTTP interface', () => {
       },
     ]);
     expect(completeAttempt).not.toHaveBeenCalled();
+  });
+
+  it('returns completed turns while a live turn is awaiting text', async () => {
+    const completeAttempt = vi.fn(() => Promise.resolve(completedAttempt));
+    const server = createApiServer({
+      currentScenario: scenario,
+      completeAttempt,
+    });
+    servers.push(server);
+
+    await new Promise<void>((resolveListening) => {
+      server.listen(0, '127.0.0.1', resolveListening);
+    });
+
+    const port = (server.address() as AddressInfo).port;
+    const rawEventLog = JSON.stringify(
+      [
+        {
+          type: 'conversation.item.added',
+          previous_item_id: null,
+          item: {
+            id: 'persona-turn',
+            role: 'assistant',
+            content: [{ type: 'output_audio' }],
+          },
+        },
+        {
+          type: 'response.output_audio_transcript.done',
+          item_id: 'persona-turn',
+          transcript: "I'd like to close my account.",
+        },
+        {
+          type: 'conversation.item.added',
+          previous_item_id: 'persona-turn',
+          item: {
+            id: 'trainee-turn',
+            role: 'user',
+            content: [{ type: 'input_audio' }],
+          },
+        },
+        {
+          type: 'conversation.item.added',
+          previous_item_id: 'trainee-turn',
+          item: {
+            id: 'next-persona-turn',
+            role: 'assistant',
+            content: [{ type: 'output_audio' }],
+          },
+        },
+        {
+          type: 'response.output_audio_transcript.done',
+          item_id: 'next-persona-turn',
+          transcript: 'The last call was the problem.',
+        },
+      ].map((event) => ({
+        direction: 'server',
+        event: JSON.stringify(event),
+      }))
+    );
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/transcript`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: rawEventLog,
+      }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual([
+      {
+        speaker: 'persona',
+        text: "I'd like to close my account.",
+        cutOff: false,
+      },
+      {
+        speaker: 'trainee',
+        status: 'awaiting-text',
+        itemId: 'trainee-turn',
+      },
+      {
+        speaker: 'persona',
+        text: 'The last call was the problem.',
+        cutOff: false,
+      },
+    ]);
+    expect(completeAttempt).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['hang-up-without-a-closing-line.json', 26],
+    ['persona-out-of-band-2.json', 43],
+    ['persona-out-of-band-3.json', 33],
+  ])(
+    'reads a valid pending snapshot from captured prefix %s',
+    async (fixtureName, prefixLength) => {
+      const completeAttempt = vi.fn(() => Promise.resolve(completedAttempt));
+      const server = createApiServer({
+        currentScenario: scenario,
+        completeAttempt,
+      });
+      servers.push(server);
+
+      await new Promise<void>((resolveListening) => {
+        server.listen(0, '127.0.0.1', resolveListening);
+      });
+
+      const port = (server.address() as AddressInfo).port;
+      const evidencePath = resolve(
+        '.scratch',
+        'conversation-practice',
+        'evidence',
+        fixtureName
+      );
+      const envelopes = JSON.parse(
+        await readFile(evidencePath, 'utf8')
+      ) as unknown[];
+      const response = await fetch(
+        `http://127.0.0.1:${port}/api/attempts/transcript`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(envelopes.slice(0, prefixLength)),
+        }
+      );
+
+      expect(response.status).toBe(200);
+      const snapshot = (await response.json()) as Record<string, unknown>[];
+      expect(snapshot.some((turn) => turn.status === 'awaiting-text')).toBe(
+        true
+      );
+      expect(snapshot.some((turn) => typeof turn.text === 'string')).toBe(true);
+      expect(completeAttempt).not.toHaveBeenCalled();
+    }
+  );
+
+  it('logs the diagnostic when a live Transcript chain is invalid', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const port = await startApiServer();
+    const rawEventLog = JSON.stringify(
+      [
+        {
+          type: 'conversation.item.added',
+          previous_item_id: null,
+          item: {
+            id: 'first-turn',
+            role: 'assistant',
+            content: [{ type: 'output_audio' }],
+          },
+        },
+        {
+          type: 'conversation.item.added',
+          previous_item_id: null,
+          item: {
+            id: 'second-turn',
+            role: 'user',
+            content: [{ type: 'input_audio' }],
+          },
+        },
+      ].map((event) => ({
+        direction: 'server',
+        event: JSON.stringify(event),
+      }))
+    );
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/transcript`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: rawEventLog,
+      }
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Transcript could not be reconstructed.',
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      'Debug Transcript could not be reconstructed.',
+      expect.objectContaining({
+        message: 'The raw event log has an ambiguous turn chain.',
+      })
+    );
+    consoleError.mockRestore();
   });
 
   it('rejects non-JSON and oversized raw event logs before storage', async () => {

@@ -5,7 +5,7 @@ import {
   createOpenAiAttemptAssessor,
   type OpenAiResponsesFetch,
 } from '../src/server/assessment.js';
-import type { Transcript } from '../src/server/attempt-completion.js';
+import type { Transcript } from '../src/transcript.js';
 
 const privateProfile = scenario.persona.privateProfile;
 

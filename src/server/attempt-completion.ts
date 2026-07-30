@@ -1,21 +1,11 @@
 import type { PrivateProfile, RubricCriterion, Scenario } from '../scenario.js';
+import type {
+  Transcript,
+  TranscriptSnapshot,
+  TranscriptSnapshotTurn,
+} from '../transcript.js';
 import type { Attempt, StoreAttempt } from './attempt-store.js';
 import type { StoreRawEventLog } from './raw-event-log.js';
-
-export type TranscriptTurn =
-  | {
-      speaker: 'persona' | 'trainee';
-      text: string;
-      cutOff: false;
-    }
-  | {
-      speaker: 'persona';
-      text: string;
-      cutOff: true;
-      audioEndMs: number;
-    };
-
-export type Transcript = TranscriptTurn[];
 
 export type Assessment = {
   criteria: {
@@ -250,7 +240,9 @@ function orderSpokenTurns(
   return orderedTurns;
 }
 
-export function reconstructTranscript(rawEventLog: string): Transcript {
+export function reconstructTranscriptSnapshot(
+  rawEventLog: string
+): TranscriptSnapshot {
   const events = parseRealtimeEvents(rawEventLog);
   const turnsById = new Map<string, SpokenTurn>();
   const conversationItemsById = new Map<string, ConversationItemLink>();
@@ -302,19 +294,19 @@ export function reconstructTranscript(rawEventLog: string): Transcript {
     }
   }
 
-  // Fail closed rather than guessing through a chain or text gap: every later
-  // Assessment quote inherits this ordering and speaker attribution.
   return orderSpokenTurns(turnsById, conversationItemsById).map(
-    (turn): TranscriptTurn => {
+    (turn): TranscriptSnapshotTurn => {
       const text =
         turn.speaker === 'persona'
           ? personaTextByItemId.get(turn.id)
           : traineeTextByItemId.get(turn.id);
 
       if (text === undefined) {
-        throw new TypeError(
-          `The raw event log has no text for turn ${turn.id}.`
-        );
+        return {
+          speaker: turn.speaker,
+          status: 'awaiting-text',
+          itemId: turn.id,
+        };
       }
 
       const audioEndMs = truncationByItemId.get(turn.id);
@@ -335,6 +327,20 @@ export function reconstructTranscript(rawEventLog: string): Transcript {
       };
     }
   );
+}
+
+export function reconstructTranscript(rawEventLog: string): Transcript {
+  // Completion fails closed rather than guessing through a text gap: every
+  // later Assessment quote inherits this ordering and speaker attribution.
+  return reconstructTranscriptSnapshot(rawEventLog).map((turn) => {
+    if ('status' in turn) {
+      throw new TypeError(
+        `The raw event log has no text for turn ${turn.itemId}.`
+      );
+    }
+
+    return turn;
+  });
 }
 
 function diagnosticErrorMessage(error: unknown): string {

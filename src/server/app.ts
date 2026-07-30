@@ -7,7 +7,7 @@ import {
 import { toPublicScenario, type Scenario } from '../scenario.js';
 import {
   AttemptCompletionError,
-  reconstructTranscript,
+  reconstructTranscriptSnapshot,
   type CompleteAttempt,
 } from './attempt-completion.js';
 import type { ReadLatestAttempt } from './attempt-store.js';
@@ -138,14 +138,18 @@ export function createApiServer({
           }
 
           try {
-            const transcript = reconstructTranscript(rawEventLog);
+            const transcript = reconstructTranscriptSnapshot(rawEventLog);
 
             response.writeHead(200, {
               'Cache-Control': 'no-store',
               'Content-Type': 'application/json',
             });
             response.end(JSON.stringify(transcript));
-          } catch {
+          } catch (error) {
+            console.error(
+              'Debug Transcript could not be reconstructed.',
+              error
+            );
             response.writeHead(422, {
               'Cache-Control': 'no-store',
               'Content-Type': 'application/json',
