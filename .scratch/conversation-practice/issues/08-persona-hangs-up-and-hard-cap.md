@@ -52,3 +52,39 @@ the completion endpoint's fixtures.
 - [ ] Realtime truncation is not enabled.
 - [ ] The completion endpoint's fixtures include a real event log where the Persona fired the
       end-call tool.
+
+## Comments
+
+- **The Scenario half of the precondition is already written and is wired into nothing.**
+  `persona.hangUpPrecondition` exists in `src/scenario.ts` with the narrow, factual condition
+  this ticket asks for and the comment explaining why it is narrow. But
+  `buildPersonaInstructions` in `src/server/realtime.ts` assembles `characterBrief`,
+  `behaviourRules`, `gate` and `standingInstructions` and never reads it, so the Persona has
+  never been told the constraint. Thread the existing field through; do not write a second
+  copy of the condition into the instruction builder. Ticket 12 records what a second copy
+  costs — it drifts out of step during tuning with nothing to catch it, and ticket 10 is dozens
+  of edits to Jordan's behaviour.
+
+- The session config sends no `tools` today, so the end-call tool is new plumbing rather than a
+  change to existing plumbing. Every firing has to be logged, and the raw event log already
+  captures both directions of the data channel unmodified, so a tool call is in the log by
+  construction — check that before building a second logging path for it.
+
+- **Both new ways an Attempt can end belong on the Trainee-stop path.** The client has two
+  termination routes: `stop()`, which commits the audio buffer, cancels the in-flight response
+  and finalizes, and `handleUnexpectedEnd()`, which exists for a dropped line and puts a
+  different screen in front of the Trainee. This ticket says judging fires exactly as it does
+  for a Trainee-initiated stop, so the end-call tool call and the hard cap both route through
+  the first. Routing them through the second shows a line-dropped message at the demo's
+  sharpest moment.
+
+- **Three of the acceptance criteria cannot be closed with mocked tests, and this is where the
+  last ticket went wrong.** The discount opening never triggering the hang-up, the flat
+  compliance and hang-up for a Trainee who just processes the cancellation, and the captured
+  end-call event log all need a live Attempt with a real microphone. Ticket 07 was built with a
+  green suite and two acceptance criteria untouched, because everything that mattered was
+  behind a mock. Build up to the point of needing the author at the microphone, then stop and
+  say what to run. `data/` is gitignored, so a captured log has to be copied deliberately into
+  `test/fixtures/raw-event-logs/` — see that directory's README and
+  `.scratch/conversation-practice/evidence/README.md` for the distinction between a fixture and
+  a kept capture.
