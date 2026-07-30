@@ -237,6 +237,7 @@ function startAttempt() {
   const controller = new AbortController();
   const onActivity = vi.fn<(activity: AttemptActivity) => void>();
   const onAttemptDataFailed = vi.fn();
+  const onAttemptEnding = vi.fn();
   const onEnded = vi.fn();
   const onJudgingStarted = vi.fn();
   const onAttemptJudgingFailed = vi.fn();
@@ -244,6 +245,7 @@ function startAttempt() {
   const attempt = connectRealtimeAttempt({
     signal: controller.signal,
     onActivity,
+    onAttemptEnding,
     onEnded,
     onAttemptDataFailed,
     onAttemptJudgingFailed,
@@ -256,6 +258,7 @@ function startAttempt() {
     controller,
     onActivity,
     onAttemptDataFailed,
+    onAttemptEnding,
     onAttemptJudgingFailed,
     onEnded,
     onJudgingStarted,
@@ -557,7 +560,8 @@ describe('a live Attempt in progress', () => {
 
   it('stops and starts judging when the Persona calls the hang-up tool', async () => {
     const { fetchMock } = stubBrowser();
-    const { attempt, onEnded, onJudgingStarted } = startAttempt();
+    const { attempt, onAttemptEnding, onEnded, onJudgingStarted } =
+      startAttempt();
     await attempt;
     const channel = liveDataChannel();
     const hangUpEvent = {
@@ -570,6 +574,7 @@ describe('a live Attempt in progress', () => {
     };
 
     channel.deliver(hangUpEvent);
+    expect(onAttemptEnding).toHaveBeenCalledOnce();
     settleEmptyStopCommands(channel);
 
     await vi.waitFor(() => {
@@ -588,7 +593,7 @@ describe('a live Attempt in progress', () => {
 
   it('lets the Persona finish speaking before acting on the hang-up tool', async () => {
     const { fetchMock } = stubBrowser();
-    const { attempt, onJudgingStarted } = startAttempt();
+    const { attempt, onAttemptEnding, onJudgingStarted } = startAttempt();
     await attempt;
     const channel = liveDataChannel();
 
@@ -607,6 +612,7 @@ describe('a live Attempt in progress', () => {
 
     expect(onJudgingStarted).not.toHaveBeenCalled();
     expect(channel.sent).toHaveLength(1);
+    expect(onAttemptEnding).not.toHaveBeenCalled();
     expect(fetchMock.mock.calls.some(([url]) => url === rawEventLogUrl)).toBe(
       false
     );
@@ -615,6 +621,170 @@ describe('a live Attempt in progress', () => {
       type: 'output_audio_buffer.stopped',
       response_id: 'persona-response',
     });
+    expect(onAttemptEnding).toHaveBeenCalledOnce();
+    settleEmptyStopCommands(channel);
+
+    await vi.waitFor(() => {
+      expect(onJudgingStarted).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('does not cancel final Persona audio when the hang-up arrives before playback starts', async () => {
+    stubBrowser();
+    const { attempt, onAttemptEnding, onJudgingStarted } = startAttempt();
+    await attempt;
+    const channel = liveDataChannel();
+
+    channel.deliver({
+      type: 'response.created',
+      response: {
+        id: 'persona-response',
+        conversation_id: 'persona-conversation',
+      },
+    });
+    channel.deliver({
+      type: 'response.function_call_arguments.done',
+      response_id: 'persona-response',
+      item_id: 'hang-up-item',
+      call_id: 'hang-up',
+      name: 'hang_up',
+      arguments: '{}',
+    });
+
+    expect(channel.sent).toHaveLength(1);
+    expect(onAttemptEnding).not.toHaveBeenCalled();
+
+    channel.deliver({
+      type: 'output_audio_buffer.started',
+      response_id: 'persona-response',
+    });
+    channel.deliver({
+      type: 'response.done',
+      response: {
+        id: 'persona-response',
+        conversation_id: 'persona-conversation',
+        output: [
+          {
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_audio' }],
+          },
+          {
+            type: 'function_call',
+            name: 'hang_up',
+          },
+        ],
+      },
+    });
+
+    expect(channel.sent).toHaveLength(1);
+
+    channel.deliver({
+      type: 'output_audio_buffer.stopped',
+      response_id: 'persona-response',
+    });
+    expect(onAttemptEnding).toHaveBeenCalledOnce();
+    settleEmptyStopCommands(channel);
+
+    await vi.waitFor(() => {
+      expect(onJudgingStarted).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('ignores an audio stop from a different response while a hang-up is pending', async () => {
+    stubBrowser();
+    const { attempt, onAttemptEnding, onJudgingStarted } = startAttempt();
+    await attempt;
+    const channel = liveDataChannel();
+
+    channel.deliver({
+      type: 'response.created',
+      response: {
+        id: 'hang-up-response',
+        conversation_id: 'persona-conversation',
+      },
+    });
+    channel.deliver({
+      type: 'response.function_call_arguments.done',
+      response_id: 'hang-up-response',
+      name: 'hang_up',
+      arguments: '{}',
+    });
+    channel.deliver({
+      type: 'output_audio_buffer.stopped',
+      response_id: 'prior-response',
+    });
+
+    expect(onAttemptEnding).not.toHaveBeenCalled();
+    expect(channel.sent).toHaveLength(1);
+
+    channel.deliver({
+      type: 'output_audio_buffer.started',
+      response_id: 'hang-up-response',
+    });
+    channel.deliver({
+      type: 'response.done',
+      response: {
+        id: 'hang-up-response',
+        conversation_id: 'persona-conversation',
+        output: [
+          {
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_audio' }],
+          },
+          {
+            type: 'function_call',
+            name: 'hang_up',
+          },
+        ],
+      },
+    });
+    channel.deliver({
+      type: 'output_audio_buffer.stopped',
+      response_id: 'hang-up-response',
+    });
+
+    expect(onAttemptEnding).toHaveBeenCalledOnce();
+    settleEmptyStopCommands(channel);
+
+    await vi.waitFor(() => {
+      expect(onJudgingStarted).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('hangs up when an active tool-only response finishes', async () => {
+    stubBrowser();
+    const { attempt, onAttemptEnding, onJudgingStarted } = startAttempt();
+    await attempt;
+    const channel = liveDataChannel();
+
+    channel.deliver({
+      type: 'response.created',
+      response: {
+        id: 'hang-up-response',
+        conversation_id: 'persona-conversation',
+      },
+    });
+    channel.deliver({
+      type: 'response.function_call_arguments.done',
+      response_id: 'hang-up-response',
+      name: 'hang_up',
+      arguments: '{}',
+    });
+
+    expect(onAttemptEnding).not.toHaveBeenCalled();
+
+    channel.deliver({
+      type: 'response.done',
+      response: {
+        id: 'hang-up-response',
+        conversation_id: 'persona-conversation',
+        output: [{ type: 'function_call', name: 'hang_up' }],
+      },
+    });
+
+    expect(onAttemptEnding).toHaveBeenCalledOnce();
     settleEmptyStopCommands(channel);
 
     await vi.waitFor(() => {
@@ -662,11 +832,13 @@ describe('a live Attempt in progress', () => {
   it('stops and starts judging at the twelve-minute hard cap', async () => {
     vi.useFakeTimers();
     const { fetchMock } = stubBrowser();
-    const { attempt, onEnded, onJudgingStarted } = startAttempt();
+    const { attempt, onAttemptEnding, onEnded, onJudgingStarted } =
+      startAttempt();
     await attempt;
     const channel = liveDataChannel();
 
     await vi.advanceTimersByTimeAsync(12 * 60 * 1_000);
+    expect(onAttemptEnding).toHaveBeenCalledOnce();
     settleEmptyStopCommands(channel);
     await vi.advanceTimersByTimeAsync(150);
 

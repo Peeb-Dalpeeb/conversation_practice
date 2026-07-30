@@ -31,27 +31,27 @@ guard that is actually needed; do not reach for realtime truncation instead. Tru
 removes conversation items, and if it ever ate early turns the Persona would forget what the
 Trainee had already uncovered, breaking the Gate mid-Attempt.
 
-Capture an event log from an Attempt where the Persona fired the end-call tool and add it to
+Capture an event log from an Attempt where the Persona performed the Hang-up and add it to
 the completion endpoint's fixtures.
 
 **Blocked by:** 05 — Attempt completion: reassembly and persistence (the seam).
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] The Persona ends the call via an explicit tool call, never by phrase-matching.
-- [ ] The tool is available only once cancellation is genuinely underway — account details
+- [x] The Persona ends the call via an explicit tool call, never by phrase-matching.
+- [x] The tool is available only once cancellation is genuinely underway — account details
       asked for, cancellation confirmed, or stated as done — and the precondition is stated
       in the Scenario file with a comment explaining why it is narrow.
 - [ ] An Attempt opening with "I can offer you a discount" cannot trigger the hang-up,
       verified by running it.
 - [ ] A Trainee who processes the cancellation without asking anything gets a flat compliance
       and a hang-up.
-- [ ] The end-call tool call terminates the Attempt and triggers judging.
-- [ ] Every firing of the tool is logged.
-- [ ] A hard cap of roughly 12 minutes terminates the Attempt and triggers judging.
-- [ ] Realtime truncation is not enabled.
-- [ ] The completion endpoint's fixtures include a real event log where the Persona fired the
-      end-call tool.
+- [x] The Hang-up tool call terminates the Attempt and triggers judging.
+- [x] Every firing of the tool is logged.
+- [x] A hard cap of roughly 12 minutes terminates the Attempt and triggers judging.
+- [x] Realtime truncation is not enabled.
+- [ ] The completion endpoint's fixtures include a real event log where the Persona performed
+      the Hang-up.
 
 ## Comments
 
@@ -65,7 +65,7 @@ the completion endpoint's fixtures.
   costs — it drifts out of step during tuning with nothing to catch it, and ticket 10 is dozens
   of edits to Jordan's behaviour.
 
-- The session config sends no `tools` today, so the end-call tool is new plumbing rather than a
+- The session config sends no `tools` today, so the Hang-up tool is new plumbing rather than a
   change to existing plumbing. Every firing has to be logged, and the raw event log already
   captures both directions of the data channel unmodified, so a tool call is in the log by
   construction — check that before building a second logging path for it.
@@ -74,17 +74,38 @@ the completion endpoint's fixtures.
   termination routes: `stop()`, which commits the audio buffer, cancels the in-flight response
   and finalizes, and `handleUnexpectedEnd()`, which exists for a dropped line and puts a
   different screen in front of the Trainee. This ticket says judging fires exactly as it does
-  for a Trainee-initiated stop, so the end-call tool call and the hard cap both route through
+  for a Trainee-initiated stop, so the Hang-up tool call and the hard cap both route through
   the first. Routing them through the second shows a line-dropped message at the demo's
   sharpest moment.
 
 - **Three of the acceptance criteria cannot be closed with mocked tests, and this is where the
   last ticket went wrong.** The discount opening never triggering the hang-up, the flat
   compliance and hang-up for a Trainee who just processes the cancellation, and the captured
-  end-call event log all need a live Attempt with a real microphone. Ticket 07 was built with a
+  Hang-up event log all need a live Attempt with a real microphone. Ticket 07 was built with a
   green suite and two acceptance criteria untouched, because everything that mattered was
   behind a mock. Build up to the point of needing the author at the microphone, then stop and
   say what to run. `data/` is gitignored, so a captured log has to be copied deliberately into
   `test/fixtures/raw-event-logs/` — see that directory's README and
   `.scratch/conversation-practice/evidence/README.md` for the distinction between a fixture and
   a kept capture.
+
+- **Implementation checkpoint, 2026-07-29 — ready for live author verification.** Run
+  `npm.cmd run dev`, open the page URL printed by Vite, and perform these two Attempts with a
+  real microphone:
+
+  1. After Jordan's opening, say exactly, "I can offer you a discount." Jordan must become
+     colder and continue the Attempt; no Hang-up or judging screen may appear. Stop this
+     Attempt manually.
+  2. Start again. Ask for the account details, confirm that cancellation is proceeding, then
+     state that it is complete without asking why Jordan is leaving. Jordan must comply
+     flatly, finish speaking, and perform the Hang-up. The page must leave the live screen
+     immediately and produce Feedback.
+
+  The second Attempt writes a raw log under `data/raw-event-logs/`. Locate the newest file
+  with
+  `Get-ChildItem data/raw-event-logs -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1`,
+  copy it to `test/fixtures/raw-event-logs/persona-hangs-up.json`, document it in that
+  directory's README, and run it through the completion-endpoint test before marking the
+  final fixture criterion complete. The completion seam already has a synthetic regression
+  for a role-less Hang-up item between spoken turns; the captured fixture is still required
+  to establish the live API's actual item order and Persona behaviour.

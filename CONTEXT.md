@@ -46,6 +46,10 @@ _Avoid_: employee, user, learner, student
 A single spoken run of a scenario, from opening line to close.
 _Avoid_: session, run, conversation, call, take
 
+**Hang-up**:
+The Persona ending an Attempt itself, as an in-character outcome rather than a Trainee stop.
+_Avoid_: end-call, Persona stop
+
 **Transcript**:
 The turn-by-turn text of an attempt. A reconstruction of what was said, not a recording of
 it — it can disagree with what the trainee remembers saying.

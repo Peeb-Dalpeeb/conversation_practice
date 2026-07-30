@@ -140,6 +140,15 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
               : currentState
           );
         },
+        onAttemptEnding: () => {
+          attemptController.current = null;
+          liveAttempt.current = null;
+          setState((currentState) =>
+            currentState.name === 'data-failed'
+              ? currentState
+              : { name: 'ended', phase: 'preparing' }
+          );
+        },
         onEnded: () => {
           connectionEnded = true;
           releaseAttempt();

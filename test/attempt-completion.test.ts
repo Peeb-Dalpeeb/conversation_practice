@@ -203,6 +203,144 @@ function removeFirstTraineeTranscription(rawEventLog: string) {
   return JSON.stringify(incompleteEnvelopes);
 }
 
+function rawEventLogWithHangUpBeforeFinalPersonaTurn() {
+  const events = [
+    {
+      type: 'conversation.item.added',
+      previous_item_id: null,
+      item: {
+        id: 'persona-opening',
+        type: 'message',
+        status: 'in_progress',
+        role: 'assistant',
+        content: [],
+      },
+    },
+    {
+      type: 'conversation.item.done',
+      previous_item_id: null,
+      item: {
+        id: 'persona-opening',
+        type: 'message',
+        status: 'completed',
+        role: 'assistant',
+        content: [{ type: 'output_audio' }],
+      },
+    },
+    {
+      type: 'response.output_audio_transcript.done',
+      item_id: 'persona-opening',
+      transcript: "I'd like to close my account.",
+    },
+    {
+      type: 'conversation.item.added',
+      previous_item_id: 'persona-opening',
+      item: {
+        id: 'trainee-turn',
+        type: 'message',
+        status: 'in_progress',
+        role: 'user',
+        content: [],
+      },
+    },
+    {
+      type: 'conversation.item.done',
+      previous_item_id: 'persona-opening',
+      item: {
+        id: 'trainee-turn',
+        type: 'message',
+        status: 'completed',
+        role: 'user',
+        content: [{ type: 'input_audio' }],
+      },
+    },
+    {
+      type: 'response.done',
+      response: {
+        metadata: {
+          purpose: 'turn_transcription',
+          source_item_id: 'trainee-turn',
+        },
+        output: [
+          {
+            content: [
+              {
+                type: 'output_text',
+                text: 'Your cancellation is complete.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      type: 'conversation.item.added',
+      previous_item_id: 'trainee-turn',
+      item: {
+        id: 'hang-up-item',
+        type: 'function_call',
+        status: 'in_progress',
+        name: 'hang_up',
+        call_id: 'hang-up-call',
+        arguments: '',
+      },
+    },
+    {
+      type: 'response.function_call_arguments.done',
+      item_id: 'hang-up-item',
+      call_id: 'hang-up-call',
+      name: 'hang_up',
+      arguments: '{}',
+    },
+    {
+      type: 'conversation.item.done',
+      previous_item_id: 'trainee-turn',
+      item: {
+        id: 'hang-up-item',
+        type: 'function_call',
+        status: 'completed',
+        name: 'hang_up',
+        call_id: 'hang-up-call',
+        arguments: '{}',
+      },
+    },
+    {
+      type: 'conversation.item.added',
+      previous_item_id: 'hang-up-item',
+      item: {
+        id: 'persona-final',
+        type: 'message',
+        status: 'in_progress',
+        role: 'assistant',
+        content: [],
+      },
+    },
+    {
+      type: 'conversation.item.done',
+      previous_item_id: 'hang-up-item',
+      item: {
+        id: 'persona-final',
+        type: 'message',
+        status: 'completed',
+        role: 'assistant',
+        content: [{ type: 'output_audio' }],
+      },
+    },
+    {
+      type: 'response.output_audio_transcript.done',
+      item_id: 'persona-final',
+      transcript: 'All right. The account is closed.',
+    },
+  ];
+
+  return JSON.stringify(
+    events.map((event) => ({
+      direction: 'server',
+      event: JSON.stringify(event),
+    }))
+  );
+}
+
 async function postRawEventLog(port: number, rawEventLog: string) {
   return fetch(`http://127.0.0.1:${port}/api/attempts/raw-event-log`, {
     method: 'POST',
@@ -302,6 +440,40 @@ describe('completed Attempts', () => {
     expect(shuffledResponse.status).toBe(200);
     const attempt = await readPersistedAttempt(attemptDirectory, 1);
     expect(attempt.transcript).toEqual(expectedCleanTranscript);
+  });
+
+  it('completes an Attempt when a hang-up item precedes the final Persona turn', async () => {
+    const attemptDirectory = await createTemporaryDirectory();
+    const port = await startCompletionServer(attemptDirectory);
+
+    const response = await postRawEventLog(
+      port,
+      rawEventLogWithHangUpBeforeFinalPersonaTurn()
+    );
+
+    expect(response.status).toBe(200);
+    const attempt = await readPersistedAttempt(attemptDirectory, 1);
+    expect(attempt.transcript).toEqual([
+      {
+        speaker: 'persona',
+        text: "I'd like to close my account.",
+        cutOff: false,
+      },
+      {
+        speaker: 'trainee',
+        text: 'Your cancellation is complete.',
+        cutOff: false,
+      },
+      {
+        speaker: 'persona',
+        text: 'All right. The account is closed.',
+        cutOff: false,
+      },
+    ]);
+    expect(attempt.feedback).toEqual({
+      status: 'completed',
+      prose: 'Assessment and Transcript received.',
+    });
   });
 
   it('persists the judged Attempt when raw-log archival fails', async () => {

@@ -62,8 +62,12 @@ type RealtimeEvent = Record<string, unknown>;
 
 type SpokenTurn = {
   id: string;
-  previousItemId: string | null;
   speaker: 'persona' | 'trainee';
+};
+
+type ConversationItemLink = {
+  id: string;
+  previousItemId: string | null;
 };
 
 type AttemptCompleterOptions = {
@@ -99,6 +103,27 @@ function itemFromEvent(event: RealtimeEvent) {
   return isRecord(event.item) ? event.item : undefined;
 }
 
+function conversationItemLinkFromEvent(
+  event: RealtimeEvent
+): ConversationItemLink | undefined {
+  if (event.type !== 'conversation.item.added') {
+    return undefined;
+  }
+
+  const item = itemFromEvent(event);
+  const previousItemId = event.previous_item_id;
+
+  if (
+    !item ||
+    typeof item.id !== 'string' ||
+    (previousItemId !== null && typeof previousItemId !== 'string')
+  ) {
+    return undefined;
+  }
+
+  return { id: item.id, previousItemId };
+}
+
 function hasSpokenContent(item: Record<string, unknown>): boolean {
   return (
     Array.isArray(item.content) &&
@@ -129,15 +154,8 @@ function spokenTurnFromEvent(event: RealtimeEvent): SpokenTurn | undefined {
     return undefined;
   }
 
-  const previousItemId = event.previous_item_id;
-
-  if (previousItemId !== null && typeof previousItemId !== 'string') {
-    return undefined;
-  }
-
   return {
     id: item.id,
-    previousItemId,
     speaker: item.role === 'user' ? 'trainee' : 'persona',
   };
 }
@@ -166,26 +184,45 @@ function outputText(response: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
-function orderSpokenTurns(turnsById: Map<string, SpokenTurn>): SpokenTurn[] {
-  const nextTurnByPreviousId = new Map<string | null, SpokenTurn>();
+function orderSpokenTurns(
+  turnsById: Map<string, SpokenTurn>,
+  conversationItemsById: Map<string, ConversationItemLink>
+): SpokenTurn[] {
+  // The default Conversation chain also contains role-less items such as
+  // Persona Hang-ups. Walk every added item, then retain only spoken turns;
+  // otherwise a spoken item whose predecessor is a tool call looks detached.
+  // Out-of-band transcription outputs never emit `conversation.item.added`,
+  // which keeps their separate null-headed chains out of this map.
+  const nextItemByPreviousId = new Map<string | null, ConversationItemLink>();
 
-  for (const turn of turnsById.values()) {
-    if (nextTurnByPreviousId.has(turn.previousItemId)) {
+  for (const item of conversationItemsById.values()) {
+    if (nextItemByPreviousId.has(item.previousItemId)) {
       throw new TypeError('The raw event log has an ambiguous turn chain.');
     }
 
-    nextTurnByPreviousId.set(turn.previousItemId, turn);
+    nextItemByPreviousId.set(item.previousItemId, item);
   }
 
   const orderedTurns: SpokenTurn[] = [];
-  let nextTurn = nextTurnByPreviousId.get(null);
+  let orderedItemCount = 0;
+  let nextItem = nextItemByPreviousId.get(null);
 
-  while (nextTurn) {
-    orderedTurns.push(nextTurn);
-    nextTurn = nextTurnByPreviousId.get(nextTurn.id);
+  while (nextItem) {
+    orderedItemCount += 1;
+
+    const spokenTurn = turnsById.get(nextItem.id);
+
+    if (spokenTurn) {
+      orderedTurns.push(spokenTurn);
+    }
+
+    nextItem = nextItemByPreviousId.get(nextItem.id);
   }
 
-  if (orderedTurns.length !== turnsById.size) {
+  if (
+    orderedItemCount !== conversationItemsById.size ||
+    orderedTurns.length !== turnsById.size
+  ) {
     throw new TypeError('The raw event log has an incomplete turn chain.');
   }
 
@@ -195,12 +232,18 @@ function orderSpokenTurns(turnsById: Map<string, SpokenTurn>): SpokenTurn[] {
 function reconstructTranscript(rawEventLog: string): Transcript {
   const events = parseRealtimeEvents(rawEventLog);
   const turnsById = new Map<string, SpokenTurn>();
+  const conversationItemsById = new Map<string, ConversationItemLink>();
   const personaTextByItemId = new Map<string, string>();
   const traineeTextByItemId = new Map<string, string>();
   const truncationByItemId = new Map<string, number>();
 
   for (const event of events) {
+    const conversationItem = conversationItemLinkFromEvent(event);
     const spokenTurn = spokenTurnFromEvent(event);
+
+    if (conversationItem) {
+      conversationItemsById.set(conversationItem.id, conversationItem);
+    }
 
     if (spokenTurn) {
       turnsById.set(spokenTurn.id, spokenTurn);
@@ -240,33 +283,37 @@ function reconstructTranscript(rawEventLog: string): Transcript {
 
   // Fail closed rather than guessing through a chain or text gap: every later
   // Assessment quote inherits this ordering and speaker attribution.
-  return orderSpokenTurns(turnsById).map((turn): TranscriptTurn => {
-    const text =
-      turn.speaker === 'persona'
-        ? personaTextByItemId.get(turn.id)
-        : traineeTextByItemId.get(turn.id);
+  return orderSpokenTurns(turnsById, conversationItemsById).map(
+    (turn): TranscriptTurn => {
+      const text =
+        turn.speaker === 'persona'
+          ? personaTextByItemId.get(turn.id)
+          : traineeTextByItemId.get(turn.id);
 
-    if (text === undefined) {
-      throw new TypeError(`The raw event log has no text for turn ${turn.id}.`);
-    }
+      if (text === undefined) {
+        throw new TypeError(
+          `The raw event log has no text for turn ${turn.id}.`
+        );
+      }
 
-    const audioEndMs = truncationByItemId.get(turn.id);
+      const audioEndMs = truncationByItemId.get(turn.id);
 
-    if (turn.speaker === 'persona' && audioEndMs !== undefined) {
+      if (turn.speaker === 'persona' && audioEndMs !== undefined) {
+        return {
+          speaker: 'persona',
+          text,
+          cutOff: true,
+          audioEndMs,
+        };
+      }
+
       return {
-        speaker: 'persona',
+        speaker: turn.speaker,
         text,
-        cutOff: true,
-        audioEndMs,
+        cutOff: false,
       };
     }
-
-    return {
-      speaker: turn.speaker,
-      text,
-      cutOff: false,
-    };
-  });
+  );
 }
 
 function diagnosticErrorMessage(error: unknown): string {

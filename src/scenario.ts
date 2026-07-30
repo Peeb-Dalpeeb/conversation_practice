@@ -126,7 +126,7 @@ export const scenario = {
         'An offer, a poor opening, hostility, or a cold exchange never makes a hang-up available by itself.',
     },
     hangUpToolDescription:
-      'End the live Attempt after Jordan has finished speaking. Follow the hang-up precondition above.',
+      'Hang up after you have finished speaking. Use this tool only when the hang-up precondition in your instructions is met.',
   },
   rubric: [
     {

@@ -33,8 +33,8 @@ describe("The Customer Who's Had Enough Scenario", () => {
     expect(scenario.persona.hangUpPrecondition.condition).toMatch(
       /only after.*account details.*confirmed.*cancellation.*complete/
     );
-    expect(scenario.persona.hangUpToolDescription).toContain(
-      'Follow the hang-up precondition'
+    expect(scenario.persona.hangUpToolDescription).toBe(
+      'Hang up after you have finished speaking. Use this tool only when the hang-up precondition in your instructions is met.'
     );
   });
 

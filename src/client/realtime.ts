@@ -23,6 +23,7 @@ export type CompletedAttempt = {
 type ConnectRealtimeAttemptOptions = {
   signal: AbortSignal;
   onActivity: (activity: AttemptActivity) => void;
+  onAttemptEnding: () => void;
   onEnded: () => void;
   onAttemptDataFailed: () => void;
   onAttemptJudgingFailed: () => void;
@@ -264,6 +265,15 @@ function responseContainsText(response: Record<string, unknown>): boolean {
   );
 }
 
+function responseContainsSpokenOutput(
+  response: Record<string, unknown>
+): boolean {
+  return (
+    Array.isArray(response.output) &&
+    response.output.some((item) => isRecord(item) && hasSpokenContent(item))
+  );
+}
+
 function completedTurnTranscription(
   serverEvent: Record<string, unknown>
 ): CompletedTurnTranscription | undefined {
@@ -344,6 +354,7 @@ function waitForDataChannel(
 export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
   signal,
   onActivity,
+  onAttemptEnding,
   onEnded,
   onAttemptDataFailed,
   onAttemptJudgingFailed,
@@ -369,7 +380,8 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
   let finalized = false;
   let hardCap: ReturnType<typeof setTimeout> | undefined;
   let forcedFinalization: ReturnType<typeof setTimeout> | undefined;
-  let personaAudioState: 'idle' | 'playing' | 'hang-up-pending' = 'idle';
+  let pendingPersonaHangUpResponseId: string | null | undefined;
+  let personaAudioResponseId: string | null | undefined;
   let quietFinalization: ReturnType<typeof setTimeout> | undefined;
   let rawEventLogSubmission: Promise<void> | undefined;
   let stopped = false;
@@ -602,6 +614,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
     stopped = true;
     signal.removeEventListener('abort', stop);
     clearHardCap();
+    pendingPersonaHangUpResponseId = undefined;
     releaseInputAndOutput();
 
     if (!attemptOpened) {
@@ -609,6 +622,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       return;
     }
 
+    onAttemptEnding();
     forcedFinalization = setTimeout(finalizeAttempt, 15_000);
     sendStopCommand('commit', { type: 'input_audio_buffer.commit' });
     sendStopCommand('cancel', { type: 'response.cancel' });
@@ -743,8 +757,20 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
         serverEvent.type === 'response.function_call_arguments.done' &&
         serverEvent.name === personaHangUpToolName
       ) {
-        if (personaAudioState === 'playing') {
-          personaAudioState = 'hang-up-pending';
+        const responseId =
+          typeof serverEvent.response_id === 'string'
+            ? serverEvent.response_id
+            : undefined;
+
+        if (
+          (personaAudioResponseId !== undefined &&
+            (responseId === undefined ||
+              personaAudioResponseId === null ||
+              personaAudioResponseId === responseId)) ||
+          (responseId !== undefined && activeDefaultResponses.has(responseId))
+        ) {
+          pendingPersonaHangUpResponseId =
+            responseId ?? personaAudioResponseId ?? null;
         } else {
           stop();
         }
@@ -794,6 +820,13 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
         typeof serverEvent.response.id === 'string'
       ) {
         activeDefaultResponses.delete(serverEvent.response.id);
+
+        if (
+          pendingPersonaHangUpResponseId === serverEvent.response.id &&
+          !responseContainsSpokenOutput(serverEvent.response)
+        ) {
+          stop();
+        }
       }
 
       const transcription = completedTurnTranscription(serverEvent);
@@ -833,7 +866,10 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       }
 
       if (!stopped && serverEvent.type === 'output_audio_buffer.started') {
-        personaAudioState = 'playing';
+        personaAudioResponseId =
+          typeof serverEvent.response_id === 'string'
+            ? serverEvent.response_id
+            : null;
         onActivity('speaking');
       }
 
@@ -842,9 +878,26 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
         (serverEvent.type === 'output_audio_buffer.stopped' ||
           serverEvent.type === 'output_audio_buffer.cleared')
       ) {
-        const shouldHangUp = personaAudioState === 'hang-up-pending';
-        personaAudioState = 'idle';
-        onActivity('listening');
+        const responseId =
+          typeof serverEvent.response_id === 'string'
+            ? serverEvent.response_id
+            : undefined;
+        // Realtime supplies response IDs on these events. Treat a missing ID
+        // as the current response only as a compatibility fallback for older
+        // event shapes; known, mismatched IDs must never finish a Hang-up.
+        const matchesResponse = (
+          expectedResponseId: string | null | undefined
+        ) =>
+          expectedResponseId !== undefined &&
+          (expectedResponseId === null ||
+            responseId === undefined ||
+            expectedResponseId === responseId);
+        const shouldHangUp = matchesResponse(pendingPersonaHangUpResponseId);
+
+        if (matchesResponse(personaAudioResponseId)) {
+          personaAudioResponseId = undefined;
+          onActivity('listening');
+        }
 
         if (shouldHangUp) {
           stop();

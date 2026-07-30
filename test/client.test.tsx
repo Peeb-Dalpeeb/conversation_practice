@@ -127,6 +127,41 @@ describe('the Trainee-facing app', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
+  it('leaves the live screen as soon as an Attempt ends autonomously', async () => {
+    respondWithScenario();
+    let reportAttemptEnding: (() => void) | undefined;
+    let reportJudgingStarted: (() => void) | undefined;
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>((options) => {
+      reportAttemptEnding = options.onAttemptEnding;
+      reportJudgingStarted = options.onJudgingStarted;
+
+      return Promise.resolve({ stop: vi.fn() });
+    });
+
+    render(<App connectAttempt={connectAttempt} />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    expect((await screen.findByRole('status')).textContent).toContain(
+      'Listening'
+    );
+
+    act(() => reportAttemptEnding?.());
+
+    expect(screen.getByRole('heading', { name: 'Attempt ended' })).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe(
+      'Your microphone is off. Preparing your Attempt for judging…'
+    );
+    expect(screen.queryByRole('button')).toBeNull();
+
+    act(() => reportJudgingStarted?.());
+
+    expect(screen.getByRole('status').textContent).toBe(
+      'Your microphone is off. Judging is in progress…'
+    );
+  });
+
   it('shows the Feedback as soon as judging completes', async () => {
     respondWithScenario();
     let reportJudgingStarted: (() => void) | undefined;
