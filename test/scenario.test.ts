@@ -33,6 +33,9 @@ describe("The Customer Who's Had Enough Scenario", () => {
     expect(scenario.persona.hangUpPrecondition.condition).toMatch(
       /only after.*account details.*confirmed.*cancellation.*complete/
     );
+    expect(scenario.persona.hangUpToolDescription).toContain(
+      'Follow the hang-up precondition'
+    );
   });
 
   it('holds the six fixed Rubric criteria in order', () => {

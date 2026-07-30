@@ -1,3 +1,5 @@
+import { endCallToolName } from '../realtime-protocol.js';
+
 export type AttemptActivity = 'listening' | 'speaking';
 
 export type RealtimeAttempt = {
@@ -91,6 +93,7 @@ function wait(milliseconds: number): Promise<void> {
 
 const attemptRecoveryIntervalMs = 1_000;
 const attemptRecoveryTimeoutMs = 20_000;
+const attemptHardCapMs = 12 * 60 * 1_000;
 
 async function readLatestCompletedAttempt(): Promise<
   CompletedAttempt | undefined
@@ -364,7 +367,10 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
   let eventSequence = 0;
   let failureReported = false;
   let finalized = false;
+  let hardCap: ReturnType<typeof setTimeout> | undefined;
   let forcedFinalization: ReturnType<typeof setTimeout> | undefined;
+  let personaAudioPlaying = false;
+  let personaHangUpPending = false;
   let quietFinalization: ReturnType<typeof setTimeout> | undefined;
   let rawEventLogSubmission: Promise<void> | undefined;
   let stopped = false;
@@ -521,6 +527,11 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
 
     finalized = true;
 
+    if (hardCap) {
+      clearTimeout(hardCap);
+      hardCap = undefined;
+    }
+
     if (forcedFinalization) {
       clearTimeout(forcedFinalization);
       forcedFinalization = undefined;
@@ -589,6 +600,12 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
 
     stopped = true;
     signal.removeEventListener('abort', stop);
+
+    if (hardCap) {
+      clearTimeout(hardCap);
+      hardCap = undefined;
+    }
+
     releaseInputAndOutput();
 
     if (!attemptOpened) {
@@ -727,6 +744,17 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       }
 
       if (
+        serverEvent.type === 'response.function_call_arguments.done' &&
+        serverEvent.name === endCallToolName
+      ) {
+        if (personaAudioPlaying) {
+          personaHangUpPending = true;
+        } else {
+          stop();
+        }
+      }
+
+      if (
         serverEvent.type === 'input_audio_buffer.committed' &&
         typeof serverEvent.item_id === 'string'
       ) {
@@ -809,6 +837,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       }
 
       if (!stopped && serverEvent.type === 'output_audio_buffer.started') {
+        personaAudioPlaying = true;
         onActivity('speaking');
       }
 
@@ -817,7 +846,16 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
         (serverEvent.type === 'output_audio_buffer.stopped' ||
           serverEvent.type === 'output_audio_buffer.cleared')
       ) {
+        personaAudioPlaying = false;
         onActivity('listening');
+
+        if (
+          personaHangUpPending &&
+          serverEvent.type === 'output_audio_buffer.stopped'
+        ) {
+          personaHangUpPending = false;
+          stop();
+        }
       }
 
       maybeFinalizeStoppedAttempt();
@@ -853,6 +891,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
     ensureAttemptContinues();
     attemptOpened = true;
     dataChannel.addEventListener('close', handleUnexpectedEnd, { once: true });
+    hardCap = setTimeout(stop, attemptHardCapMs);
 
     sendClientEvent({
       type: 'response.create',

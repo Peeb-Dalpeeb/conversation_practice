@@ -38,6 +38,7 @@ export type Scenario = {
       condition: string;
       rationale: string;
     };
+    hangUpToolDescription: string;
   };
   rubric: readonly [
     RubricCriterion,
@@ -124,6 +125,8 @@ export const scenario = {
       rationale:
         'An offer, a poor opening, hostility, or a cold exchange never makes a hang-up available by itself.',
     },
+    hangUpToolDescription:
+      'End the live Attempt after Jordan has finished speaking. Follow the hang-up precondition above.',
   },
   rubric: [
     {

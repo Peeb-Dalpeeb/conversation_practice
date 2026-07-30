@@ -130,6 +130,12 @@ describe('the server HTTP interface', () => {
           name: 'Gate supplied by the Scenario',
           condition: 'Gate condition supplied by the Scenario.',
         },
+        hangUpPrecondition: {
+          condition: 'Hang-up condition supplied by the Scenario.',
+          rationale: 'Hang-up rationale supplied by the Scenario.',
+        },
+        hangUpToolDescription:
+          'Hang-up tool description supplied by the Scenario.',
       },
     };
     const openAiFetch = vi.fn().mockResolvedValue(
@@ -192,10 +198,30 @@ describe('the server HTTP interface', () => {
         model: string;
         output_modalities: string[];
         instructions: string;
+        tools: {
+          type: string;
+          name: string;
+          description: string;
+          parameters: Record<string, unknown>;
+        }[];
+        truncation: string;
       };
     };
     expect(body.session.model).toBe('gpt-realtime-2.1');
     expect(body.session.output_modalities).toEqual(['audio']);
+    expect(body.session.truncation).toBe('disabled');
+    expect(body.session.tools).toEqual([
+      {
+        type: 'function',
+        name: 'end_call',
+        description: 'Hang-up tool description supplied by the Scenario.',
+        parameters: {
+          type: 'object',
+          properties: {},
+          additionalProperties: false,
+        },
+      },
+    ]);
     expect(JSON.stringify(body.session)).not.toContain('transcription');
     expect(JSON.stringify(body.session)).not.toContain('transcribe');
     expect(body.session.instructions).toContain(
@@ -215,6 +241,12 @@ describe('the server HTTP interface', () => {
     );
     expect(body.session.instructions).toContain(
       'Gate condition supplied by the Scenario.'
+    );
+    expect(body.session.instructions).toContain(
+      'Hang-up condition supplied by the Scenario.'
+    );
+    expect(body.session.instructions).toContain(
+      'Hang-up rationale supplied by the Scenario.'
     );
   });
 

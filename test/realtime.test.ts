@@ -555,6 +555,108 @@ describe('a live Attempt in progress', () => {
     expect(onActivity).not.toHaveBeenCalled();
   });
 
+  it('stops and starts judging when the Persona calls the end-call tool', async () => {
+    const { fetchMock } = stubBrowser();
+    const { attempt, onEnded, onJudgingStarted } = startAttempt();
+    await attempt;
+    const channel = liveDataChannel();
+    const endCallEvent = {
+      type: 'response.function_call_arguments.done',
+      response_id: 'persona-response',
+      item_id: 'end-call-item',
+      call_id: 'end-call',
+      name: 'end_call',
+      arguments: '{}',
+    };
+
+    channel.deliver(endCallEvent);
+    settleEmptyStopCommands(channel);
+
+    await vi.waitFor(() => {
+      const submittedLog = JSON.parse(
+        rawEventLogRequestBody(fetchMock)
+      ) as Record<string, unknown>[];
+
+      expect(submittedLog).toContainEqual({
+        direction: 'server',
+        event: JSON.stringify(endCallEvent),
+      });
+    });
+    expect(onJudgingStarted).toHaveBeenCalledOnce();
+    expect(onEnded).not.toHaveBeenCalled();
+  });
+
+  it('lets the Persona finish speaking before acting on the end-call tool', async () => {
+    const { fetchMock } = stubBrowser();
+    const { attempt, onJudgingStarted } = startAttempt();
+    await attempt;
+    const channel = liveDataChannel();
+
+    channel.deliver({
+      type: 'output_audio_buffer.started',
+      response_id: 'persona-response',
+    });
+    channel.deliver({
+      type: 'response.function_call_arguments.done',
+      response_id: 'persona-response',
+      item_id: 'end-call-item',
+      call_id: 'end-call',
+      name: 'end_call',
+      arguments: '{}',
+    });
+
+    expect(onJudgingStarted).not.toHaveBeenCalled();
+    expect(channel.sent).toHaveLength(1);
+    expect(fetchMock.mock.calls.some(([url]) => url === rawEventLogUrl)).toBe(
+      false
+    );
+
+    channel.deliver({
+      type: 'output_audio_buffer.stopped',
+      response_id: 'persona-response',
+    });
+    settleEmptyStopCommands(channel);
+
+    await vi.waitFor(() => {
+      expect(onJudgingStarted).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('does not stop for words that merely sound like a hang-up', async () => {
+    const { fetchMock } = stubBrowser();
+    const { attempt, onJudgingStarted } = startAttempt();
+    await attempt;
+
+    liveDataChannel().deliver({
+      type: 'response.output_audio_transcript.done',
+      item_id: 'persona-turn',
+      transcript: 'Goodbye.',
+    });
+
+    expect(onJudgingStarted).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([url]) => url === rawEventLogUrl)).toBe(
+      false
+    );
+  });
+
+  it('stops and starts judging at the twelve-minute hard cap', async () => {
+    vi.useFakeTimers();
+    const { fetchMock } = stubBrowser();
+    const { attempt, onEnded, onJudgingStarted } = startAttempt();
+    await attempt;
+    const channel = liveDataChannel();
+
+    await vi.advanceTimersByTimeAsync(12 * 60 * 1_000);
+    settleEmptyStopCommands(channel);
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(fetchMock.mock.calls.some(([url]) => url === rawEventLogUrl)).toBe(
+      true
+    );
+    expect(onJudgingStarted).toHaveBeenCalledOnce();
+    expect(onEnded).not.toHaveBeenCalled();
+  });
+
   it('forwards the complete raw event log when the Trainee stops', async () => {
     const { fetchMock } = stubBrowser();
     const { attempt, onAttemptCompleted, onJudgingStarted } = startAttempt();

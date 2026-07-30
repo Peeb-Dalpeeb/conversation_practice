@@ -1,4 +1,5 @@
 import type { Scenario } from '../scenario.js';
+import { endCallToolName } from '../realtime-protocol.js';
 
 const realtimeClientSecretsUrl =
   'https://api.openai.com/v1/realtime/client_secrets';
@@ -48,6 +49,10 @@ function buildPersonaInstructions(currentScenario: Scenario): string {
     `Gate — ${persona.gate.name}:`,
     persona.gate.condition,
     '',
+    'Hang-up precondition:',
+    persona.hangUpPrecondition.condition,
+    persona.hangUpPrecondition.rationale,
+    '',
     'Standing instructions:',
     asBulletList(persona.standingInstructions),
   ].join('\n');
@@ -75,6 +80,19 @@ export function createOpenAiRealtimeClientSecretMinter({
           model: 'gpt-realtime-2.1',
           output_modalities: ['audio'],
           instructions: buildPersonaInstructions(currentScenario),
+          tools: [
+            {
+              type: 'function',
+              name: endCallToolName,
+              description: currentScenario.persona.hangUpToolDescription,
+              parameters: {
+                type: 'object',
+                properties: {},
+                additionalProperties: false,
+              },
+            },
+          ],
+          truncation: 'disabled',
           audio: {
             input: {
               turn_detection: {
