@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { PublicScenario } from '../scenario.js';
+import type { Transcript } from '../server/attempt-completion.js';
 import {
   AttemptFailedError,
   connectRealtimeAttempt,
@@ -35,6 +36,12 @@ type AppProps = {
   connectAttempt?: ConnectRealtimeAttempt;
 };
 
+type DebugTranscriptState =
+  | { name: 'hidden' }
+  | { name: 'loading' }
+  | { name: 'ready'; transcript: Transcript }
+  | { name: 'failed' };
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -63,6 +70,9 @@ function isPublicScenario(value: unknown): value is PublicScenario {
 
 export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
   const [state, setState] = useState<AppState>({ name: 'loading' });
+  const [debugTranscript, setDebugTranscript] = useState<DebugTranscriptState>({
+    name: 'hidden',
+  });
   const attemptController = useRef<AbortController | null>(null);
   const liveAttempt = useRef<RealtimeAttempt | null>(null);
   const releaseAttempt = useCallback(() => {
@@ -111,6 +121,78 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
     [releaseAttempt]
   );
 
+  useEffect(() => {
+    const toggleDebugTranscript = (event: KeyboardEvent) => {
+      const primaryModifierPressed = event.ctrlKey || event.metaKey;
+
+      if (
+        event.repeat ||
+        liveAttempt.current === null ||
+        !primaryModifierPressed ||
+        !event.altKey ||
+        !event.shiftKey ||
+        event.key.toLowerCase() !== 'd'
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      setDebugTranscript((currentDebugTranscript) =>
+        currentDebugTranscript.name === 'hidden'
+          ? { name: 'loading' }
+          : { name: 'hidden' }
+      );
+    };
+
+    window.addEventListener('keydown', toggleDebugTranscript);
+
+    return () => window.removeEventListener('keydown', toggleDebugTranscript);
+  }, []);
+
+  const debugTranscriptVisible = debugTranscript.name !== 'hidden';
+
+  useEffect(() => {
+    if (state.name !== 'live' || !debugTranscriptVisible) {
+      return;
+    }
+
+    let active = true;
+    let requestInFlight = false;
+    const refreshDebugTranscript = async () => {
+      const attempt = liveAttempt.current;
+
+      if (!attempt || requestInFlight) {
+        return;
+      }
+
+      requestInFlight = true;
+
+      try {
+        const transcript = await attempt.readTranscript();
+
+        if (active) {
+          setDebugTranscript({ name: 'ready', transcript });
+        }
+      } catch {
+        if (active) {
+          setDebugTranscript({ name: 'failed' });
+        }
+      } finally {
+        requestInFlight = false;
+      }
+    };
+
+    void refreshDebugTranscript();
+    const refreshInterval = window.setInterval(() => {
+      void refreshDebugTranscript();
+    }, 1_000);
+
+    return () => {
+      active = false;
+      window.clearInterval(refreshInterval);
+    };
+  }, [debugTranscriptVisible, state.name]);
+
   const stopAttempt = () => {
     const judgingExpected = liveAttempt.current !== null;
     releaseAttempt();
@@ -127,6 +209,7 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
   const startAttempt = async (scenario: PublicScenario) => {
     const controller = new AbortController();
     let connectionEnded = false;
+    setDebugTranscript({ name: 'hidden' });
     attemptController.current = controller;
     setState({ name: 'connecting' });
 
@@ -278,6 +361,34 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
             Stop attempt
           </button>
         </section>
+        {debugTranscript.name !== 'hidden' ? (
+          <aside className="debug-transcript" aria-label="Debug Transcript">
+            <h2>Transcript</h2>
+            {debugTranscript.name === 'loading' ? (
+              <p>Reading the current event log…</p>
+            ) : null}
+            {debugTranscript.name === 'failed' ? (
+              <p>Transcript reconstruction is currently failing.</p>
+            ) : null}
+            {debugTranscript.name === 'ready' ? (
+              <ol>
+                {debugTranscript.transcript.map((turn, index) => (
+                  <li key={`${String(index)}-${turn.speaker}-${turn.text}`}>
+                    <p className="debug-transcript__speaker">
+                      {turn.speaker === 'persona' ? 'Persona' : 'Trainee'}
+                    </p>
+                    <p>{turn.text}</p>
+                    {turn.cutOff ? (
+                      <p className="debug-transcript__cut-off">
+                        Cut off at {turn.audioEndMs} ms
+                      </p>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+          </aside>
+        ) : null}
       </main>
     );
   }

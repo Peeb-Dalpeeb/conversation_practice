@@ -1,8 +1,13 @@
-import { createServer } from 'node:http';
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from 'node:http';
 
 import { toPublicScenario, type Scenario } from '../scenario.js';
 import {
   AttemptCompletionError,
+  reconstructTranscript,
   type CompleteAttempt,
 } from './attempt-completion.js';
 import type { ReadLatestAttempt } from './attempt-store.js';
@@ -46,6 +51,44 @@ async function readRequestBody(
   return Buffer.concat(chunks).toString('utf8');
 }
 
+async function readRawEventLogRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  byteLimit: number
+): Promise<string | undefined> {
+  if (
+    !request.headers['content-type']
+      ?.toLowerCase()
+      .startsWith('application/json')
+  ) {
+    // Drain rather than ignore: an unread body resets the connection, and the
+    // page would report a network fault instead of the refusal.
+    request.resume();
+    response.writeHead(415, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ error: 'JSON body required.' }));
+    return undefined;
+  }
+
+  try {
+    return await readRequestBody(request, byteLimit);
+  } catch (error) {
+    const bodyTooLarge = error instanceof RangeError;
+
+    request.resume();
+    response.writeHead(bodyTooLarge ? 413 : 400, {
+      'Content-Type': 'application/json',
+    });
+    response.end(
+      JSON.stringify({
+        error: bodyTooLarge
+          ? 'Raw event log is too large.'
+          : 'Request body unavailable.',
+      })
+    );
+    return undefined;
+  }
+}
+
 export function createApiServer({
   currentScenario,
   mintRealtimeClientSecret = unavailableRealtimeClientSecret,
@@ -86,24 +129,49 @@ export function createApiServer({
 
     if (
       request.method === 'POST' &&
+      request.url === '/api/attempts/transcript'
+    ) {
+      void readRawEventLogRequest(request, response, rawEventLogByteLimit).then(
+        (rawEventLog) => {
+          if (rawEventLog === undefined) {
+            return;
+          }
+
+          try {
+            const transcript = reconstructTranscript(rawEventLog);
+
+            response.writeHead(200, {
+              'Cache-Control': 'no-store',
+              'Content-Type': 'application/json',
+            });
+            response.end(JSON.stringify(transcript));
+          } catch {
+            response.writeHead(422, {
+              'Cache-Control': 'no-store',
+              'Content-Type': 'application/json',
+            });
+            response.end(
+              JSON.stringify({
+                error: 'Transcript could not be reconstructed.',
+              })
+            );
+          }
+        }
+      );
+      return;
+    }
+
+    if (
+      request.method === 'POST' &&
       request.url === '/api/attempts/raw-event-log'
     ) {
-      if (
-        !request.headers['content-type']
-          ?.toLowerCase()
-          .startsWith('application/json')
-      ) {
-        // Drain rather than ignore: an unread body resets the connection, and
-        // the page would report a network fault instead of the refusal.
-        request.resume();
-        response.writeHead(415, { 'Content-Type': 'application/json' });
-        response.end(JSON.stringify({ error: 'JSON body required.' }));
-        return;
-      }
+      void readRawEventLogRequest(request, response, rawEventLogByteLimit).then(
+        (rawEventLog) => {
+          if (rawEventLog === undefined) {
+            return;
+          }
 
-      void readRequestBody(request, rawEventLogByteLimit).then(
-        (rawEventLog) =>
-          completeAttempt(rawEventLog).then(
+          void completeAttempt(rawEventLog).then(
             (attempt) => {
               response.writeHead(200, {
                 'Cache-Control': 'no-store',
@@ -144,20 +212,6 @@ export function createApiServer({
                 })
               );
             }
-          ),
-        (error: unknown) => {
-          const bodyTooLarge = error instanceof RangeError;
-
-          request.resume();
-          response.writeHead(bodyTooLarge ? 413 : 400, {
-            'Content-Type': 'application/json',
-          });
-          response.end(
-            JSON.stringify({
-              error: bodyTooLarge
-                ? 'Raw event log is too large.'
-                : 'Request body unavailable.',
-            })
           );
         }
       );

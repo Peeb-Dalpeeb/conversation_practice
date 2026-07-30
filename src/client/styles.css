@@ -315,6 +315,62 @@ h1 {
   outline-offset: 0.22rem;
 }
 
+.debug-transcript {
+  position: fixed;
+  inset: 1rem 1rem 1rem auto;
+  width: min(32rem, calc(100vw - 2rem));
+  padding: 1.5rem;
+  overflow-y: auto;
+  border: 1px solid rgb(60 49 40 / 18%);
+  border-radius: 1rem;
+  background: rgb(255 253 248 / 97%);
+  box-shadow: 0 1rem 3rem rgb(66 52 38 / 22%);
+  color: #3f3933;
+}
+
+.debug-transcript h2 {
+  margin: 0 0 1.5rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 2rem;
+  font-weight: 500;
+}
+
+.debug-transcript ol {
+  display: grid;
+  padding: 0;
+  margin: 0;
+  gap: 1rem;
+  list-style: none;
+}
+
+.debug-transcript li {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #f3eee6;
+}
+
+.debug-transcript p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.debug-transcript__speaker,
+.debug-transcript__cut-off {
+  color: #8a4b34;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.debug-transcript .debug-transcript__speaker {
+  margin-bottom: 0.4rem;
+}
+
+.debug-transcript .debug-transcript__cut-off {
+  margin-top: 0.6rem;
+}
+
 @media (max-width: 640px) {
   .briefing__details {
     grid-template-columns: 1fr;

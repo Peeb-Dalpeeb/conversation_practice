@@ -283,6 +283,94 @@ describe('the server HTTP interface', () => {
     expect(storedLogs).toEqual([rawEventLog]);
   });
 
+  it('reconstructs a Transcript without completing an Attempt', async () => {
+    const completeAttempt = vi.fn(() => Promise.resolve(completedAttempt));
+    const server = createApiServer({
+      currentScenario: scenario,
+      completeAttempt,
+    });
+    servers.push(server);
+
+    await new Promise<void>((resolveListening) => {
+      server.listen(0, '127.0.0.1', resolveListening);
+    });
+
+    const port = (server.address() as AddressInfo).port;
+    const rawEventLog = JSON.stringify(
+      [
+        {
+          type: 'conversation.item.added',
+          previous_item_id: null,
+          item: {
+            id: 'persona-turn',
+            role: 'assistant',
+            content: [{ type: 'output_audio' }],
+          },
+        },
+        {
+          type: 'response.output_audio_transcript.done',
+          item_id: 'persona-turn',
+          transcript: "I'd like to close my account.",
+        },
+        {
+          type: 'conversation.item.added',
+          previous_item_id: 'persona-turn',
+          item: {
+            id: 'trainee-turn',
+            role: 'user',
+            content: [{ type: 'input_audio' }],
+          },
+        },
+        {
+          type: 'response.done',
+          response: {
+            metadata: {
+              purpose: 'turn_transcription',
+              source_item_id: 'trainee-turn',
+            },
+            output: [
+              {
+                content: [
+                  {
+                    type: 'output_text',
+                    text: 'Can you tell me what happened?',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ].map((event) => ({
+        direction: 'server',
+        event: JSON.stringify(event),
+      }))
+    );
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/transcript`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: rawEventLog,
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual([
+      {
+        speaker: 'persona',
+        text: "I'd like to close my account.",
+        cutOff: false,
+      },
+      {
+        speaker: 'trainee',
+        text: 'Can you tell me what happened?',
+        cutOff: false,
+      },
+    ]);
+    expect(completeAttempt).not.toHaveBeenCalled();
+  });
+
   it('rejects non-JSON and oversized raw event logs before storage', async () => {
     const storeRawEventLog = vi.fn(() => Promise.resolve(completedAttempt));
     const server = createApiServer({

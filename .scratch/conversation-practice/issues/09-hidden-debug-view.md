@@ -17,15 +17,15 @@ build and it does not get quietly walked back for the author's own convenience.
 
 **Blocked by:** 05 — Attempt completion: reassembly and persistence (the seam).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A keyboard shortcut reveals the Transcript; the same shortcut hides it again.
-- [ ] The Transcript shown is read back from the server, not reconstructed in the browser.
-- [ ] Turn order and speaker attribution are visible, so a transcription failure or a
+- [x] A keyboard shortcut reveals the Transcript; the same shortcut hides it again.
+- [x] The Transcript shown is read back from the server, not reconstructed in the browser.
+- [x] Turn order and speaker attribution are visible, so a transcription failure or a
       misattributed turn is obvious at a glance.
-- [ ] Nothing on screen advertises the view's existence — no button, no hint, no
+- [x] Nothing on screen advertises the view's existence — no button, no hint, no
       discoverable affordance.
-- [ ] A Trainee who never presses the shortcut sees exactly the screen described in ticket
+- [x] A Trainee who never presses the shortcut sees exactly the screen described in ticket
       03.
 
 ## Comments
@@ -39,7 +39,7 @@ build and it does not get quietly walked back for the author's own convenience.
 
   What fits: a new read-only endpoint that takes the log, runs the existing reassembly, and
   returns the Transcript, persisting nothing and judging nothing. The browser already holds the
-  raw log — it accumulates it in `rawEventLog` (`src/client/realtime.ts:368`) precisely so it
+  raw log — it accumulates it in `rawEventLog` (`src/client/realtime.ts:387`) precisely so it
   can post it at the end — so this satisfies "reads the Transcript back from the server"
   without a second reassembly implementation. Read the ticket's "does not maintain its own copy"
   as *no second Transcript in the browser*, not *no events*: the events are already there and
@@ -51,6 +51,14 @@ build and it does not get quietly walked back for the author's own convenience.
   ordering is touched — which ticket 08 already touched once, for role-less Hang-up items.
 
 - **Do not route the debug read through the existing submission.** `rawEventLogSubmission`
-  (`src/client/realtime.ts:386`) is a once-only memoized promise, deliberately, so the real log
+  (`src/client/realtime.ts:405`) is a once-only memoized promise, deliberately, so the real log
   is posted exactly once per Attempt. A debug read that reuses it either consumes the real
   submission or is silently served a stale one. It needs its own request path.
+
+- **Implemented 2026-07-30.** During a live Attempt,
+  `Ctrl+Alt+Shift+D` (`Cmd+Alt+Shift+D` on macOS) reveals the debug Transcript and the same
+  shortcut hides it. While visible, the page asks the side-effect-free
+  `POST /api/attempts/transcript` endpoint for a fresh server reconstruction once per second;
+  a reconstruction gap is shown as a failure rather than a stale success. The completion
+  submission remains separate and once-only. The full suite passes with 111 tests, and
+  typecheck, lint, formatting, and the production build all pass.

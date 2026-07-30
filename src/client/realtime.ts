@@ -1,8 +1,10 @@
 import { personaHangUpToolName } from '../realtime-protocol.js';
+import type { Transcript } from '../server/attempt-completion.js';
 
 export type AttemptActivity = 'listening' | 'speaking';
 
 export type RealtimeAttempt = {
+  readTranscript(): Promise<Transcript>;
   stop(): void;
 };
 
@@ -151,6 +153,23 @@ async function openMicrophone(): Promise<MediaStream> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function isTranscript(value: unknown): value is Transcript {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (turn) =>
+        isRecord(turn) &&
+        (turn.speaker === 'persona' || turn.speaker === 'trainee') &&
+        typeof turn.text === 'string' &&
+        typeof turn.cutOff === 'boolean' &&
+        (turn.cutOff === false ||
+          (turn.speaker === 'persona' &&
+            typeof turn.audioEndMs === 'number' &&
+            Number.isFinite(turn.audioEndMs)))
+    )
+  );
 }
 
 function isClientSecretResponse(value: unknown): value is ClientSecretResponse {
@@ -662,6 +681,26 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
     onEnded();
   };
 
+  const readTranscript = async (): Promise<Transcript> => {
+    const response = await fetch('/api/attempts/transcript', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rawEventLog),
+    });
+
+    if (!response.ok) {
+      throw new Error('The Transcript could not be read.');
+    }
+
+    const transcript: unknown = await response.json();
+
+    if (!isTranscript(transcript)) {
+      throw new TypeError('The Transcript response was invalid.');
+    }
+
+    return transcript;
+  };
+
   signal.addEventListener('abort', stop, { once: true });
 
   try {
@@ -946,7 +985,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       },
     });
 
-    return { stop };
+    return { readTranscript, stop };
   } catch (error) {
     stop();
     throw error;

@@ -15,6 +15,7 @@ import {
   type AttemptActivity,
   type CompletedAttempt,
   type ConnectRealtimeAttempt,
+  type RealtimeAttempt,
 } from '../src/client/realtime.js';
 
 const publicScenario = {
@@ -40,6 +41,13 @@ function respondWithScenario() {
       json: () => Promise.resolve(publicScenario),
     })
   );
+}
+
+function stubRealtimeAttempt(stop = vi.fn()): RealtimeAttempt {
+  return {
+    readTranscript: () => Promise.resolve([]),
+    stop,
+  };
 }
 
 afterEach(() => {
@@ -82,7 +90,7 @@ describe('the Trainee-facing app', () => {
       ({ onActivity, onJudgingStarted }) => {
         reportActivity = onActivity;
         reportJudgingStarted = onJudgingStarted;
-        return Promise.resolve({ stop });
+        return Promise.resolve(stubRealtimeAttempt(stop));
       }
     );
 
@@ -127,6 +135,64 @@ describe('the Trainee-facing app', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
+  it('reveals and hides the server-reconstructed Transcript by shortcut', async () => {
+    respondWithScenario();
+    const readTranscript = vi.fn(() =>
+      Promise.resolve([
+        {
+          speaker: 'persona' as const,
+          text: "I'd like to close my account.",
+          cutOff: false as const,
+        },
+        {
+          speaker: 'trainee' as const,
+          text: 'Can you tell me what happened?',
+          cutOff: false as const,
+        },
+      ])
+    );
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(() =>
+      Promise.resolve({ readTranscript, stop: vi.fn() })
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    await screen.findByText('Listening');
+
+    expect(
+      screen.queryByRole('complementary', { name: 'Debug Transcript' })
+    ).toBeNull();
+
+    fireEvent.keyDown(window, {
+      key: 'd',
+      ctrlKey: true,
+      altKey: true,
+      shiftKey: true,
+    });
+
+    const transcript = await screen.findByRole('complementary', {
+      name: 'Debug Transcript',
+    });
+    expect(readTranscript).toHaveBeenCalledOnce();
+    expect(transcript.textContent).toContain('Persona');
+    expect(transcript.textContent).toContain("I'd like to close my account.");
+    expect(transcript.textContent).toContain('Trainee');
+    expect(transcript.textContent).toContain('Can you tell me what happened?');
+
+    fireEvent.keyDown(window, {
+      key: 'd',
+      ctrlKey: true,
+      altKey: true,
+      shiftKey: true,
+    });
+
+    expect(
+      screen.queryByRole('complementary', { name: 'Debug Transcript' })
+    ).toBeNull();
+  });
+
   it('leaves the live screen as soon as an Attempt ends autonomously', async () => {
     respondWithScenario();
     let reportAttemptEnding: (() => void) | undefined;
@@ -135,7 +201,7 @@ describe('the Trainee-facing app', () => {
       reportAttemptEnding = options.onAttemptEnding;
       reportJudgingStarted = options.onJudgingStarted;
 
-      return Promise.resolve({ stop: vi.fn() });
+      return Promise.resolve(stubRealtimeAttempt());
     });
 
     render(<App connectAttempt={connectAttempt} />);
@@ -171,7 +237,7 @@ describe('the Trainee-facing app', () => {
       ({ onAttemptCompleted, onJudgingStarted }) => {
         reportAttemptCompleted = onAttemptCompleted;
         reportJudgingStarted = onJudgingStarted;
-        return Promise.resolve({ stop: vi.fn() });
+        return Promise.resolve(stubRealtimeAttempt());
       }
     );
 
@@ -219,7 +285,7 @@ describe('the Trainee-facing app', () => {
     const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
       ({ onAttemptJudgingFailed }) => {
         reportAttemptJudgingFailed = onAttemptJudgingFailed;
-        return Promise.resolve({ stop: vi.fn() });
+        return Promise.resolve(stubRealtimeAttempt());
       }
     );
 
@@ -323,7 +389,7 @@ describe('the Trainee-facing app', () => {
     let reportEnded: (() => void) | undefined;
     const connectAttempt = vi.fn<ConnectRealtimeAttempt>(({ onEnded }) => {
       reportEnded = onEnded;
-      return Promise.resolve({ stop });
+      return Promise.resolve(stubRealtimeAttempt(stop));
     });
 
     render(<App connectAttempt={connectAttempt} />);
@@ -350,7 +416,7 @@ describe('the Trainee-facing app', () => {
       ({ onAttemptCompleted, onAttemptDataFailed }) => {
         reportAttemptCompleted = onAttemptCompleted;
         reportAttemptDataFailed = onAttemptDataFailed;
-        return Promise.resolve({ stop: vi.fn() });
+        return Promise.resolve(stubRealtimeAttempt());
       }
     );
 
@@ -396,7 +462,7 @@ describe('the Trainee-facing app', () => {
       ({ onEnded, onAttemptDataFailed }) => {
         reportEnded = onEnded;
         reportAttemptDataFailed = onAttemptDataFailed;
-        return Promise.resolve({ stop: vi.fn() });
+        return Promise.resolve(stubRealtimeAttempt());
       }
     );
 

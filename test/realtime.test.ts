@@ -9,6 +9,7 @@ import {
 } from '../src/client/realtime.js';
 
 const clientSecretUrl = '/api/realtime/client-secret';
+const transcriptUrl = '/api/attempts/transcript';
 const rawEventLogUrl = '/api/attempts/raw-event-log';
 const latestAttemptUrl = '/api/attempts/latest';
 const realtimeCallsUrl = 'https://api.openai.com/v1/realtime/calls';
@@ -126,6 +127,7 @@ function createMicrophone() {
 type BrowserStubOptions = {
   getUserMedia?: () => Promise<MediaStream>;
   requestLog?: string[];
+  transcriptBody?: unknown;
   rawEventLogOk?: boolean;
   rawEventLogStatus?: number;
   rawEventLogBody?: unknown;
@@ -195,6 +197,23 @@ function stubBrowser(options: BrowserStubOptions = {}) {
           options.rawEventLogJsonRejects
             ? Promise.reject(new TypeError('The response connection closed.'))
             : Promise.resolve(options.rawEventLogBody ?? completedAttempt),
+      } as unknown as Response);
+    }
+
+    if (url === transcriptUrl) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            options.transcriptBody ?? [
+              {
+                speaker: 'persona',
+                text: "I'd like to close my account.",
+                cutOff: false,
+              },
+            ]
+          ),
       } as unknown as Response);
     }
 
@@ -359,6 +378,63 @@ describe('opening a live Attempt', () => {
 });
 
 describe('a live Attempt in progress', () => {
+  it('reads fresh Transcript snapshots without consuming Attempt completion', async () => {
+    const { fetchMock } = stubBrowser();
+    const { attempt } = startAttempt();
+    const liveAttempt = await attempt;
+    const channel = liveDataChannel();
+
+    channel.deliver({
+      type: 'response.output_audio_transcript.done',
+      item_id: 'persona-turn',
+      transcript: "I'd like to close my account.",
+    });
+
+    await expect(liveAttempt.readTranscript()).resolves.toEqual([
+      {
+        speaker: 'persona',
+        text: "I'd like to close my account.",
+        cutOff: false,
+      },
+    ]);
+
+    channel.deliver({ type: 'rate_limits.updated' });
+    await liveAttempt.readTranscript();
+
+    const transcriptRequests = fetchMock.mock.calls.filter(
+      ([url]) => url === transcriptUrl
+    );
+    expect(transcriptRequests).toHaveLength(2);
+    expect(transcriptRequests[0]?.[1]).toMatchObject({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    expect(transcriptRequests[0]?.[1]?.body).not.toBe(
+      transcriptRequests[1]?.[1]?.body
+    );
+    expect(fetchMock.mock.calls.some(([url]) => url === rawEventLogUrl)).toBe(
+      false
+    );
+  });
+
+  it('rejects an invalid Transcript returned by the server', async () => {
+    stubBrowser({
+      transcriptBody: [
+        {
+          speaker: 'unknown',
+          text: 'This must not reach the debug view.',
+          cutOff: false,
+        },
+      ],
+    });
+    const { attempt } = startAttempt();
+    const liveAttempt = await attempt;
+
+    await expect(liveAttempt.readTranscript()).rejects.toThrow(
+      /Transcript response was invalid/
+    );
+  });
+
   it('asks the Persona model for isolated text for each Trainee turn', async () => {
     stubBrowser();
     const { attempt } = startAttempt();

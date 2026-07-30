@@ -250,7 +250,7 @@ function orderSpokenTurns(
   return orderedTurns;
 }
 
-function reconstructTranscript(rawEventLog: string): Transcript {
+export function reconstructTranscript(rawEventLog: string): Transcript {
   const events = parseRealtimeEvents(rawEventLog);
   const turnsById = new Map<string, SpokenTurn>();
   const conversationItemsById = new Map<string, ConversationItemLink>();
