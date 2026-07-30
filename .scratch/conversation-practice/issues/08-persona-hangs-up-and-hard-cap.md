@@ -36,21 +36,21 @@ the completion endpoint's fixtures.
 
 **Blocked by:** 05 — Attempt completion: reassembly and persistence (the seam).
 
-**Status:** ready-for-human
+**Status:** done
 
 - [x] The Persona ends the call via an explicit tool call, never by phrase-matching.
 - [x] The tool is available only once cancellation is genuinely underway — account details
       asked for, cancellation confirmed, or stated as done — and the precondition is stated
       in the Scenario file with a comment explaining why it is narrow.
-- [ ] An Attempt opening with "I can offer you a discount" cannot trigger the hang-up,
+- [x] An Attempt opening with "I can offer you a discount" cannot trigger the hang-up,
       verified by running it.
-- [ ] A Trainee who processes the cancellation without asking anything gets a flat compliance
+- [x] A Trainee who processes the cancellation without asking anything gets a flat compliance
       and a hang-up.
 - [x] The Hang-up tool call terminates the Attempt and triggers judging.
 - [x] Every firing of the tool is logged.
 - [x] A hard cap of roughly 12 minutes terminates the Attempt and triggers judging.
 - [x] Realtime truncation is not enabled.
-- [ ] The completion endpoint's fixtures include a real event log where the Persona performed
+- [x] The completion endpoint's fixtures include a real event log where the Persona performed
       the Hang-up.
 
 ## Comments
@@ -90,7 +90,7 @@ the completion endpoint's fixtures.
   a kept capture.
 
 - **Implementation checkpoint, 2026-07-29 — ready for live author verification.** Run
-  `npm.cmd run dev`, open the page URL printed by Vite, and perform these two Attempts with a
+  `npm run dev`, open the page URL printed by Vite, and perform these two Attempts with a
   real microphone:
 
   1. After Jordan's opening, say exactly, "I can offer you a discount." Jordan must become
@@ -106,6 +106,88 @@ the completion endpoint's fixtures.
   `Get-ChildItem data/raw-event-logs -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1`,
   copy it to `test/fixtures/raw-event-logs/persona-hangs-up.json`, document it in that
   directory's README, and run it through the completion-endpoint test before marking the
-  final fixture criterion complete. The completion seam already has a synthetic regression
-  for a role-less Hang-up item between spoken turns; the captured fixture is still required
-  to establish the live API's actual item order and Persona behaviour.
+  final fixture criterion complete. The completion seam already covers a role-less Hang-up
+  item before, after, and beside the Persona turn it accompanies; the captured fixture is
+  still required to establish the Persona's behaviour and to confirm the API produces one of
+  those three placements.
+
+- **First live run, 2026-07-29 — two of the three live criteria pass; the Persona hangs up
+  mute.** Both Attempts were judged and persisted, so the whole path from tool call to
+  Feedback works end to end.
+
+  Passing. The discount opening never made the tool available: 247 envelopes, and not one
+  `response.function_call_arguments.done` in the log. The Hang-up terminated the Attempt and
+  triggered judging on the Trainee-stop path, with the firing present in the raw log by
+  construction. The Hang-up fired after "I've started the cancellation now", which is the
+  precondition's second clause — narrow as written, and it held.
+
+  Failing. Jordan hung up **without a closing line**, so the Trainee heard the call end in
+  silence. The Hang-up response carried `output: [function_call]` and no audio item, and the
+  client's `response.cancel` was answered `response_cancel_not_active` — nothing was cut off,
+  because nothing was ever generated. This is a prompt fault, not a plumbing one: the old tool
+  description said "hang up after you have finished speaking", which reads as already satisfied
+  by the previous turn. Both the behaviour rule and the tool description now require the flat
+  sentence and the Hang-up in the same turn. The log is kept as
+  `.scratch/conversation-practice/evidence/hang-up-without-a-closing-line.json`.
+
+  Still open: re-run the second Attempt against the revised wording, and promote *that* log as
+  the fixture. The mute log would satisfy the fixture criterion literally, but it would install
+  a behaviourally wrong Attempt as the reference Hang-up.
+
+- **What the captured Hang-up settles, and what the existing logs already settled.** Three
+  orderings the client's Hang-up handling depends on were checked against the three logs in
+  `test/fixtures/raw-event-logs/`, across all twelve spoken responses in them:
+  `output_audio_buffer.started` always precedes `response.done`, `output_audio_buffer.stopped`
+  or `.cleared` always follows it, and both carry `response_id`. Default responses carry
+  `conversation_id` on `response.created` and out-of-band ones do not, which is what makes
+  `activeDefaultResponses` a usable signal for "the Persona is still mid-turn". A pending
+  Hang-up therefore always resolves — on the audio drain for a spoken response, on
+  `response.done` for a tool-only one.
+
+  The first live Hang-up answered the first of the two open questions: the `function_call`
+  item's `previous_item_id` was the Trainee's last turn, so the item lands at the **tail** of
+  the chain — the placement the old code already handled. Reassembly steps over role-less items
+  regardless, so a future run that nests it differently is covered too.
+
+  Still unanswered, and still not worth speculative code: whether a response can reach
+  `response.done` carrying audio that never reaches playback — the one shape that would leave a
+  Hang-up pending until the twelve-minute cap. The re-run is the first capture that could show
+  it, because it is the first where the Hang-up shares a turn with spoken audio.
+
+- **Second live run, 2026-07-30 — all three live criteria pass. The ticket is complete.** Both
+  Attempts were run against the revised wording and persisted as `0003` and `0004`.
+
+  The Hang-up Attempt (`0003`, 162 envelopes) is now the fixture,
+  `test/fixtures/raw-event-logs/persona-hangs-up.json`. Its final `response.done` carries
+  **both** output items — a `message` with `output_audio` content, "Okay. Please go ahead and
+  complete it.", and the `function_call`. That is the mute failure fixed: the closing line and
+  the Hang-up now arrive in the same turn, exactly as the revised behaviour rule and tool
+  description ask.
+
+  This capture also answers the question the previous comment left open. The order is
+  `output_audio_buffer.started` → `response.done` → `output_audio_buffer.stopped`, with the
+  client's `input_audio_buffer.commit`, `response.cancel` and `output_audio_buffer.clear` all
+  arriving **after** the buffer stopped. A response carrying audio does reach playback before
+  the Hang-up resolves, the pending Hang-up resolved on the drain as designed, nothing was
+  clipped, and the closing Persona turn reassembles with `cutOff: false`. No speculative code
+  was needed and none should be added.
+
+  The `function_call` item's `previous_item_id` is the Persona turn it accompanies, so this run
+  placed it **after** the spoken turn rather than at the tail of the chain as the first capture
+  did. Both reassemble identically, which is what the role-less-item handling at the completion
+  seam is for. Two live captures now disagree on placement, so the three-placement coverage
+  stays.
+
+  The discount opening (`0004`, 221 envelopes) was re-run against the revised wording and still
+  never makes the tool available: zero tool calls across three separate commercial offers, with
+  Jordan getting colder each time. The Attempt stayed live until **Stop attempt**.
+
+- **Follow-up, not a defect in this ticket: the Hang-up is not legible to the Trainee.** The
+  author's reaction to `0003` was that the ending felt abrupt rather than pointed, and the log
+  says why. Nothing records *how* an Attempt ended: `personaHangUpToolName` appears in the
+  client, which ends the Attempt on it, and in session minting, and nowhere else. Reassembly
+  does not look for it and the persisted Attempt has no field for it, so `0003` and `0004` are
+  structurally identical on that point. The Feedback for `0003` reads as though the call ended
+  normally, and even coaches the Trainee to ask "Is there anything else you'd like me to know
+  before I complete the cancellation?" — which the Hang-up denied them. The mechanism is
+  correct and stays; making the ending readable is ticket 14.

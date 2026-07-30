@@ -173,7 +173,7 @@ incident is acknowledged without excuses.
     offer you a discount", so that the failure is one the room recognises instantly and one
     I can reproduce reliably under pressure.
 46. As the author, I want that deliberate bad opening to be incapable of triggering the
-    Persona's hang-up, so that the demo cannot end thirty seconds in.
+    Persona's Hang-up, so that the demo cannot end thirty seconds in.
 47. As the author, I want the comparison grid legible from the back of a room on a
     projector, so that leadership can read it without being handed a laptop.
 48. As the author, I want to open criterion 3 live and show the exact line, so that I
@@ -205,7 +205,7 @@ incident is acknowledged without excuses.
     Feedback, so that I can read back a tuning run that went wrong instead of guessing.
 59. As the author, I want out-of-order realtime events reassembled into correct turn order,
     so that evidence quotes are attributed to the right speaker in the right sequence.
-60. As the author, I want the Persona's hang-up implemented as an explicit tool call rather
+60. As the author, I want the Persona's Hang-up implemented as an explicit tool call rather
     than phrase-matching, so that it can be logged, constrained, and reasoned about when it
     misfires.
 61. As the author, I want a hard cap on Attempt length, so that a session left open does
@@ -235,7 +235,7 @@ will look at it" is not a reason to put something on screen during an Attempt.
 Five pieces, plus the seam relocation described under Testing Decisions.
 
 **Scenario module.** A single file holding the Scenario: the Briefing text, the Persona's
-public description, the Private Profile, the behaviour rules, the named Gate, the hang-up
+public description, the Private Profile, the behaviour rules, the named Gate, the Hang-up
 precondition, and the six Rubric criteria. Read by the server; supplies the Persona
 instructions to the realtime session and the Rubric to the Assessment call. The Gate is
 stated as an explicit flip condition, never as a described mood — language models are
@@ -338,17 +338,17 @@ rather than maintaining its own.
 Three ways an Attempt ends:
 
 1. **The Persona hangs up**, via an explicit tool call. Not phrase-matching on "goodbye" —
-   the model must *decide*, and a tool call can be logged and constrained. The hang-up is
+   the model must *decide*, and a tool call can be logged and constrained. The Hang-up is
    the Scenario's sharpest lesson: you did your job correctly and learned nothing about why
    the customer left.
 2. **The Trainee stops the Attempt** manually.
 3. **A hard cap of roughly 12 minutes** elapses. This is a cost guard and plumbing, not a
    design decision.
 
-The hang-up is available to the Persona **only once cancellation is actually underway** —
+The Hang-up is available to the Persona **only once cancellation is actually underway** —
 narrowly and factually: the Trainee has asked for account details, confirmed the
 cancellation, or stated that it is done. This is the same reasoning that produced the named
-Gate, applied to the hang-up because it hands the model a button that can end a live demo.
+Gate, applied to the Hang-up because it hands the model a button that can end a live demo.
 Critically, the deliberate discount opening in Attempt one can never trigger it, so the
 demo's contrast is safe.
 
@@ -404,7 +404,7 @@ Transcript is flowing during tuning. It must never surface in the Trainee experi
 
 Node + TypeScript on the server, React via Vite on the page. The author's normal stack is
 TypeScript and React; one language across server and page; types earn their keep against
-the realtime event zoo, turn reassembly, out-of-band responses, and the end-call tool. The
+the realtime event zoo, turn reassembly, out-of-band responses, and the Hang-up tool. The
 server is small enough that author fluency outweighs ecosystem fit.
 
 Rejected: plain JS (faster loop, no types where event handling is most error-prone); a
@@ -438,7 +438,7 @@ function calls, module structure, or the shape of intermediate values.
 
 **One seam: the server's Attempt-completion endpoint.** Post a recorded realtime event log,
 assert the persisted Attempt. The two model calls (Assessment, Feedback) are injected and
-stubbed. This single seam covers turn reassembly, end-call tool handling, the hard cap,
+stubbed. This single seam covers turn reassembly, Hang-up tool handling, the hard cap,
 Attempt numbering, persistence, and the pairing of the two most recent Attempts.
 
 This is the reason reassembly was moved server-side. The alternative — a pure
@@ -447,7 +447,7 @@ a finished Transcript — means testing in two places, with the join between the
 neither.
 
 Fixtures are recorded event logs captured from real tuning Attempts, including at least one
-where turns arrive out of order, one where the Persona fires the end-call tool, and one
+where turns arrive out of order, one where the Persona performs the Hang-up, and one
 where the Trainee stops mid-conversation.
 
 ### What will be tested at that seam
@@ -455,7 +455,7 @@ where the Trainee stops mid-conversation.
 - Turns reassembled into correct order from `item_id` and `previous_item_id`, including
   when events arrive out of sequence.
 - Speaker attribution — a quote credited to the Trainee is one the Trainee said.
-- The end-call tool call terminates the Attempt and triggers judging.
+- The Hang-up tool call terminates the Attempt and triggers judging.
 - A Trainee-initiated stop terminates the Attempt and triggers judging.
 - The hard cap terminates the Attempt and triggers judging.
 - Feedback receives the Assessment and the Transcript, and Assessment runs first.
@@ -521,7 +521,7 @@ expandable evidence rows, and the decision stands.
 `previous_item_id` and that the Transcript come from the Persona's own model out of band.
 Both still hold; only the location of the reassembly code changed.
 
-**Two things deliberately have no ADR.** The Persona's constrained hang-up is a genuine and
+**Two things deliberately have no ADR.** The Persona's constrained Hang-up is a genuine and
 subtle trade-off, but it is a line in a prompt file and trivially reversible — the
 constraint carries its own comment where it lives. The near-empty screen during an Attempt
 will read as unfinished to anyone new, and someone will try to add captions back; it is
