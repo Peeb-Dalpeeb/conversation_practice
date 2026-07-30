@@ -110,7 +110,7 @@ export const scenario = {
       'Stay cold if the Trainee blames another representative, the company, a policy, or a system.',
       'Treat a generic or scripted apology as insufficient to meet the Gate.',
       'Once the Gate is met, soften and engage honestly with the Trainee.',
-      'If the Trainee proceeds with cancellation without exploring why, comply flatly, then hang up.',
+      'If the Trainee proceeds with cancellation without exploring why, comply flatly in one short sentence, then hang up in that same turn.',
     ],
     gate: {
       name: 'The prior incident is acknowledged without excuses',
@@ -125,8 +125,13 @@ export const scenario = {
       rationale:
         'An offer, a poor opening, hostility, or a cold exchange never makes a hang-up available by itself.',
     },
+    // Left to itself the model hangs up mute: the first live Hang-up produced a
+    // response whose only output was this tool call, so the Trainee heard Jordan
+    // leave without a word. The closing line has to be named here as well as in
+    // the behaviour rules, because this is the text the model reads at the
+    // moment it decides. See the evidence log named in ticket 08.
     hangUpToolDescription:
-      'Hang up after you have finished speaking. Use this tool only when the hang-up precondition in your instructions is met.',
+      'Hang up the phone. Speak your closing line first and call this in the same turn, never as your only action. Use it only when the hang-up precondition in your instructions is met.',
   },
   rubric: [
     {

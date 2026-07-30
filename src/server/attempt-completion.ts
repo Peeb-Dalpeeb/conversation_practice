@@ -184,45 +184,66 @@ function outputText(response: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+/**
+ * The turn a spoken turn follows: the nearest ancestor that is itself spoken.
+ * The default Conversation chain also carries role-less items — a Persona
+ * Hang-up is a `function_call` item in that same chain — and no captured log yet
+ * shows whether the API places one before, after, or beside the turn it
+ * accompanies. Stepping over them leaves the Transcript's order the same
+ * whichever it turns out to be.
+ */
+function previousSpokenTurnId(
+  turnId: string,
+  turnsById: Map<string, SpokenTurn>,
+  conversationItemsById: Map<string, ConversationItemLink>
+): string | null {
+  let ancestorId = conversationItemsById.get(turnId)?.previousItemId ?? null;
+  let remainingItems = conversationItemsById.size;
+
+  while (ancestorId !== null && !turnsById.has(ancestorId)) {
+    if (remainingItems === 0) {
+      throw new TypeError('The raw event log has a circular turn chain.');
+    }
+
+    remainingItems -= 1;
+    ancestorId = conversationItemsById.get(ancestorId)?.previousItemId ?? null;
+  }
+
+  return ancestorId;
+}
+
 function orderSpokenTurns(
   turnsById: Map<string, SpokenTurn>,
   conversationItemsById: Map<string, ConversationItemLink>
 ): SpokenTurn[] {
-  // The default Conversation chain also contains role-less items such as
-  // Persona Hang-ups. Walk every added item, then retain only spoken turns;
-  // otherwise a spoken item whose predecessor is a tool call looks detached.
-  // Out-of-band transcription outputs never emit `conversation.item.added`,
-  // which keeps their separate null-headed chains out of this map.
-  const nextItemByPreviousId = new Map<string | null, ConversationItemLink>();
+  // Only spoken turns are ordered here. Out-of-band transcription outputs never
+  // emit `conversation.item.added`, which keeps their separate null-headed
+  // chains out of the links this reads.
+  const nextTurnByPreviousId = new Map<string | null, SpokenTurn>();
 
-  for (const item of conversationItemsById.values()) {
-    if (nextItemByPreviousId.has(item.previousItemId)) {
+  for (const turn of turnsById.values()) {
+    const previousTurnId = previousSpokenTurnId(
+      turn.id,
+      turnsById,
+      conversationItemsById
+    );
+
+    if (nextTurnByPreviousId.has(previousTurnId)) {
       throw new TypeError('The raw event log has an ambiguous turn chain.');
     }
 
-    nextItemByPreviousId.set(item.previousItemId, item);
+    nextTurnByPreviousId.set(previousTurnId, turn);
   }
 
   const orderedTurns: SpokenTurn[] = [];
-  let orderedItemCount = 0;
-  let nextItem = nextItemByPreviousId.get(null);
+  let nextTurn = nextTurnByPreviousId.get(null);
 
-  while (nextItem) {
-    orderedItemCount += 1;
-
-    const spokenTurn = turnsById.get(nextItem.id);
-
-    if (spokenTurn) {
-      orderedTurns.push(spokenTurn);
-    }
-
-    nextItem = nextItemByPreviousId.get(nextItem.id);
+  while (nextTurn) {
+    orderedTurns.push(nextTurn);
+    nextTurn = nextTurnByPreviousId.get(nextTurn.id);
   }
 
-  if (
-    orderedItemCount !== conversationItemsById.size ||
-    orderedTurns.length !== turnsById.size
-  ) {
+  if (orderedTurns.length !== turnsById.size) {
     throw new TypeError('The raw event log has an incomplete turn chain.');
   }
 

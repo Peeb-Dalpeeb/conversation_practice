@@ -26,16 +26,24 @@ describe("The Customer Who's Had Enough Scenario", () => {
       'cancellation is a protest'
     );
     expect(scenario.persona.behaviourRules.join(' ')).toMatch(
-      /comply flatly, then hang up/
+      /comply flatly.*then hang up in that same turn/
     );
     expect(scenario.persona.gate.name).not.toHaveLength(0);
     expect(scenario.persona.gate.condition).toContain('Gate is met only after');
     expect(scenario.persona.hangUpPrecondition.condition).toMatch(
       /only after.*account details.*confirmed.*cancellation.*complete/
     );
-    expect(scenario.persona.hangUpToolDescription).toBe(
-      'Hang up after you have finished speaking. Use this tool only when the hang-up precondition in your instructions is met.'
+    // Pinned by what the string has to do rather than by its wording, which
+    // ticket 10 tunes. A mute Hang-up is what the first live one produced, so
+    // the closing line is the part that must survive tuning; and the Persona
+    // reads this text, so it must stay inside the character's world.
+    expect(scenario.persona.hangUpToolDescription).toMatch(
+      /Speak your closing line first/
     );
+    expect(scenario.persona.hangUpToolDescription).toContain(
+      'hang-up precondition'
+    );
+    expect(scenario.persona.hangUpToolDescription).not.toContain('Attempt');
   });
 
   it('holds the six fixed Rubric criteria in order', () => {

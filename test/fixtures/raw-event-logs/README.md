@@ -1,7 +1,7 @@
 # Fixtures — recorded Realtime event logs
 
-Raw logs from real Attempts, captured under ticket 04 against the current code and
-promoted here so ticket 05's tests can read them from a tracked path. `data/` is
+Raw logs from real Attempts, captured under tickets 04 and 08 against the current
+code and promoted here so the tests can read them from a tracked path. `data/` is
 gitignored and holds only fresh output from live runs.
 
 Each file is an array of envelopes, each `{"direction":…,"event":"<JSON string>"}`
@@ -22,6 +22,14 @@ Persona turn — `input_audio_buffer.committed` exists only for Trainee turns.
 a walk that starts from "the item with no predecessor" finds several heads. They
 are distinguishable: a phantom item never gets a `conversation.item.added`, and
 never carries audio content.
+
+**Role-less items share the chain.** A Persona Hang-up is a `function_call` item
+in the same singly-linked list, with no `role` and no audio content. Reassembly
+orders a spoken turn by its nearest *spoken* ancestor, stepping over anything
+role-less in between, so the item can sit before, after, or beside the turn it
+accompanies and the Transcript comes out the same. `persona-hangs-up.json` puts
+it **after** — its `previous_item_id` is the Persona turn it accompanies — but
+nothing documents that as a guarantee, so all three placements stay covered.
 
 ## clean-stop-in-silence.json
 
@@ -66,6 +74,32 @@ Note the first and third rows together: 1640 ms of a six-word line lost little o
 nothing, while 1940 ms of a twenty-eight-word line lost most of it. No single
 speech-rate estimate is right for both, which is why a truncated turn is marked
 rather than trimmed.
+
+## persona-hangs-up.json
+
+162 envelopes · 2 Trainee + 3 Persona turns · 5 responses billed.
+
+The only capture where **the Persona ended the Attempt**. The Trainee asked for
+account details and announced the cancellation without ever asking why, so the
+Hang-up precondition was met and Jordan used it. **Stop attempt** was never
+pressed.
+
+What makes it the fixture rather than the first Hang-up captured: its final
+`response.done` carries **both** output items — a `message` with `output_audio`
+content and the `function_call` — so Jordan spoke before leaving. The earlier
+capture carried only the tool call and he hung up mute; it is kept out of tree in
+`.scratch/conversation-practice/evidence/hang-up-without-a-closing-line.json`.
+
+Event order for that response is `output_audio_buffer.started` → `response.done`
+→ `output_audio_buffer.stopped`, with the client's `input_audio_buffer.commit`,
+`response.cancel`, and `output_audio_buffer.clear` all arriving **after** the
+buffer stopped. Nothing was clipped, and the closing Persona turn reassembles
+uncut — which matters because a turn marked `cutOff` is ineligible as Assessment
+evidence.
+
+The stop drew `input_audio_buffer_commit_empty` and `response_cancel_not_active`,
+as the clean stop does. Note the second one means something different here: the
+response had already completed on its own, rather than never having started.
 
 ## Turn ordering
 

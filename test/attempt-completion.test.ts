@@ -203,7 +203,80 @@ function removeFirstTraineeTranscription(rawEventLog: string) {
   return JSON.stringify(incompleteEnvelopes);
 }
 
-function rawEventLogWithHangUpBeforeFinalPersonaTurn() {
+/**
+ * A short Attempt ending in a Hang-up, with the role-less `function_call` item
+ * placed before, after, or beside the Persona turn it accompanies. The captured
+ * Hang-up in `persona-hangs-up.json` produces `after`, but nothing documents
+ * that as a guarantee, so the Transcript still has to come out the same from all
+ * three placements.
+ */
+function rawEventLogWithHangUp(placement: 'before' | 'after' | 'beside') {
+  const hangUpEvents = [
+    {
+      type: 'conversation.item.added',
+      previous_item_id:
+        placement === 'after' ? 'persona-final' : 'trainee-turn',
+      item: {
+        id: 'hang-up-item',
+        type: 'function_call',
+        status: 'in_progress',
+        name: 'hang_up',
+        call_id: 'hang-up-call',
+        arguments: '',
+      },
+    },
+    {
+      type: 'response.function_call_arguments.done',
+      item_id: 'hang-up-item',
+      call_id: 'hang-up-call',
+      name: 'hang_up',
+      arguments: '{}',
+    },
+    {
+      type: 'conversation.item.done',
+      previous_item_id:
+        placement === 'after' ? 'persona-final' : 'trainee-turn',
+      item: {
+        id: 'hang-up-item',
+        type: 'function_call',
+        status: 'completed',
+        name: 'hang_up',
+        call_id: 'hang-up-call',
+        arguments: '{}',
+      },
+    },
+  ];
+  const finalPersonaTurnEvents = [
+    {
+      type: 'conversation.item.added',
+      previous_item_id:
+        placement === 'before' ? 'hang-up-item' : 'trainee-turn',
+      item: {
+        id: 'persona-final',
+        type: 'message',
+        status: 'in_progress',
+        role: 'assistant',
+        content: [],
+      },
+    },
+    {
+      type: 'conversation.item.done',
+      previous_item_id:
+        placement === 'before' ? 'hang-up-item' : 'trainee-turn',
+      item: {
+        id: 'persona-final',
+        type: 'message',
+        status: 'completed',
+        role: 'assistant',
+        content: [{ type: 'output_audio' }],
+      },
+    },
+    {
+      type: 'response.output_audio_transcript.done',
+      item_id: 'persona-final',
+      transcript: 'All right. The account is closed.',
+    },
+  ];
   const events = [
     {
       type: 'conversation.item.added',
@@ -273,64 +346,9 @@ function rawEventLogWithHangUpBeforeFinalPersonaTurn() {
         ],
       },
     },
-    {
-      type: 'conversation.item.added',
-      previous_item_id: 'trainee-turn',
-      item: {
-        id: 'hang-up-item',
-        type: 'function_call',
-        status: 'in_progress',
-        name: 'hang_up',
-        call_id: 'hang-up-call',
-        arguments: '',
-      },
-    },
-    {
-      type: 'response.function_call_arguments.done',
-      item_id: 'hang-up-item',
-      call_id: 'hang-up-call',
-      name: 'hang_up',
-      arguments: '{}',
-    },
-    {
-      type: 'conversation.item.done',
-      previous_item_id: 'trainee-turn',
-      item: {
-        id: 'hang-up-item',
-        type: 'function_call',
-        status: 'completed',
-        name: 'hang_up',
-        call_id: 'hang-up-call',
-        arguments: '{}',
-      },
-    },
-    {
-      type: 'conversation.item.added',
-      previous_item_id: 'hang-up-item',
-      item: {
-        id: 'persona-final',
-        type: 'message',
-        status: 'in_progress',
-        role: 'assistant',
-        content: [],
-      },
-    },
-    {
-      type: 'conversation.item.done',
-      previous_item_id: 'hang-up-item',
-      item: {
-        id: 'persona-final',
-        type: 'message',
-        status: 'completed',
-        role: 'assistant',
-        content: [{ type: 'output_audio' }],
-      },
-    },
-    {
-      type: 'response.output_audio_transcript.done',
-      item_id: 'persona-final',
-      transcript: 'All right. The account is closed.',
-    },
+    ...(placement === 'after'
+      ? [...finalPersonaTurnEvents, ...hangUpEvents]
+      : [...hangUpEvents, ...finalPersonaTurnEvents]),
   ];
 
   return JSON.stringify(
@@ -442,14 +460,55 @@ describe('completed Attempts', () => {
     expect(attempt.transcript).toEqual(expectedCleanTranscript);
   });
 
-  it('completes an Attempt when a hang-up item precedes the final Persona turn', async () => {
+  it.each([
+    { name: 'precedes the final Persona turn', placement: 'before' as const },
+    { name: 'follows the final Persona turn', placement: 'after' as const },
+    {
+      name: 'shares a predecessor with the final Persona turn',
+      placement: 'beside' as const,
+    },
+  ])(
+    'completes an Attempt when a hang-up item $name',
+    async ({ placement }) => {
+      const attemptDirectory = await createTemporaryDirectory();
+      const port = await startCompletionServer(attemptDirectory);
+
+      const response = await postRawEventLog(
+        port,
+        rawEventLogWithHangUp(placement)
+      );
+
+      expect(response.status).toBe(200);
+      const attempt = await readPersistedAttempt(attemptDirectory, 1);
+      expect(attempt.transcript).toEqual([
+        {
+          speaker: 'persona',
+          text: "I'd like to close my account.",
+          cutOff: false,
+        },
+        {
+          speaker: 'trainee',
+          text: 'Your cancellation is complete.',
+          cutOff: false,
+        },
+        {
+          speaker: 'persona',
+          text: 'All right. The account is closed.',
+          cutOff: false,
+        },
+      ]);
+      expect(attempt.feedback).toEqual({
+        status: 'completed',
+        prose: 'Assessment and Transcript received.',
+      });
+    }
+  );
+
+  it('completes an Attempt from a recorded log the Persona ended', async () => {
     const attemptDirectory = await createTemporaryDirectory();
     const port = await startCompletionServer(attemptDirectory);
 
-    const response = await postRawEventLog(
-      port,
-      rawEventLogWithHangUpBeforeFinalPersonaTurn()
-    );
+    const response = await postFixture(port, 'persona-hangs-up.json');
 
     expect(response.status).toBe(200);
     const attempt = await readPersistedAttempt(attemptDirectory, 1);
@@ -461,15 +520,29 @@ describe('completed Attempts', () => {
       },
       {
         speaker: 'trainee',
-        text: 'Your cancellation is complete.',
+        text: 'Can I take your account number and the email address on the account?',
         cutOff: false,
       },
       {
         speaker: 'persona',
-        text: 'All right. The account is closed.',
+        text: 'I can give you the email, but I don’t have the account number in front of me. Can you look it up another way, or do you need that specifically?',
+        cutOff: false,
+      },
+      {
+        speaker: 'trainee',
+        text: "I have what I need, thank you. I've started the cancellation now.",
+        cutOff: false,
+      },
+      {
+        speaker: 'persona',
+        text: 'Okay. Please go ahead and complete it.',
         cutOff: false,
       },
     ]);
+    // The Hang-up is what ended this Attempt, so the closing Persona turn is the
+    // one the Assessment reads last. It has to survive uncut: the Trainee heard
+    // it in full, and a turn marked cutOff is ineligible as Assessment evidence.
+    expect(attempt.transcript.at(-1)?.cutOff).toBe(false);
     expect(attempt.feedback).toEqual({
       status: 'completed',
       prose: 'Assessment and Transcript received.',
