@@ -30,13 +30,13 @@ readable afterwards instead of guessed at.
 Getting the tone right is ticket 12's job. This ticket has to produce the Feedback, persist
 it, and put it in front of the Trainee.
 
-**Measured 2026-07-29:** an Assessment takes 6.5–8.5 seconds, and that figure does not grow
-with the length of the Attempt — 3, 9 and 22-turn Transcripts all landed in the same band,
-so the cost is the grader's reasoning rather than the Transcript it reads. Feedback is a
-second sequential call and writes prose rather than short quotes, so budget roughly twenty
-seconds of judging in total. That is short enough for the page to block on the completion
-request and show ticket 05's judging-in-progress state throughout; polling is not worth
-building. Re-measure if the Assessment prompt grows much:
+**Measured 2026-07-29:** an Assessment takes 7.9–8.8 seconds, and that figure does not grow
+with the length of the Attempt — 3, 8, 9 and 22-turn Transcripts all landed in the same
+band, so the cost is the grader's reasoning rather than the Transcript it reads. Feedback
+adds 5.0–8.7 seconds, giving **13.8–16.7 seconds of judging in total**, measured end to end
+on both a 22-turn Attempt and an 8-turn one. That is short enough for the page to block on
+the completion request and show ticket 05's judging-in-progress state throughout; polling is
+not worth building. Re-measure if either prompt grows much:
 `npx tsx .scratch/conversation-practice/check-assessment.ts --live`.
 
 Note the completion endpoint currently answers `204` and `CompleteAttempt` returns
@@ -59,3 +59,51 @@ data loss when it is not.
 - [ ] The persisted Attempt holds the Transcript, the Assessment, and the Feedback.
 - [ ] The Trainee reads the Feedback once judging completes, without reloading or navigating
       anywhere manually.
+
+## Comments
+
+- **Live-verified 2026-07-29** with six real calls to `gpt-5.6-sol` (~$0.25). The Feedback
+  request shape is accepted first time, and the prose is what the ticket asked for: written
+  in the second person and grounded in the Trainee's own lines rather than in conversations
+  in general — *"Your statement, 'I just don't want to close a six-year account without
+  understanding what actually changed,' helped uncover the damaging service experience behind
+  the decision."* It also stayed consistent with the verdicts on the run designed to break
+  that: the warm, courteous Trainee who never asks scored 1 of 6 and the Feedback opened by
+  crediting the one criterion they met and nothing else. Grade first, coach second holds.
+
+- **What the run exposed, and it is a real gap: on a failing Attempt the coach points the
+  Trainee at the cover story.** For the warm/never-asks Attempt the Feedback advises *"ask an
+  open question such as, 'Could you tell me which fees have been most frustrating?'"* and
+  offers *"It sounds like cost is the deciding factor and you've found an option that offers
+  better value — is that right?"* as the acknowledgement to aim for. That is confident
+  coaching towards the wrong target: price is Jordan's cover story and the Scenario is built
+  on the Trainee getting past it.
+
+  The cause is not the private profile's absence — keeping it out is correct and it is why
+  the Feedback did not hand over the prior incident. The cause is that the Assessment carries
+  `criterionId` slugs and no criterion text, so all the coach knows is that
+  `surfaced-real-reason` was not met and that the quoted evidence is the price line. From
+  that it can only infer the real reason is a pricing detail it has not yet drilled into.
+
+  **Do not fix this by passing the Rubric's `description` text — it was the first proposal
+  here and it does not work.** Criterion 3's description is `'Surfaced the real reason.'`
+  (`scenario.ts:139`), which is the slug in a sentence and tells the coach nothing it did not
+  already have. The descriptions would help a little elsewhere — #2's "invited the story" and
+  #4's "acknowledged the feeling" at least imply something emotional exists to be found — but
+  not for the criterion that went wrong. Passing them would also have to overrule "Those two
+  are the entire input" to buy that nothing.
+
+  The fix is one line in `feedbackInstructions()` and no new input at all: that a Persona's
+  stated reason is not necessarily the real one, so where a criterion about surfacing the real
+  reason is not met, the reason the Persona gave is not established — coach the Trainee towards
+  asking what sits behind it rather than towards examining it in more detail. Instructions are
+  not input, and the call already carries six of them, so there is no ticket tension to
+  resolve. It describes a shape rather than a fact, so the coach still cannot hand over an
+  answer it does not hold. `assessmentInstructions()` makes the same move one file over and is
+  allowed to be concrete about the cover story because it holds the Private Profile
+  (`assessment.ts:209`); the Feedback version stays one level more abstract, which is exactly
+  the amount it can know.
+
+  Left for ticket 12, which owns both prompts and already has the warm Attempt as its tuning
+  target. It needs a live re-run of the check script to confirm the warm case's prose actually
+  changes and the 6-of-6 case does not degrade.

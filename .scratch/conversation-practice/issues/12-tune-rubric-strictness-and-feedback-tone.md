@@ -26,21 +26,35 @@ out of step without anything catching it. If the grid and the grader later need 
 text — a short label for the projector, an explicit standard for the grader — that is the
 moment to split `RubricCriterion`, not before.
 
-Verified 2026-07-29 across three Transcripts: cover-story-only returns NOT MET, and both a
-9-turn and a 22-turn successful Attempt return MET with the quote anchored to the Persona
-turn that revealed the incident rather than the Trainee turn that asked for it.
+Verified 2026-07-29 across four Transcripts: cover-story-only and a warm Attempt that never
+asks both return NOT MET, while a 9-turn and a 22-turn successful Attempt return MET. All
+four anchor the quote to a Persona turn rather than to the Trainee turn that asked for it,
+which is the line ticket 13 opens on the projector.
 
 **What is still open: criteria phrased as things the Trainee did not do are met vacuously.**
 A cover-story-only Attempt still scores 3 of 6, because "did not try to solve anything" and
 "did not get defensive" are both satisfied by a Trainee who barely spoke — in that run both
 cited "Can you tell me what happened?" as their evidence, which is evidence of neither. An
 instruction requiring the Trainee to have had the opportunity and avoided it did not shift
-it. This is measured, not predicted. It costs the demo little, since the deliberate discount
-opening genuinely fails five of the six, but it inflates every weak Attempt by roughly two
-criteria and is the remaining strictness work.
+it. This is measured, not predicted.
 
-`npx tsx .scratch/conversation-practice/check-assessment.ts --live` (~$0.15) is the
-regression check for all of the above — run it after each edit to the Assessment prompt.
+Re-measured 2026-07-29 against the warm Trainee who never asks and then processes the
+cancellation: that Attempt scores **1 of 6**, not the 2 of 6 this ticket previously predicted.
+"Did not try to solve anything before understanding why" correctly came back NOT MET, quoting
+"Of course. I'll process the cancellation now." So the vacuous inflation is narrower than
+recorded: it costs two criteria only when the Attempt stops before the Trainee solves
+anything, and one — "did not get defensive" — once the Attempt reaches a solution. That one
+criterion is the remaining strictness work.
+
+Both remaining evidence smells are quote reuse rather than wrong verdicts: the cover-story
+run cites "Can you tell me what happened?" for four of its six criteria, and the 9-turn
+Attempt cites one Trainee reflection for both "acknowledged the feeling" and "checked that
+the customer felt heard". The verdicts are defensible; the quotes stop being independent
+proof, which is what the evidence is for.
+
+`npx tsx .scratch/conversation-practice/check-assessment.ts --live` (~$0.25) is the
+regression check for all of the above, and it now runs the Feedback call over two of the four
+Transcripts — run it after each edit to either prompt.
 
 The Attempts to read back are the two deliberate Trainee failures recorded during ticket 10:
 the one that accepted the cover story and stopped, and the one that was warm and courteous
@@ -50,8 +64,38 @@ but never asked. If they were not kept, record them before starting.
 four failed criteria. Written to the Trainee rather than about them. Points at specific
 moments from their Attempt rather than at conversations in general. Tells them what to do
 differently, not merely what they got wrong. The case to tune against is the warm, courteous,
-professional Trainee who never asks what happened and scores 2 of 6: the Feedback must be
+professional Trainee who never asks what happened and scores 1 of 6: the Feedback must be
 useful to them without softening the verdict.
+
+**Measured 2026-07-29, and this is the Feedback's real problem — it coaches towards the cover
+story.** Ticket 07's live check ran Feedback over that exact warm Attempt. It did not soften
+the verdict and it did not leak the prior incident, both of which the structure was built to
+prevent. What it did instead was advise *"ask an open question such as, 'Could you tell me
+which fees have been most frustrating?'"* and offer *"It sounds like cost is the deciding
+factor and you've found an option that offers better value — is that right?"* as the
+acknowledgement to aim for. A Trainee who follows that coaching interrogates the cover story
+more thoroughly and never gets near the incident.
+
+The coach is not guessing carelessly. It receives `criterionId` slugs with no criterion text,
+so `surfaced-real-reason: not met` beside the quoted price line is all it has, and a pricing
+detail is the reasonable inference from it.
+
+Passing the Rubric's `description` text was the first proposal and it is a dead end: criterion
+3's description is `'Surfaced the real reason.'`, the slug in a sentence, so it would overrule
+ticket 07's "Those two are the entire input" in exchange for no new information on the one
+criterion that failed.
+
+**Fix it in the prompt, which is this ticket's job anyway.** One line in
+`feedbackInstructions()`: a Persona's stated reason is not necessarily the real one, so where a
+criterion about surfacing the real reason is not met, the reason the Persona gave is not
+established — coach the Trainee towards asking what sits behind it rather than towards
+examining it in more detail. Say what to aim for and not only what to avoid; a bare prohibition
+trades confident wrong advice for vagueness, and a Trainee scoring 1 of 6 needs the Feedback to
+stay useful. `assessmentInstructions()` already makes this move next door and is allowed to
+name the cover story outright because it holds the Private Profile; the Feedback version stays
+one level more abstract, which is the amount it can know without being handed the answer. The
+instruction describes a shape rather than a fact, so nothing leaks. See ticket 07's Comments
+for the observed prose.
 
 This is hand-tuning, deliberately not automated — the Rubric's strictness and the Feedback's
 tone are model behaviour, and an automated test over them would be slow, flaky, and would
