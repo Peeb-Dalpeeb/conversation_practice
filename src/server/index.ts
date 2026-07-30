@@ -14,12 +14,12 @@ import { createRawEventLogStore } from './raw-event-log.js';
 import { createOpenAiRealtimeClientSecretMinter } from './realtime.js';
 
 const environment = readServerEnvironment();
-const server = createApiServer(
-  scenario,
-  createOpenAiRealtimeClientSecretMinter({
+const server = createApiServer({
+  currentScenario: scenario,
+  mintRealtimeClientSecret: createOpenAiRealtimeClientSecretMinter({
     apiKey: environment.openAiApiKey,
   }),
-  createAttemptCompleter({
+  completeAttempt: createAttemptCompleter({
     scenario,
     assessAttempt: createOpenAiAttemptAssessor({
       apiKey: environment.openAiApiKey,
@@ -30,9 +30,8 @@ const server = createApiServer(
     storeAttempt: createAttemptStore(),
     storeRawEventLog: createRawEventLogStore(),
   }),
-  undefined,
-  createLatestAttemptReader()
-);
+  readLatestAttempt: createLatestAttemptReader(),
+});
 
 server.listen(environment.port, '127.0.0.1', () => {
   console.log(`Local API listening on http://127.0.0.1:${environment.port}`);

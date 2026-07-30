@@ -1,7 +1,10 @@
 import { createServer } from 'node:http';
 
 import { toPublicScenario, type Scenario } from '../scenario.js';
-import type { CompleteAttempt } from './attempt-completion.js';
+import {
+  AttemptCompletionError,
+  type CompleteAttempt,
+} from './attempt-completion.js';
 import type { ReadLatestAttempt } from './attempt-store.js';
 import type { MintRealtimeClientSecret } from './realtime.js';
 
@@ -14,6 +17,14 @@ const unavailableAttemptCompleter: CompleteAttempt = () =>
 const unavailableLatestAttemptReader: ReadLatestAttempt = () =>
   Promise.resolve(undefined);
 const defaultRawEventLogByteLimit = 8 * 1024 * 1024;
+
+type ApiServerOptions = {
+  currentScenario: Scenario;
+  mintRealtimeClientSecret?: MintRealtimeClientSecret;
+  completeAttempt?: CompleteAttempt;
+  rawEventLogByteLimit?: number;
+  readLatestAttempt?: ReadLatestAttempt;
+};
 
 async function readRequestBody(
   request: AsyncIterable<Uint8Array>,
@@ -35,13 +46,13 @@ async function readRequestBody(
   return Buffer.concat(chunks).toString('utf8');
 }
 
-export function createApiServer(
-  currentScenario: Scenario,
-  mintRealtimeClientSecret: MintRealtimeClientSecret = unavailableRealtimeClientSecret,
-  completeAttempt: CompleteAttempt = unavailableAttemptCompleter,
+export function createApiServer({
+  currentScenario,
+  mintRealtimeClientSecret = unavailableRealtimeClientSecret,
+  completeAttempt = unavailableAttemptCompleter,
   rawEventLogByteLimit = defaultRawEventLogByteLimit,
-  readLatestAttempt: ReadLatestAttempt = unavailableLatestAttemptReader
-) {
+  readLatestAttempt = unavailableLatestAttemptReader,
+}: ApiServerOptions) {
   return createServer((request, response) => {
     if (request.method === 'GET' && request.url === '/api/health') {
       response.writeHead(200, { 'Content-Type': 'application/json' });
@@ -105,11 +116,32 @@ export function createApiServer(
               // log is the only place a failed judging run is visible while
               // tuning.
               console.error('Attempt could not be completed.', error);
-              response.writeHead(500, {
+              const status =
+                error instanceof AttemptCompletionError
+                  ? error.kind === 'data'
+                    ? 422
+                    : 502
+                  : 500;
+              const code =
+                error instanceof AttemptCompletionError
+                  ? error.kind === 'data'
+                    ? 'attempt_data_incomplete'
+                    : 'attempt_judging_failed'
+                  : 'attempt_processing_failed';
+
+              response.writeHead(status, {
+                'Cache-Control': 'no-store',
                 'Content-Type': 'application/json',
               });
               response.end(
-                JSON.stringify({ error: 'Attempt could not be completed.' })
+                JSON.stringify({
+                  code,
+                  error:
+                    error instanceof AttemptCompletionError &&
+                    error.kind === 'data'
+                      ? 'Attempt event data is incomplete.'
+                      : 'Attempt judging could not be completed.',
+                })
               );
             }
           ),

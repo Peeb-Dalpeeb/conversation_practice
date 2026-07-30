@@ -8,6 +8,7 @@ type RequestCompletedTextOptions = {
   request: Record<string, unknown>;
   errors: {
     requestFailed: (status: number) => string;
+    malformedJson: string;
     incomplete: string;
     missingText: string;
   };
@@ -64,7 +65,13 @@ export async function requestCompletedText({
     throw new Error(errors.requestFailed(response.status));
   }
 
-  const body: unknown = await response.json();
+  let body: unknown;
+
+  try {
+    body = await response.json();
+  } catch {
+    throw new TypeError(errors.malformedJson);
+  }
 
   if (!isRecord(body) || body.status !== 'completed') {
     throw new TypeError(errors.incomplete);

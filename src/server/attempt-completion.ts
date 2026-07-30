@@ -38,6 +38,26 @@ export type CreateFeedback = (
 
 export type CompleteAttempt = (rawEventLog: string) => Promise<Attempt>;
 
+/**
+ * Why an Attempt did not come back judged. `data` means the event log could not
+ * be reassembled and re-running the judging would fail the same way; `judging`
+ * means the log was fine and the models were not. The Trainee is told a
+ * different thing in each case, so the kind travels with the failure.
+ */
+export class AttemptCompletionError extends Error {
+  readonly kind: 'data' | 'judging';
+
+  constructor(
+    kind: 'data' | 'judging',
+    message: string,
+    options?: ErrorOptions
+  ) {
+    super(message, options);
+    this.name = 'AttemptCompletionError';
+    this.kind = kind;
+  }
+}
+
 type RealtimeEvent = Record<string, unknown>;
 
 type SpokenTurn = {
@@ -249,6 +269,12 @@ function reconstructTranscript(rawEventLog: string): Transcript {
   });
 }
 
+function diagnosticErrorMessage(error: unknown): string {
+  return error instanceof Error
+    ? `${error.name}: ${error.message}`
+    : String(error);
+}
+
 export function createAttemptCompleter({
   scenario,
   assessAttempt,
@@ -269,20 +295,83 @@ export function createAttemptCompleter({
       : Promise.resolve();
 
     try {
-      const transcript = reconstructTranscript(rawEventLog);
-      const assessment = await assessAttempt(
-        transcript,
-        scenario.rubric,
-        scenario.persona.privateProfile
-      );
-      const feedback = await createFeedback(assessment, transcript);
+      let transcript: Transcript;
 
-      return await storeAttempt({
-        scenarioId: scenario.id,
-        transcript,
-        assessment,
-        feedback,
-      });
+      try {
+        transcript = reconstructTranscript(rawEventLog);
+      } catch (error) {
+        throw new AttemptCompletionError(
+          'data',
+          'The Attempt event data could not be reconstructed.',
+          { cause: error }
+        );
+      }
+
+      let assessment: Assessment;
+
+      try {
+        assessment = await assessAttempt(
+          transcript,
+          scenario.rubric,
+          scenario.persona.privateProfile
+        );
+      } catch (error) {
+        throw new AttemptCompletionError(
+          'judging',
+          'The Assessment could not be created.',
+          { cause: error }
+        );
+      }
+
+      let feedback: string;
+
+      try {
+        feedback = await createFeedback(assessment, transcript);
+      } catch (error) {
+        let attempt: Attempt;
+
+        try {
+          attempt = await storeAttempt({
+            scenarioId: scenario.id,
+            transcript,
+            assessment,
+            feedback: {
+              status: 'failed',
+              error: diagnosticErrorMessage(error),
+            },
+          });
+        } catch (storageError) {
+          throw new AttemptCompletionError(
+            'judging',
+            'Feedback failed and the partial Attempt could not be stored.',
+            { cause: storageError }
+          );
+        }
+
+        // Name the file that survived. This is the message a tuning run reads
+        // off the server terminal, and the Transcript and Assessment it points
+        // at are the only record of what the run actually produced.
+        throw new AttemptCompletionError(
+          'judging',
+          `The Feedback could not be created; the Attempt was stored as number ${String(attempt.number)} without it.`,
+          { cause: error }
+        );
+      }
+
+      try {
+        return await storeAttempt({
+          scenarioId: scenario.id,
+          transcript,
+          assessment,
+          feedback: { status: 'completed', prose: feedback },
+        });
+      } catch (error) {
+        throw new AttemptCompletionError(
+          'judging',
+          'The judged Attempt could not be stored.',
+          { cause: error }
+        );
+      }
     } finally {
       await rawEventLogStorage;
     }

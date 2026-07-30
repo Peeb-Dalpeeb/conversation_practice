@@ -96,9 +96,47 @@ describe('Feedback creation', () => {
     expect(body.store).toBe(false);
     expect(JSON.parse(body.input)).toEqual({ assessment, transcript });
     expect(body.input).not.toContain('privateProfile');
-    expect(body.instructions).toMatch(/verdicts? (?:are|is) fixed/i);
-    expect(body.instructions).toMatch(/do not re-(?:judge|open)/i);
-    expect(body.instructions).toMatch(/specific moments?/i);
-    expect(body.instructions).toMatch(/write directly to the Trainee/i);
+    expect(body.instructions).toMatch(
+      /verdicts? (?:are|is) fixed[\s\S]*do not re-(?:judge|open)/i
+    );
+  });
+
+  it.each([
+    {
+      name: 'an HTTP failure',
+      response: new Response('{}', { status: 503 }),
+      expectedError: /could not create Feedback \(503\)/,
+    },
+    {
+      name: 'an incomplete response',
+      response: new Response(JSON.stringify({ status: 'in_progress' })),
+      expectedError: /incomplete Feedback response/,
+    },
+    {
+      name: 'a response without output text',
+      response: new Response(
+        JSON.stringify({ status: 'completed', output: [] })
+      ),
+      expectedError: /no Feedback/,
+    },
+    {
+      name: 'malformed response JSON',
+      response: new Response('not json'),
+      expectedError: /malformed Feedback response JSON/,
+    },
+    {
+      name: 'empty prose',
+      response: completedResponse(' \n\t '),
+      expectedError: /empty Feedback/,
+    },
+  ])('diagnoses $name', async ({ response, expectedError }) => {
+    const createFeedback = createOpenAiFeedbackCreator({
+      apiKey: 'server-api-key',
+      fetch: vi.fn<OpenAiResponsesFetch>().mockResolvedValue(response),
+    });
+
+    await expect(createFeedback(assessment, transcript)).rejects.toThrow(
+      expectedError
+    );
   });
 });

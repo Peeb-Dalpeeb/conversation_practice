@@ -13,6 +13,7 @@ import { App } from '../src/client/App.js';
 import {
   AttemptFailedError,
   type AttemptActivity,
+  type CompletedAttempt,
   type ConnectRealtimeAttempt,
 } from '../src/client/realtime.js';
 
@@ -130,12 +131,7 @@ describe('the Trainee-facing app', () => {
     respondWithScenario();
     let reportJudgingStarted: (() => void) | undefined;
     let reportAttemptCompleted:
-      | ((attempt: {
-          scenarioId: string;
-          number: number;
-          feedback: string;
-        }) => void)
-      | undefined;
+      ((attempt: CompletedAttempt) => void) | undefined;
     const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
       ({ onAttemptCompleted, onJudgingStarted }) => {
         reportAttemptCompleted = onAttemptCompleted;
@@ -154,27 +150,61 @@ describe('the Trainee-facing app', () => {
     );
 
     act(() => reportJudgingStarted?.());
-    expect(screen.getByRole('status').textContent).toContain(
-      'Judging is in progress'
-    );
+    const outcomeStatus = screen.getByRole('status');
+    expect(outcomeStatus.textContent).toContain('Judging is in progress');
 
     act(() =>
       reportAttemptCompleted?.({
         scenarioId: publicScenario.id,
         number: 1,
-        feedback:
-          'You opened with a useful question. Next time, ask what experience sits behind the price concern.',
+        feedback: {
+          status: 'completed',
+          prose:
+            'You opened with a useful question.\n\nNext time, ask what experience sits behind the price concern.',
+        },
       })
     );
 
     expect(screen.getByRole('heading', { name: 'Your Feedback' })).toBeTruthy();
+    expect(screen.getByText('You opened with a useful question.')).toBeTruthy();
     expect(
       screen.getByText(
-        'You opened with a useful question. Next time, ask what experience sits behind the price concern.'
+        'Next time, ask what experience sits behind the price concern.'
       )
     ).toBeTruthy();
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('status')).toBe(outcomeStatus);
+    expect(outcomeStatus.textContent).toBe('Your Feedback is ready.');
+    expect(outcomeStatus.getAttribute('aria-live')).toBe('polite');
     expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('distinguishes a judging failure from an incomplete event log', async () => {
+    respondWithScenario();
+    let reportAttemptJudgingFailed: (() => void) | undefined;
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
+      ({ onAttemptJudgingFailed }) => {
+        reportAttemptJudgingFailed = onAttemptJudgingFailed;
+        return Promise.resolve({ stop: vi.fn() });
+      }
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Stop attempt' })
+    );
+    act(() => reportAttemptJudgingFailed?.());
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'The Attempt could not be judged.',
+      })
+    ).toBeTruthy();
+    expect(screen.getByText(/server terminal/i)).toBeTruthy();
+    expect(screen.queryByText(/event log could not/i)).toBeNull();
   });
 
   it('lets the Trainee stop while the live line is still connecting', async () => {
@@ -279,8 +309,11 @@ describe('the Trainee-facing app', () => {
   it('shows when the completed Attempt event log could not be saved', async () => {
     respondWithScenario();
     let reportAttemptDataFailed: (() => void) | undefined;
+    let reportAttemptCompleted:
+      ((attempt: CompletedAttempt) => void) | undefined;
     const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
-      ({ onAttemptDataFailed }) => {
+      ({ onAttemptCompleted, onAttemptDataFailed }) => {
+        reportAttemptCompleted = onAttemptCompleted;
         reportAttemptDataFailed = onAttemptDataFailed;
         return Promise.resolve({ stop: vi.fn() });
       }
@@ -301,6 +334,22 @@ describe('the Trainee-facing app', () => {
       screen.getByRole('heading', {
         name: 'The Attempt event log could not be completed.',
       })
+    ).toBeTruthy();
+
+    act(() =>
+      reportAttemptCompleted?.({
+        scenarioId: publicScenario.id,
+        number: 1,
+        feedback: {
+          status: 'completed',
+          prose: 'A completed Attempt is authoritative.',
+        },
+      })
+    );
+
+    expect(screen.getByRole('heading', { name: 'Your Feedback' })).toBeTruthy();
+    expect(
+      screen.getByText('A completed Attempt is authoritative.')
     ).toBeTruthy();
   });
 

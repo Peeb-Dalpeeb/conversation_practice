@@ -3,12 +3,22 @@ import { resolve } from 'node:path';
 
 import type { Assessment, Transcript } from './attempt-completion.js';
 
+export type FeedbackOutcome =
+  | {
+      status: 'completed';
+      prose: string;
+    }
+  | {
+      status: 'failed';
+      error: string;
+    };
+
 export type Attempt = {
   scenarioId: string;
   number: number;
   transcript: Transcript;
   assessment: Assessment;
-  feedback: string;
+  feedback: FeedbackOutcome;
 };
 
 export type UnnumberedAttempt = Omit<Attempt, 'number'>;
@@ -94,20 +104,22 @@ export function createLatestAttemptReader(
       throw error;
     }
 
-    const latestAttemptNumber = Math.max(
-      0,
-      ...filenames.map((filename) => attemptNumberFromFilename(filename) ?? 0)
-    );
+    const latestAttemptFile = filenames.reduce<
+      { filename: string; number: number } | undefined
+    >((latest, filename) => {
+      const number = attemptNumberFromFilename(filename);
 
-    if (latestAttemptNumber === 0) {
+      return number !== undefined && (!latest || number > latest.number)
+        ? { filename, number }
+        : latest;
+    }, undefined);
+
+    if (!latestAttemptFile) {
       return undefined;
     }
 
     const contents = await readFile(
-      resolve(
-        scenarioDirectory,
-        `${String(latestAttemptNumber).padStart(4, '0')}.json`
-      ),
+      resolve(scenarioDirectory, latestAttemptFile.filename),
       'utf8'
     );
 

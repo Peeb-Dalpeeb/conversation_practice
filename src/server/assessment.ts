@@ -316,6 +316,7 @@ export function createOpenAiAttemptAssessor({
       errors: {
         requestFailed: (status) =>
           `OpenAI could not assess the Attempt (${status}).`,
+        malformedJson: 'OpenAI returned malformed Assessment response JSON.',
         incomplete: 'OpenAI returned an incomplete Assessment response.',
         missingText: 'OpenAI returned no structured Assessment.',
       },

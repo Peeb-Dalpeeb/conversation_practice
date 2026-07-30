@@ -20,13 +20,16 @@ const completedAttempt: Attempt = {
   number: 1,
   transcript: [],
   assessment: { criteria: [] },
-  feedback: 'Keep asking about the experience behind the request.',
+  feedback: {
+    status: 'completed',
+    prose: 'Keep asking about the experience behind the request.',
+  },
 };
 
 async function startApiServer(
   currentScenario: Scenario = scenario
 ): Promise<number> {
-  const server = createApiServer(currentScenario);
+  const server = createApiServer({ currentScenario });
   servers.push(server);
 
   await new Promise<void>((resolveListening) => {
@@ -144,13 +147,13 @@ describe('the server HTTP interface', () => {
         }
       )
     );
-    const server = createApiServer(
-      realtimeScenario,
-      createOpenAiRealtimeClientSecretMinter({
+    const server = createApiServer({
+      currentScenario: realtimeScenario,
+      mintRealtimeClientSecret: createOpenAiRealtimeClientSecretMinter({
         apiKey: 'server-api-key',
         fetch: openAiFetch,
-      })
-    );
+      }),
+    });
     servers.push(server);
 
     await new Promise<void>((resolveListening) => {
@@ -217,10 +220,13 @@ describe('the server HTTP interface', () => {
 
   it('stores a completed Attempt raw event log without changing it', async () => {
     const storedLogs: string[] = [];
-    const server = createApiServer(scenario, undefined, (rawEventLog) => {
-      storedLogs.push(rawEventLog);
+    const server = createApiServer({
+      currentScenario: scenario,
+      completeAttempt: (rawEventLog) => {
+        storedLogs.push(rawEventLog);
 
-      return Promise.resolve(completedAttempt);
+        return Promise.resolve(completedAttempt);
+      },
     });
     servers.push(server);
 
@@ -247,7 +253,11 @@ describe('the server HTTP interface', () => {
 
   it('rejects non-JSON and oversized raw event logs before storage', async () => {
     const storeRawEventLog = vi.fn(() => Promise.resolve(completedAttempt));
-    const server = createApiServer(scenario, undefined, storeRawEventLog, 64);
+    const server = createApiServer({
+      currentScenario: scenario,
+      completeAttempt: storeRawEventLog,
+      rawEventLogByteLimit: 64,
+    });
     servers.push(server);
 
     await new Promise<void>((resolveListening) => {

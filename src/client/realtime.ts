@@ -7,7 +7,15 @@ export type RealtimeAttempt = {
 export type CompletedAttempt = {
   scenarioId: string;
   number: number;
-  feedback: string;
+  feedback:
+    | {
+        status: 'completed';
+        prose: string;
+      }
+    | {
+        status: 'failed';
+        error: string;
+      };
 };
 
 type ConnectRealtimeAttemptOptions = {
@@ -15,6 +23,7 @@ type ConnectRealtimeAttemptOptions = {
   onActivity: (activity: AttemptActivity) => void;
   onEnded: () => void;
   onAttemptDataFailed: () => void;
+  onAttemptJudgingFailed: () => void;
   onJudgingStarted: () => void;
   onAttemptCompleted: (attempt: CompletedAttempt) => void;
 };
@@ -47,13 +56,41 @@ async function completedAttemptFromResponse(
     !isRecord(attempt) ||
     typeof attempt.scenarioId !== 'string' ||
     !Number.isInteger(attempt.number) ||
-    typeof attempt.feedback !== 'string'
+    !isRecord(attempt.feedback) ||
+    !(
+      (attempt.feedback.status === 'completed' &&
+        typeof attempt.feedback.prose === 'string') ||
+      (attempt.feedback.status === 'failed' &&
+        typeof attempt.feedback.error === 'string')
+    )
   ) {
     throw new TypeError('The completed Attempt response was invalid.');
   }
 
   return attempt as CompletedAttempt;
 }
+
+async function completionFailureCode(
+  response: Response
+): Promise<string | undefined> {
+  try {
+    const body: unknown = await response.json();
+    return isRecord(body) && typeof body.code === 'string'
+      ? body.code
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolveWait) => {
+    setTimeout(resolveWait, milliseconds);
+  });
+}
+
+const attemptRecoveryIntervalMs = 1_000;
+const attemptRecoveryTimeoutMs = 20_000;
 
 async function readLatestCompletedAttempt(): Promise<
   CompletedAttempt | undefined
@@ -306,6 +343,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
   onActivity,
   onEnded,
   onAttemptDataFailed,
+  onAttemptJudgingFailed,
   onJudgingStarted,
   onAttemptCompleted,
 }) => {
@@ -323,7 +361,6 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
   >();
   const unfinalizedTurnItems = new Set<string>();
   let attemptOpened = false;
-  let attemptDataFailed = false;
   let eventSequence = 0;
   let failureReported = false;
   let finalized = false;
@@ -334,14 +371,19 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
 
   const nextEventId = (purpose: string) =>
     `conversation_practice_${purpose}_${++eventSequence}`;
-  const reportAttemptDataFailure = () => {
+  // Whichever outcome lands first is the one the Trainee is told about, and it is
+  // the only one: a second report would replace an honest screen with a different
+  // honest screen twenty seconds later.
+  const reportOnce = (report: () => void) => () => {
     if (failureReported) {
       return;
     }
 
     failureReported = true;
-    onAttemptDataFailed();
+    report();
   };
+  const reportAttemptDataFailure = reportOnce(onAttemptDataFailed);
+  const reportAttemptJudgingFailure = reportOnce(onAttemptJudgingFailed);
   const submitRawEventLog = (): Promise<void> => {
     if (!attemptOpened) {
       return Promise.resolve();
@@ -369,13 +411,36 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
             throw originalError;
           }
 
-          const latestAttempt = await readLatestCompletedAttempt();
+          const deadline = Date.now() + attemptRecoveryTimeoutMs;
 
-          if (!latestAttempt || latestAttempt.number <= baselineAttemptNumber) {
-            throw originalError;
+          for (;;) {
+            try {
+              const latestAttempt = await readLatestCompletedAttempt();
+
+              if (
+                latestAttempt &&
+                latestAttempt.number > baselineAttemptNumber
+              ) {
+                return latestAttempt;
+              }
+            } catch {
+              // A transient read failure is indistinguishable from the server
+              // still finishing. Keep the bounded recovery window intact.
+            }
+
+            if (Date.now() >= deadline) {
+              throw originalError;
+            }
+
+            await wait(attemptRecoveryIntervalMs);
           }
-
-          return latestAttempt;
+        };
+        const reportAttemptOutcome = (attempt: CompletedAttempt) => {
+          if (attempt.feedback.status === 'completed') {
+            onAttemptCompleted(attempt);
+          } else {
+            reportAttemptJudgingFailure();
+          }
         };
         let response: Response;
 
@@ -386,12 +451,27 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
             body: JSON.stringify(rawEventLog),
           });
         } catch (error) {
-          onAttemptCompleted(await recoverNewerAttempt(error));
+          reportAttemptOutcome(await recoverNewerAttempt(error));
           return;
         }
 
         if (!response.ok) {
-          onAttemptCompleted(
+          const failureCode = await completionFailureCode(response);
+
+          if (failureCode === 'attempt_data_incomplete') {
+            reportAttemptDataFailure();
+            return;
+          }
+
+          if (
+            failureCode === 'attempt_judging_failed' ||
+            failureCode === 'attempt_processing_failed'
+          ) {
+            reportAttemptJudgingFailure();
+            return;
+          }
+
+          reportAttemptOutcome(
             await recoverNewerAttempt(
               new Error('The raw event log could not be stored.')
             )
@@ -403,17 +483,11 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
 
         try {
           attempt = await completedAttemptFromResponse(response);
-        } catch {
-          const latestAttempt = await readLatestCompletedAttempt();
-
-          if (!latestAttempt) {
-            throw new Error('The completed Attempt could not be recovered.');
-          }
-
-          attempt = latestAttempt;
+        } catch (error) {
+          attempt = await recoverNewerAttempt(error);
         }
 
-        onAttemptCompleted(attempt);
+        reportAttemptOutcome(attempt);
       })();
     }
 
@@ -437,13 +511,15 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       remoteAudio.srcObject = null;
     }
   };
-  const finalizeAttempt = (dataIncomplete = false) => {
+  // The page no longer judges its own log. Turn tracking still decides *when* to
+  // finalize, but whether the log is usable is the server's answer — it is the
+  // side that reassembles the Transcript, and it says so in the failure code.
+  const finalizeAttempt = () => {
     if (finalized) {
       return;
     }
 
     finalized = true;
-    attemptDataFailed ||= dataIncomplete;
 
     if (forcedFinalization) {
       clearTimeout(forcedFinalization);
@@ -459,10 +535,6 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       dataChannel.close();
     }
     peerConnection?.close();
-
-    if (attemptDataFailed) {
-      reportAttemptDataFailure();
-    }
 
     void submitRawEventLog().catch(reportAttemptDataFailure);
   };
@@ -496,8 +568,9 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
     try {
       sendClientEvent({ event_id: eventId, ...event });
     } catch {
+      // The line is already gone, so nothing will ever settle this command.
+      // Stop waiting on it and let the log go to the server as it stands.
       pendingStopCommands.delete(eventId);
-      attemptDataFailed = true;
     }
   };
   const settleStopCommand = (kind: 'cancel' | 'commit') => {
@@ -523,10 +596,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
       return;
     }
 
-    forcedFinalization = setTimeout(
-      () => finalizeAttempt(!canFinalizeStoppedAttempt()),
-      15_000
-    );
+    forcedFinalization = setTimeout(finalizeAttempt, 15_000);
     sendStopCommand('commit', { type: 'input_audio_buffer.commit' });
     sendStopCommand('cancel', { type: 'response.cancel' });
     // Silencing playback is sent and forgotten. Nothing in the log depends on
@@ -561,9 +631,7 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
     stopped = true;
     signal.removeEventListener('abort', stop);
     releaseInputAndOutput();
-    finalizeAttempt(
-      unfinalizedTurnItems.size > 0 || hasPendingTurnTranscription()
-    );
+    finalizeAttempt();
     onEnded();
   };
 
@@ -692,7 +760,6 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
           } catch {
             turnTranscriptions.set(completedTraineeTurnId, 'failed');
             transcriptionRequestItems.delete(eventId);
-            attemptDataFailed = true;
           }
         }
       }
@@ -718,8 +785,6 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
             transcriptionRequestItems.delete(eventId);
           }
         }
-
-        attemptDataFailed ||= !transcription.succeeded;
       } else if (serverEvent.type === 'response.done') {
         // The session only ever runs two kinds of response, and the out-of-band
         // one identifies itself by its metadata above. Anything else finishing
@@ -738,7 +803,6 @@ export const connectRealtimeAttempt: ConnectRealtimeAttempt = async ({
         if (failedTurnItemId) {
           transcriptionRequestItems.delete(failedClientEventId);
           turnTranscriptions.set(failedTurnItemId, 'failed');
-          attemptDataFailed = true;
         }
 
         pendingStopCommands.delete(failedClientEventId);

@@ -3,17 +3,19 @@
 // request body, that `gpt-5.6-sol` returns quotes the validator will accept, or
 // how long judging actually takes.
 //
-// It answers three questions in one run:
+// It answers four questions in one run:
 //   1. Does the real API accept the strict schema, `text.format` shape and model id?
 //   2. Does the grader tick criterion 3 when the Trainee was only ever given the
 //      cover story? If it does, the grader needs ground truth and the demo's
 //      contrast is at risk. If it does not, that fix is not urgent.
 //   3. How long does judging take? Ticket 07 has to decide whether the page can
 //      block on it or has to poll.
+//   4. Does a real Feedback call stay specific and consistent with the fixed
+//      verdicts, including when the Trainee is warm but never asks what happened?
 //
 // Usage:
 //   npx tsx .scratch/conversation-practice/check-assessment.ts          (dry run, free)
-//   npx tsx .scratch/conversation-practice/check-assessment.ts --live   (~$0.08)
+//   npx tsx .scratch/conversation-practice/check-assessment.ts --live   (~$0.25)
 import 'dotenv/config';
 
 import { readFileSync } from 'node:fs';
@@ -22,6 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 import { scenario } from '../../src/scenario.js';
 import { createOpenAiAttemptAssessor } from '../../src/server/assessment.js';
+import { createOpenAiFeedbackCreator } from '../../src/server/feedback.js';
 import type {
   Assessment,
   Transcript,
@@ -151,6 +154,52 @@ const longAttemptTranscript: Transcript = longAttemptTurns.map(
   ([speaker, text]) => ({ speaker, text, cutOff: false })
 );
 
+// Deliberately warm, courteous and professional, but never curious. This is the
+// failure mode called out in ticket 07: the prose must not praise the tone in a
+// way that contradicts the fixed Assessment or invent Jordan's hidden reason.
+const warmNeverAskedTranscript: Transcript = [
+  {
+    speaker: 'persona',
+    text: "I'd like to close my account.",
+    cutOff: false,
+  },
+  {
+    speaker: 'trainee',
+    text: "I'm sorry to hear that. I'll make this as easy as I can for you.",
+    cutOff: false,
+  },
+  {
+    speaker: 'persona',
+    text: 'The fees are too high. I found somewhere cheaper.',
+    cutOff: false,
+  },
+  {
+    speaker: 'trainee',
+    text: 'I completely understand, and I appreciate you explaining that.',
+    cutOff: false,
+  },
+  {
+    speaker: 'persona',
+    text: "I've been with you for six years, but I've made up my mind.",
+    cutOff: false,
+  },
+  {
+    speaker: 'trainee',
+    text: 'Thank you for being with us for so long. I respect your decision.',
+    cutOff: false,
+  },
+  {
+    speaker: 'persona',
+    text: 'Fine. Please go ahead.',
+    cutOff: false,
+  },
+  {
+    speaker: 'trainee',
+    text: "Of course. I'll process the cancellation now.",
+    cutOff: false,
+  },
+];
+
 function printTranscript(label: string, transcript: Transcript) {
   console.log(`\n${label} — ${String(transcript.length)} turns`);
   for (const [index, turn] of transcript.entries()) {
@@ -165,6 +214,13 @@ function printAssessment(assessment: Assessment) {
     console.log(`   ${mark}  ${verdict.criterionId.padEnd(30)}`);
     console.log(`            evidence: ${JSON.stringify(verdict.evidence)}`);
   }
+
+  // The score the Feedback printed underneath has to stay consistent with. It is
+  // the number ticket 12 tunes against — warm, courteous, and 2 of 6.
+  const met = assessment.criteria.filter(({ met: isMet }) => isMet).length;
+  console.log(
+    `\n   scored ${String(met)} of ${String(assessment.criteria.length)}`
+  );
 }
 
 function wordCount(transcript: Transcript): number {
@@ -183,17 +239,22 @@ printTranscript(
   'LONG ATTEMPT (full length, for the ticket 07 latency number)',
   longAttemptTranscript
 );
+printTranscript(
+  'WARM BUT NEVER ASKS (Feedback must follow the fixed failures)',
+  warmNeverAskedTranscript
+);
 
 if (!live) {
   console.log(
     '\nDry run — no API call made, nothing spent.' +
-      '\nRe-run with --live to make three real calls to gpt-5.6-sol (~$0.15).'
+      '\nRe-run with --live to make six real calls to gpt-5.6-sol (~$0.25).'
   );
   process.exit(0);
 }
 
 const { openAiApiKey } = readServerEnvironment();
 const assessAttempt = createOpenAiAttemptAssessor({ apiKey: openAiApiKey });
+const createFeedback = createOpenAiFeedbackCreator({ apiKey: openAiApiKey });
 
 async function run(label: string, transcript: Transcript) {
   console.log(`\n=== ${label}`);
@@ -217,13 +278,56 @@ async function run(label: string, transcript: Transcript) {
   }
 }
 
+async function runFeedback(
+  label: string,
+  transcript: Transcript,
+  assessmentResult: Awaited<ReturnType<typeof run>>
+) {
+  if (!assessmentResult) {
+    return undefined;
+  }
+
+  console.log(`\n=== ${label} FEEDBACK`);
+  const startedAt = Date.now();
+
+  try {
+    const feedback = await createFeedback(
+      assessmentResult.assessment,
+      transcript
+    );
+    const elapsed = Date.now() - startedAt;
+    const totalElapsed = assessmentResult.elapsed + elapsed;
+    console.log(
+      `   Feedback in ${String(elapsed)}ms; Assessment + Feedback ${String(totalElapsed)}ms\n`
+    );
+    console.log(feedback);
+    return { feedback, elapsed, totalElapsed };
+  } catch (error) {
+    const elapsed = Date.now() - startedAt;
+    console.log(`   FAILED after ${String(elapsed)}ms`);
+    console.log(`   ${String(error)}`);
+    return undefined;
+  }
+}
+
 const full = await run('FULL ATTEMPT', fullTranscript);
 const cover = await run('COVER STORY ONLY', coverStoryTranscript);
 const long = await run('LONG ATTEMPT', longAttemptTranscript);
+const longFeedback = await runFeedback(
+  'LONG ATTEMPT',
+  longAttemptTranscript,
+  long
+);
+const warm = await run('WARM BUT NEVER ASKS', warmNeverAskedTranscript);
+const warmFeedback = await runFeedback(
+  'WARM BUT NEVER ASKS',
+  warmNeverAskedTranscript,
+  warm
+);
 
 console.log('\n--- what this tells us ---');
 
-if (!full && !cover && !long) {
+if (!full && !cover && !long && !warm) {
   console.log(
     '  Every call failed. Read the error above: if it names the schema or the\n' +
       '  model, the request shape is wrong and no test would have caught it.'
@@ -236,6 +340,7 @@ for (const [label, transcript, result] of [
   ['cover story', coverStoryTranscript, cover],
   ['fixture    ', fullTranscript, full],
   ['full length', longAttemptTranscript, long],
+  ['warm/no ask', warmNeverAskedTranscript, warm],
 ] as const) {
   const elapsed = result ? `${String(result.elapsed)}ms` : 'failed';
   console.log(
@@ -244,23 +349,33 @@ for (const [label, transcript, result] of [
   );
 }
 
-if (long) {
+if (long && longFeedback) {
   console.log(
-    `\n  Ticket 07: a full-length Assessment took ${String(long.elapsed)}ms. Feedback is a\n` +
-      '    second sequential call over the same Transcript plus the Assessment, and it\n' +
-      '    writes prose rather than short quotes, so the Trainee waits at least this\n' +
-      '    long again. Design the waiting state for the total, not for the Assessment.'
+    `\n  Ticket 07: the full-length Assessment took ${String(long.elapsed)}ms, Feedback took ` +
+      `${String(longFeedback.elapsed)}ms,\n` +
+      `    and the two sequential calls took ${String(longFeedback.totalElapsed)}ms in total.`
   );
+}
+
+if (!longFeedback || !warmFeedback) {
+  console.log(
+    '\n  BAD   At least one Feedback call failed, so ticket 07 is not live-verified.'
+  );
+  process.exitCode = 1;
 }
 
 // The fix under test: ground truth should make the cover story stop counting as
 // the real reason, without making the real reason stop counting. And the quote
 // should name the Persona turn that revealed it — ticket 13 opens criterion 3 on
 // a projector, and the room needs to see Jordan say it, not the question.
-for (const [label, transcript, result] of [
-  ['COVER STORY ', coverStoryTranscript, cover],
-  ['FULL ATTEMPT', fullTranscript, full],
-  ['LONG ATTEMPT', longAttemptTranscript, long],
+// Each row states what criterion 3 must come back as. Do not derive it from the
+// label: only two of these four Transcripts ever reach the prior incident, and a
+// guess dressed as an expectation reports a correctly strict grader as broken.
+for (const [label, transcript, result, wanted] of [
+  ['COVER STORY ', coverStoryTranscript, cover, false],
+  ['FULL ATTEMPT', fullTranscript, full, true],
+  ['LONG ATTEMPT', longAttemptTranscript, long, true],
+  ['WARM/NO ASK ', warmNeverAskedTranscript, warm, false],
 ] as const) {
   if (!result) {
     continue;
@@ -275,7 +390,6 @@ for (const [label, transcript, result] of [
     continue;
   }
 
-  const wanted = label.trim() !== 'COVER STORY';
   const speaker = transcript.find((turn) =>
     turn.text.includes(verdict.evidence)
   )?.speaker;
@@ -291,7 +405,9 @@ for (const [label, transcript, result] of [
 
   if (!ok && !wanted) {
     console.log(
-      '        The grader still counts the cover story as the real reason.'
+      '        The grader gave criterion 3 away: this Attempt never reached the\n' +
+        '        prior incident, so being told the cover story — or being told nothing\n' +
+        '        at all — has counted as surfacing the real reason.'
     );
   }
 

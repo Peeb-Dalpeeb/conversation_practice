@@ -26,6 +26,7 @@ type AppState =
       name: 'ended';
       phase: 'stopped' | 'preparing' | 'judging';
     }
+  | { name: 'judging-failed' }
   | { name: 'feedback'; feedback: string }
   | { name: 'failed'; reason: string; scenario: PublicScenario }
   | { name: 'unavailable' };
@@ -155,6 +156,13 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
         onAttemptDataFailed: () => {
           setState({ name: 'data-failed' });
         },
+        onAttemptJudgingFailed: () => {
+          setState((currentState) =>
+            currentState.name === 'data-failed'
+              ? currentState
+              : { name: 'judging-failed' }
+          );
+        },
         onJudgingStarted: () => {
           setState((currentState) =>
             currentState.name === 'data-failed'
@@ -163,7 +171,11 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
           );
         },
         onAttemptCompleted: (attempt) => {
-          setState({ name: 'feedback', feedback: attempt.feedback });
+          setState(
+            attempt.feedback.status === 'completed'
+              ? { name: 'feedback', feedback: attempt.feedback.prose }
+              : { name: 'judging-failed' }
+          );
         },
       });
 
@@ -284,21 +296,43 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
     );
   }
 
-  if (state.name === 'ended') {
-    const status =
-      state.phase === 'judging'
+  if (state.name === 'ended' || state.name === 'feedback') {
+    const feedbackReady = state.name === 'feedback';
+    const status = feedbackReady
+      ? 'Your Feedback is ready.'
+      : state.phase === 'judging'
         ? 'Your microphone is off. Judging is in progress…'
         : state.phase === 'preparing'
           ? 'Your microphone is off. Preparing your Attempt for judging…'
           : 'Your microphone is off.';
+    const paragraphs = feedbackReady
+      ? state.feedback.split(/\r?\n\s*\r?\n/u)
+      : [];
 
     return (
-      <main className="shell shell--attempt">
-        <section className="attempt" aria-labelledby="attempt-ended-title">
-          <h1 id="attempt-ended-title">Attempt ended</h1>
-          <p role="status" aria-live="polite">
+      <main className={`shell${feedbackReady ? '' : ' shell--attempt'}`}>
+        <section
+          className={feedbackReady ? 'feedback' : 'attempt'}
+          aria-labelledby="attempt-outcome-title"
+        >
+          {feedbackReady ? <p className="eyebrow">Attempt complete</p> : null}
+          <h1 id="attempt-outcome-title">
+            {feedbackReady ? 'Your Feedback' : 'Attempt ended'}
+          </h1>
+          <p
+            className={feedbackReady ? 'visually-hidden' : undefined}
+            role="status"
+            aria-live="polite"
+          >
             {status}
           </p>
+          {feedbackReady ? (
+            <div className="feedback__copy">
+              {paragraphs.map((paragraph, index) => (
+                <p key={`${index}-${paragraph}`}>{paragraph}</p>
+              ))}
+            </div>
+          ) : null}
         </section>
       </main>
     );
@@ -318,14 +352,17 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
     );
   }
 
-  if (state.name === 'feedback') {
+  if (state.name === 'judging-failed') {
     return (
-      <main className="shell">
-        <article className="feedback" aria-labelledby="feedback-title">
-          <p className="eyebrow">Attempt complete</p>
-          <h1 id="feedback-title">Your Feedback</h1>
-          <p className="feedback__copy">{state.feedback}</p>
-        </article>
+      <main className="shell shell--attempt">
+        <section className="notice" aria-labelledby="attempt-judging-title">
+          <p className="eyebrow">Attempt ended</p>
+          <h1 id="attempt-judging-title">The Attempt could not be judged.</h1>
+          <p>
+            The Attempt reached the server, but its results could not be
+            prepared. Check the server terminal for details.
+          </p>
+        </section>
       </main>
     );
   }

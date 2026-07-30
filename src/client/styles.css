@@ -221,7 +221,27 @@ h1 {
   font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(1.1rem, 2.4vw, 1.35rem);
   line-height: 1.65;
+}
+
+.feedback__copy p {
+  margin: 0;
   white-space: pre-wrap;
+}
+
+.feedback__copy p + p {
+  margin-top: 1.25rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .notice > .start-button {

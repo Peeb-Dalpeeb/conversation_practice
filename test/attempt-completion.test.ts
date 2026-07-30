@@ -16,6 +16,7 @@ import { scenario } from '../src/scenario.js';
 import {
   createAttemptCompleter,
   type Assessment,
+  type CreateFeedback,
   type Transcript,
 } from '../src/server/attempt-completion.js';
 import { createApiServer } from '../src/server/app.js';
@@ -82,7 +83,14 @@ const expectedCleanTranscript: Transcript = [
 
 async function startCompletionServer(
   attemptDirectory: string,
-  storeRawEventLog?: StoreRawEventLog
+  storeRawEventLog?: StoreRawEventLog,
+  createFeedback: CreateFeedback = (receivedAssessment, transcript) =>
+    Promise.resolve(
+      receivedAssessment.criteria[0]?.met === true &&
+        transcript.at(-1)?.speaker === 'persona'
+        ? 'Assessment and Transcript received.'
+        : 'Judging inputs were incomplete.'
+    )
 ) {
   const completeAttempt = createAttemptCompleter({
     scenario,
@@ -103,23 +111,15 @@ async function startCompletionServer(
 
       return Promise.resolve(assessment);
     },
-    createFeedback: (receivedAssessment, transcript) =>
-      Promise.resolve(
-        receivedAssessment.criteria[0]?.met === true &&
-          transcript.at(-1)?.speaker === 'persona'
-          ? 'Assessment and Transcript received.'
-          : 'Judging inputs were incomplete.'
-      ),
+    createFeedback,
     storeAttempt: createAttemptStore(attemptDirectory),
     storeRawEventLog,
   });
-  const server = createApiServer(
-    scenario,
-    undefined,
+  const server = createApiServer({
+    currentScenario: scenario,
     completeAttempt,
-    undefined,
-    createLatestAttemptReader(attemptDirectory)
-  );
+    readLatestAttempt: createLatestAttemptReader(attemptDirectory),
+  });
   servers.push(server);
 
   await new Promise<void>((resolveListening) => {
@@ -276,7 +276,10 @@ describe('completed Attempts', () => {
           },
         ],
       },
-      feedback: 'Assessment and Transcript received.',
+      feedback: {
+        status: 'completed',
+        prose: 'Assessment and Transcript received.',
+      },
     };
     await expect(response.json()).resolves.toEqual(expectedAttempt);
     await expect(
@@ -330,7 +333,10 @@ describe('completed Attempts', () => {
       incompleteRawEventLog
     );
 
-    expect(incompleteResponse.status).toBe(500);
+    expect(incompleteResponse.status).toBe(422);
+    await expect(incompleteResponse.json()).resolves.toMatchObject({
+      code: 'attempt_data_incomplete',
+    });
     await expect(readOnlyFile(rawEventLogDirectory)).resolves.toBe(
       incompleteRawEventLog
     );
@@ -380,8 +386,45 @@ describe('completed Attempts', () => {
     await expect(latestResponse.json()).resolves.toMatchObject({
       scenarioId: scenario.id,
       number: 2,
-      feedback: 'Assessment and Transcript received.',
+      feedback: {
+        status: 'completed',
+        prose: 'Assessment and Transcript received.',
+      },
     });
+  });
+
+  it('persists the Transcript and Assessment when Feedback creation fails', async () => {
+    const logged = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const attemptDirectory = await createTemporaryDirectory();
+    const port = await startCompletionServer(attemptDirectory, undefined, () =>
+      Promise.reject(new Error('Feedback service unavailable.'))
+    );
+
+    const response = await postFixture(port, 'clean-stop-in-silence.json');
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'attempt_judging_failed',
+    });
+    const attempt = await readPersistedAttempt(attemptDirectory, 1);
+    expect(attempt.transcript).toEqual(expectedCleanTranscript);
+    expect(attempt.assessment.criteria[0]).toMatchObject({
+      criterionId: 'asked-open-question',
+      met: true,
+    });
+    expect(attempt.feedback).toEqual({
+      status: 'failed',
+      error: 'Error: Feedback service unavailable.',
+    });
+    // The terminal is where a tuning run finds out what happened, so it has to
+    // say which Attempt kept the Transcript and the Assessment.
+    expect(
+      logged.mock.calls.some(([, error]) =>
+        /stored as number 1/.test(String(error))
+      )
+    ).toBe(true);
   });
 
   it('reads the latest Attempt by number beyond the padded filename range', async () => {
@@ -395,7 +438,7 @@ describe('completed Attempts', () => {
       scenarioId: scenario.id,
       transcript: [],
       assessment: { criteria: [] },
-      feedback: 'Persisted Feedback.',
+      feedback: { status: 'completed', prose: 'Persisted Feedback.' },
     };
     await Promise.all([
       writeFile(
@@ -411,6 +454,35 @@ describe('completed Attempts', () => {
     await expect(
       createLatestAttemptReader(attemptDirectory)(scenario.id)
     ).resolves.toMatchObject({ number: 10_000 });
+  });
+
+  it('reads an unpadded filename selected as the latest Attempt', async () => {
+    const attemptDirectory = await createTemporaryDirectory();
+    const scenarioDirectory = resolve(
+      attemptDirectory,
+      encodeURIComponent(scenario.id)
+    );
+    await mkdir(scenarioDirectory);
+    const persistedAttempt = {
+      scenarioId: scenario.id,
+      transcript: [],
+      assessment: { criteria: [] },
+      feedback: { status: 'completed', prose: 'Persisted Feedback.' },
+    };
+    await Promise.all([
+      writeFile(
+        resolve(scenarioDirectory, '0006.json'),
+        JSON.stringify({ ...persistedAttempt, number: 6 })
+      ),
+      writeFile(
+        resolve(scenarioDirectory, '7.json'),
+        JSON.stringify({ ...persistedAttempt, number: 7 })
+      ),
+    ]);
+
+    await expect(
+      createLatestAttemptReader(attemptDirectory)(scenario.id)
+    ).resolves.toMatchObject({ number: 7 });
   });
 
   it('marks a Persona turn cut off when the Trainee stops mid-conversation', async () => {

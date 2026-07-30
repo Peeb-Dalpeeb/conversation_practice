@@ -44,13 +44,14 @@ export function createOpenAiFeedbackCreator({
       errors: {
         requestFailed: (status) =>
           `OpenAI could not create Feedback (${status}).`,
+        malformedJson: 'OpenAI returned malformed Feedback response JSON.',
         incomplete: 'OpenAI returned an incomplete Feedback response.',
         missingText: 'OpenAI returned no Feedback.',
       },
     });
 
     if (!feedback.trim()) {
-      throw new TypeError('OpenAI returned no Feedback.');
+      throw new TypeError('OpenAI returned empty Feedback.');
     }
 
     return feedback;
