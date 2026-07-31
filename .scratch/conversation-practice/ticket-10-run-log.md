@@ -592,11 +592,62 @@ Pass: cold at both. No thaw, no "thank you for saying that", no engagement.
 
 | Attempt # | cold at blame? | cold at apology? | verdict |
 | --------- | -------------- | ---------------- | ------- |
-|           |                |                  |         |
+| 16        | yes            | yes              | FAIL — author's call: criterion 5's stated conditions held, but the apology turn is a dead end |
 |           |                |                  |         |
 |           |                |                  |         |
 
 Notes:
+
+- **Attempt 16 — first live exercise of Run D. Criterion 5's stated pass conditions were met and
+  the author graded it a FAIL anyway.** Turns: "That does not change what happened." (blame) /
+  "That's not it." (scripted apology).
+
+  **What held, and it is worth stating before the failure.** Cold at both. No thaw, no thanks, no
+  "I appreciate that", no sympathy for the rep, no agreement that turnover excuses it, no engagement
+  with the wrap-up as a friendly close. **The Gate stayed shut** against a turn that contained a
+  genuine acknowledgement ("that rep shouldn't have done that") wrapped in an excuse, which is the
+  serious risk this run exists to test. No coaching. No hang-up, correctly — the precondition was
+  not met even though "anything else I can help you with today" sounds like the end of a call.
+  On the ticket's own wording — "blaming the colleague and offering a hollow apology both leave
+  Jordan cold" — this is a pass.
+
+  **Why the author failed it.** Author's judgment: "I really don't like how it ended, even if that
+  is a pass. It's a fail to me… I don't think that makes a good conversation." A four-word terminal
+  reply to an apology plus an offer of further help leaves the Trainee nothing to do and ends the
+  exchange flat. This is a demo-quality judgment and it is the author's to make; ticket 13's dry run
+  would have hit it anyway.
+
+  **Two diagnosable defects underneath the taste judgment.**
+
+  **(a) Rule bleed — the wrong rule fired.** "That's not it" is `behaviourRules[7]`'s authored line,
+  scoped to *an attempted acknowledgement that misses the Gate*. A scripted apology is named
+  explicitly in `behaviourRules[6]`, which should have produced "it does not change what happened"
+  a second time. `[6]` won at turn 6 and lost at turn 8. Same pattern as Attempt 6, where
+  `behaviourRules[8]`'s script was lifted into a guess turn that `behaviourRules[5]` owned: **when
+  two rules can both claim a turn, the more quotable neighbouring line wins.**
+
+  **(b) The reply is not responsive.** The Trainee said two things — an apology, and "is there
+  anything else I can help you with today". "That's not it" answers neither. Jordan has exactly one
+  thing she wants and the Scenario gives her no line for restating it when the Trainee tries to
+  wrap up. This is the same root cause as every coaching failure in this log: a turn type with no
+  authored positive line. Here it produced a dead end rather than coaching.
+
+  **Traced to specific wording.** `behaviourRules[6]` ends "say only that it does not change what
+  happened, and nothing more". "Say only … and nothing more" is the same shape as the "say only"
+  clause that caused the Attempt 10 conflict, and it forces a terminal reply onto a turn that
+  invites one more beat.
+
+  **The audit's pre-registered remedy is the wrong one and was deliberately not applied.** The
+  consolidation flagged the blame/apology merge as the one change made blind, with the instruction
+  "if Run D fails, split them back first". The merge did not fail: turn 6 shows the blame half
+  working exactly as authored. Splitting the rule would not address the dead end, which is caused by
+  "and nothing more" rather than by the merge. Recorded so the standing remedy is not applied to the
+  wrong diagnosis later. It remains available if the bleed at (a) survives the edit below.
+
+  **`behaviourRules[7]` deliberately not touched.** It is the near-miss rule that Run E's near-miss
+  check exists to test, and it has never been exercised live. Editing it now would mean testing
+  wording that had already been changed on the strength of a run that was not about it. Run E tests
+  it as-is.
 
 ---
 
