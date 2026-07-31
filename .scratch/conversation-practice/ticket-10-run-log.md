@@ -781,7 +781,46 @@ Notes:
   oddities already on record (Attempts 4, 6, 12–15), the grader appears reliable on a clean
   successful run and unreliable on partial ones — useful shape for Rubric strictness work.
 
-Near-miss Attempt #: &nbsp;&nbsp; coached? &nbsp;&nbsp; notes:
+Near-miss Attempt #: **19** &nbsp;&nbsp; coached? **no** &nbsp;&nbsp; verdict: **PASS — near-miss
+check closed at ×1.** Reply to "sounds like that made you feel unheard" was "That's not it." and
+nothing else.
+
+- **Attempt 19 — both halves pass, and it is the second consecutive 6/6.** The near-miss check and
+  the optional recovery were run in the same Attempt; the near-miss verdict is settled entirely at
+  turn 6 and is independent of everything after it.
+
+  **Near-miss: clean, and the Attempt 5 failure did not recur.** "That's not it." — a flat
+  rejection with nothing attached. No missing wording supplied, no restatement of the incident,
+  nothing naming what was absent, nothing about what the Trainee should have said. This is the
+  coaching failure the anti-coaching rule was widened for before tuning began, and
+  `behaviourRules[7]` held on first live contact.
+
+  **The Gate held against "unheard" — the most dangerous near-miss in the scenario.**
+  `privateProfile.actualIntent` frames Jordan's intent around feeling "genuinely heard", so
+  "unheard" is the near-miss with the strongest pull toward a false open. The pre-tuning correction
+  that removed "feeling heard" as an alternate softening condition was previously supported only on
+  paper; it is now proven live. No warming, no hint of staying, no drop in guardedness.
+
+  **The optional recovery was worth running: the Gate still opens after a miss.** Turn 8, "Yeah,
+  that's it, exactly. I appreciate you getting it. I'm not pushing the cancellation right now." —
+  acknowledges understanding and stops pressing, without claiming to feel heard or mentioning the
+  account, so the two-step payoff stayed intact. Turn 10, "Yes, I do. I'd prefer to keep the account
+  open." — both halves again. **Nothing locks a Trainee out for missing once**, which is the
+  realistic demo path and the one ticket 13's dry run walks. This was never established before and
+  is not stated anywhere in the Scenario; only `behaviourRules[1]`'s discount-opener lock closes the
+  Gate for an Attempt.
+
+  **Unexpected finding that vindicates the Attempt 16 diagnosis.** "That's not it." is the exact
+  line that made Attempt 16 a dead end, and here it is the correct answer. Same four words, opposite
+  verdict, decided by which rule owns the turn. The Attempt 16 failure was never about the line — it
+  was `behaviourRules[7]` bleeding into a turn `behaviourRules[6]` owned. It reads as terse rather
+  than dead-end here because the Trainee's line was an assertion, not an offer to wrap the call up,
+  so there was nothing further to answer. Confirms the edit applied after Attempt 16 targeted the
+  right thing, and confirms leaving `behaviourRules[7]` untouched was correct.
+
+  **Post-Gate warmth is visible in the words.** "I appreciate you getting it" would be a
+  `behaviourRules[0]` failure before the Gate and is `deliveryRules[2]` working after it. Second
+  Attempt in a row where the flip is readable off the Transcript with no judgment of prosody.
 
 ---
 
