@@ -14,6 +14,22 @@ ticket 10 — including runs F and G — refers to records that exist only on th
 tickets 12 and 13 have to be worked here too. References to Attempts 1–5 anywhere in ticket 10
 are history and cannot be re-read now.
 
+**Scope decision, 2026-07-30, after Attempt 11 — breadth over depth for the prototype.** The
+author's call: this build is a prototype to show an organisation, and refinement waits on that
+decision. Eleven Attempts have gone into Run A alone, while criteria 5, 6 and 9 have never been
+exercised live and criteria 3 and 4 have one pre-consolidation exploratory Attempt each. **The
+Gate itself — the behaviour the demo exists to show, and the one the ticket names as the most
+likely way the whole build fails — has never been run.** Remaining Attempts therefore go to
+coverage: Runs B, C, D, E, F and G, one Attempt each, rather than a fourth pass on the
+best-tested behaviour.
+
+**The ×3 requirement is suspended, not met.** Every run below still reads "Needs 3"; treat that
+as the standard to return to if the organisation greenlights the build. **Criterion 7 will not be
+ticked** — it asks that the behaviours hold across repeated Attempts, and single-Attempt evidence
+cannot support it. Criteria banked from here are labelled as single-Attempt evidence in ticket 10
+so tickets 12 and 13 know what they are inheriting: Rubric strictness and the dry run both rest
+on a consistency assumption that this log does not verify.
+
 Read a run back with:
 
 ```
@@ -85,11 +101,25 @@ so neither their passes nor their observed sub-runs carry over.
 
 | Attempt # | colder each time? | any softening? | one-sentence replies? | verdict |
 | --------- | ----------------- | -------------- | --------------------- | ------- |
-|           |                   |                |                       |         |
-|           |                   |                |                       |         |
-|           |                   |                |                       |         |
+| 11        | yes — four distinct refusals | no  | yes                   | PASS — Run A closed at ×1, see scope decision |
 
 Notes:
+
+- **Attempt 11 — PASS. The authored refusal set fixed the refrain.** Replies: "I'm not
+  interested; close the account." / "That changes nothing; close the account." / "That question
+  has already been answered; close the account." / "I'm tired of repeating this; close the
+  account." Four distinct refusals, no two interchangeable — the Attempt 10 failure is fixed.
+  No softening, no thanks, no warmth, no incident content, no coaching, no hang-up. The lock rule
+  held: eleven Attempts across six wordings, no softening in any of them.
+
+  **Two observations, neither a fail.** The model walked the three authored refusals in the exact
+  order they are written in `behaviourRules[2]` — a sixth instance of literal surface-wording
+  pattern-matching, benign here because the authored order is also a sensible escalation. And
+  every reply now ends "close the account", so the refrain moved from the opening of the sentence
+  to its tail. Replies also run short (6, 6, 8, 7 words) with turn 8 one word shorter than turn 6,
+  marginally against "replies must not get shorter". Judged acceptable for a prototype: the four
+  openings carry the escalation and a single repeated demand is in character for a customer with
+  one thing to ask for. Recorded here so a later ×3 pass knows where to look.
 
 - **Attempt 10 — FAIL. Whole reply repeated, caused by the Attempt 8 edit.** Replies: "I'm not
   interested, and I want the account closed." (9 words) / "That has already been answered, and I
