@@ -75,6 +75,23 @@ const fullTranscript = transcriptFromFixture(fixture);
 // is the plausible wrong answer the whole Scenario is built to punish.
 const coverStoryTranscript = fullTranscript.slice(0, 3);
 
+// The Persona never states a reason here, so criterion 3 has no meaningful
+// Persona quote. Its evidence must be the Trainee action that foreclosed
+// discovery, not the generic cancellation request the projector already knows.
+const noReasonTranscript: Transcript = [
+  {
+    speaker: 'persona',
+    text: "I'd like to close my account.",
+    cutOff: false,
+  },
+  {
+    speaker: 'trainee',
+    text: 'I can offer you a discount on your next six months.',
+    cutOff: false,
+  },
+  { speaker: 'persona', text: 'No. Cancel it.', cutOff: false },
+];
+
 // A hand-written Attempt at the length a real one runs to — the handoff budgets
 // ~22 turns for ten minutes. The recorded fixtures are all 3–9 turns, so they
 // measure judging on a fraction of the input a live Attempt produces. Written to
@@ -200,6 +217,62 @@ const warmNeverAskedTranscript: Transcript = [
   },
 ];
 
+// A closed question can accidentally surface the real reason when the Persona
+// misbehaves, but the Assessment must still judge the Trainee's question by its
+// form. This is the exact failure recorded in persisted Attempt 12.
+const closedQuestionTranscript: Transcript = [
+  {
+    speaker: 'persona',
+    text: "I'd like to close my account.",
+    cutOff: false,
+  },
+  {
+    speaker: 'trainee',
+    text: 'Why do you want to close the account?',
+    cutOff: false,
+  },
+  {
+    speaker: 'persona',
+    text: 'The fees are too high, and somewhere else is cheaper.',
+    cutOff: false,
+  },
+  { speaker: 'trainee', text: 'Did something happen?', cutOff: false },
+  {
+    speaker: 'persona',
+    text: 'Three weeks ago, a representative was rushed and dismissive, and it made me feel stupid for asking a simple question.',
+    cutOff: false,
+  },
+];
+
+// Accepting the cover story out loud and closing on it. Persisted Attempt 21's
+// shape, and the one the demo's bad Attempt lands nearest: measured three times
+// in four, the grader read "Understood, the fees are higher than you'd like" as
+// having established why. Criterion 1 is the first one a Trainee can reach while
+// still inside the cover story, so it is the one that has to hold.
+const acceptedCoverStoryTranscript: Transcript = [
+  {
+    speaker: 'persona',
+    text: "I'd like to close my account.",
+    cutOff: false,
+  },
+  {
+    speaker: 'trainee',
+    text: 'Why are you closing the account?',
+    cutOff: false,
+  },
+  {
+    speaker: 'persona',
+    text: 'The fees are too high, and somewhere else is cheaper.',
+    cutOff: false,
+  },
+  {
+    speaker: 'trainee',
+    text: "Understood, the fees are higher than you'd like. I'm sorry we couldn't be more competitive. Let me get that closed for you.",
+    cutOff: false,
+  },
+  { speaker: 'persona', text: 'Okay. Proceed, then.', cutOff: false },
+];
+
 function printTranscript(label: string, transcript: Transcript) {
   console.log(`\n${label} — ${String(transcript.length)} turns`);
   for (const [index, turn] of transcript.entries()) {
@@ -215,11 +288,11 @@ function printAssessment(assessment: Assessment) {
     console.log(`            evidence: ${JSON.stringify(verdict.evidence)}`);
   }
 
-  // The score the Feedback printed underneath has to stay consistent with. It is
-  // the number ticket 12 tunes against — warm, courteous, and 2 of 6.
+  // The Assessment summary the Feedback sits beneath has to stay consistent.
+  // The warm, courteous failure is the zero-of-six case ticket 12 tunes against.
   const met = assessment.criteria.filter(({ met: isMet }) => isMet).length;
   console.log(
-    `\n   scored ${String(met)} of ${String(assessment.criteria.length)}`
+    `\n   ${String(met)} of ${String(assessment.criteria.length)} criteria met`
   );
 }
 
@@ -236,6 +309,10 @@ printTranscript(
   coverStoryTranscript
 );
 printTranscript(
+  'NO REASON GIVEN (criterion 3 evidence must name the Trainee action)',
+  noReasonTranscript
+);
+printTranscript(
   'LONG ATTEMPT (full length, for the ticket 07 latency number)',
   longAttemptTranscript
 );
@@ -243,11 +320,19 @@ printTranscript(
   'WARM BUT NEVER ASKS (Feedback must follow the fixed failures)',
   warmNeverAskedTranscript
 );
+printTranscript(
+  'CLOSED QUESTION (asked-open-question must be NOT MET)',
+  closedQuestionTranscript
+);
+printTranscript(
+  'ACCEPTED COVER STORY (understood-before-solving must be NOT MET)',
+  acceptedCoverStoryTranscript
+);
 
 if (!live) {
   console.log(
     '\nDry run — no API call made, nothing spent.' +
-      '\nRe-run with --live to make six real calls to gpt-5.6-sol (~$0.25).'
+      '\nRe-run with --live to make nine real calls to gpt-5.6-sol (~$0.40).'
   );
   process.exit(0);
 }
@@ -312,6 +397,7 @@ async function runFeedback(
 
 const full = await run('FULL ATTEMPT', fullTranscript);
 const cover = await run('COVER STORY ONLY', coverStoryTranscript);
+const noReason = await run('NO REASON GIVEN', noReasonTranscript);
 const long = await run('LONG ATTEMPT', longAttemptTranscript);
 const longFeedback = await runFeedback(
   'LONG ATTEMPT',
@@ -319,6 +405,11 @@ const longFeedback = await runFeedback(
   long
 );
 const warm = await run('WARM BUT NEVER ASKS', warmNeverAskedTranscript);
+const closed = await run('CLOSED QUESTION', closedQuestionTranscript);
+const acceptedCoverStory = await run(
+  'ACCEPTED COVER STORY',
+  acceptedCoverStoryTranscript
+);
 const warmFeedback = await runFeedback(
   'WARM BUT NEVER ASKS',
   warmNeverAskedTranscript,
@@ -327,7 +418,15 @@ const warmFeedback = await runFeedback(
 
 console.log('\n--- what this tells us ---');
 
-if (!full && !cover && !long && !warm) {
+if (
+  !full &&
+  !cover &&
+  !noReason &&
+  !long &&
+  !warm &&
+  !closed &&
+  !acceptedCoverStory
+) {
   console.log(
     '  Every call failed. Read the error above: if it names the schema or the\n' +
       '  model, the request shape is wrong and no test would have caught it.'
@@ -338,9 +437,12 @@ if (!full && !cover && !long && !warm) {
 console.log('\n  Judging cost, by Attempt size:');
 for (const [label, transcript, result] of [
   ['cover story', coverStoryTranscript, cover],
+  ['no reason  ', noReasonTranscript, noReason],
   ['fixture    ', fullTranscript, full],
   ['full length', longAttemptTranscript, long],
   ['warm/no ask', warmNeverAskedTranscript, warm],
+  ['closed ask ', closedQuestionTranscript, closed],
+  ['cover taken', acceptedCoverStoryTranscript, acceptedCoverStory],
 ] as const) {
   const elapsed = result ? `${String(result.elapsed)}ms` : 'failed';
   console.log(
@@ -369,15 +471,18 @@ if (!longFeedback || !warmFeedback) {
 // should name the Persona turn that revealed it — ticket 13 opens criterion 3 on
 // a projector, and the room needs to see Jordan say it, not the question.
 // Each row states what criterion 3 must come back as. Do not derive it from the
-// label: only two of these four Transcripts ever reach the prior incident, and a
+// label: only two of these five Transcripts ever reach the prior incident, and a
 // guess dressed as an expectation reports a correctly strict grader as broken.
-for (const [label, transcript, result, wanted] of [
-  ['COVER STORY ', coverStoryTranscript, cover, false],
-  ['FULL ATTEMPT', fullTranscript, full, true],
-  ['LONG ATTEMPT', longAttemptTranscript, long, true],
-  ['WARM/NO ASK ', warmNeverAskedTranscript, warm, false],
+for (const [label, transcript, result, wanted, wantedSpeaker] of [
+  ['COVER STORY ', coverStoryTranscript, cover, false, 'persona'],
+  ['NO REASON   ', noReasonTranscript, noReason, false, 'trainee'],
+  ['FULL ATTEMPT', fullTranscript, full, true, 'persona'],
+  ['LONG ATTEMPT', longAttemptTranscript, long, true, 'persona'],
+  ['WARM/NO ASK ', warmNeverAskedTranscript, warm, false, 'persona'],
 ] as const) {
   if (!result) {
+    console.log(`\n  BAD   ${label}: Assessment call failed.`);
+    process.exitCode = 1;
     continue;
   }
 
@@ -387,6 +492,7 @@ for (const [label, transcript, result, wanted] of [
 
   if (!verdict) {
     console.log(`\n  BAD   ${label}: criterion 3 missing from the Assessment.`);
+    process.exitCode = 1;
     continue;
   }
 
@@ -403,7 +509,15 @@ for (const [label, transcript, result, wanted] of [
     `        evidence: ${JSON.stringify(verdict.evidence)} [${speaker ?? 'unknown'}]`
   );
 
+  if (speaker !== wantedSpeaker) {
+    console.log(
+      `        Wrong evidence speaker: wanted ${wantedSpeaker}, received ${speaker ?? 'unknown'}.`
+    );
+    process.exitCode = 1;
+  }
+
   if (!ok && !wanted) {
+    process.exitCode = 1;
     console.log(
       '        The grader gave criterion 3 away: this Attempt never reached the\n' +
         '        prior incident, so being told the cover story — or being told nothing\n' +
@@ -412,15 +526,63 @@ for (const [label, transcript, result, wanted] of [
   }
 
   if (!ok && wanted) {
+    process.exitCode = 1;
     console.log(
       '        Worse than a false positive: attempt two would not flip on the projector.'
     );
   }
+}
 
-  if (ok && wanted && speaker === 'trainee') {
+if (closed) {
+  const verdict = closed.assessment.criteria.find(
+    ({ criterionId }) => criterionId === 'asked-open-question'
+  );
+  const ok = verdict?.met === false;
+
+  console.log(
+    `\n  ${ok ? 'GOOD' : 'BAD '}  CLOSED QUESTION: asked-open-question ` +
+      `${verdict?.met ? 'MET' : 'NOT MET'} (wanted NOT MET)`
+  );
+  console.log(`        evidence: ${JSON.stringify(verdict?.evidence)}`);
+
+  if (!ok) {
     console.log(
-      '        Verdict right, quote mis-anchored: it cites the Trainee asking rather\n' +
-        '        than Jordan revealing. That is the line ticket 13 puts on the projector.'
+      '        A yes-or-no question was counted as open even though it cannot invite\n' +
+        '        the Persona to tell the story in their own words.'
     );
+    process.exitCode = 1;
   }
+} else {
+  console.log('\n  BAD   CLOSED QUESTION: Assessment call failed.');
+  process.exitCode = 1;
+}
+
+// Criterion 1 is reachable while the Trainee is still inside the cover story,
+// which criterion 3 never is — accepting "the fees are too high" out loud reads
+// as having established why unless ground truth binds here too. One reading is
+// not enough to trust: this was met three times in four before the fix, so a
+// single clean run here proves less than the same run repeated.
+if (acceptedCoverStory) {
+  const verdict = acceptedCoverStory.assessment.criteria.find(
+    ({ criterionId }) => criterionId === 'understood-before-solving'
+  );
+  const ok = verdict?.met === false;
+
+  console.log(
+    `\n  ${ok ? 'GOOD' : 'BAD '}  ACCEPTED COVER STORY: understood-before-solving ` +
+      `${verdict?.met ? 'MET' : 'NOT MET'} (wanted NOT MET)`
+  );
+  console.log(`        evidence: ${JSON.stringify(verdict?.evidence)}`);
+
+  if (!ok) {
+    console.log(
+      '        The cover story bought criterion 1: the Trainee restated the stated\n' +
+        '        reason and closed on it, and that counted as establishing why. This is\n' +
+        '        the demo’s bad Attempt, so it flickers MET on the projector.'
+    );
+    process.exitCode = 1;
+  }
+} else {
+  console.log('\n  BAD   ACCEPTED COVER STORY: Assessment call failed.');
+  process.exitCode = 1;
 }

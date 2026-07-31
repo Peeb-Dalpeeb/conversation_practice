@@ -92,12 +92,35 @@ describe("The Customer Who's Had Enough Scenario", () => {
 
   it('holds the six fixed Rubric criteria in order', () => {
     expect(scenario.rubric.map((criterion) => criterion.description)).toEqual([
-      'Did not try to solve anything before understanding why.',
+      'Established the real reason before moving on or trying to solve it.',
       'Asked an open question that invited the story.',
       'Surfaced the real reason.',
       'Acknowledged the feeling specifically and without excuses.',
-      'Did not get defensive or blame a colleague or the system.',
+      'Responded to the real experience without defensiveness, excuses, or blame.',
       'Checked that the customer felt heard before moving on.',
     ]);
+    expect(
+      scenario.rubric.every(
+        (criterion) => criterion.assessmentGuidance.trim().length > 0
+      )
+    ).toBe(true);
+    const openQuestionGuidance = scenario.rubric.find(
+      ({ id }) => id === 'asked-open-question'
+    )?.assessmentGuidance;
+    expect(openQuestionGuidance).toMatch(/story in the Persona's own words/);
+    expect(openQuestionGuidance).toMatch(/yes-or-no question.*never meets/s);
+    // Both criteria a Trainee can reach while still inside the cover story have
+    // to say so themselves; the grader is told nothing about either by ID.
+    const groundTruthBoundCriteria = [
+      'understood-before-solving',
+      'surfaced-real-reason',
+    ];
+    for (const criterionId of groundTruthBoundCriteria) {
+      const guidance = scenario.rubric.find(
+        ({ id }) => id === criterionId
+      )?.assessmentGuidance;
+      expect(guidance).toMatch(/Private Profile as ground truth/);
+      expect(guidance).toMatch(/cover story about price never/);
+    }
   });
 });

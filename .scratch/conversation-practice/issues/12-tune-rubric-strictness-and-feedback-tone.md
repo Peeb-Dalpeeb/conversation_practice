@@ -111,16 +111,23 @@ read back the Assessment and Feedback, edit, run again.
 
 **Blocked by:** 11 — The comparison grid.
 
-**Status:** ready-for-agent
+**Status:** done
 
 Ticket 11 is finished apart from one human check — whether the grid is legible on a projector —
-which nothing here is waiting on. This ticket touches `assessmentInstructions()` and
-`feedbackInstructions()` only; it shares no code with the comparison screen.
+which nothing here is waiting on.
+
+**Scope note, corrected 2026-07-31.** This ticket was written expecting to touch
+`assessmentInstructions()` and `feedbackInstructions()` only. It ended up changing
+`src/scenario.ts` as well: `RubricCriterion` gained `assessmentGuidance`, and two `description`
+strings were rewritten. `description` is what the comparison grid renders, so the projector text
+changed — read the last Comment before ticket 13's rehearsal.
 
 - [x] Criterion 3 is judged strictly; being given the cover story does not meet it, verified
       across several real Attempts.
-- [x] Evidence quotes point at the moment the verdict is about and are attributed to the
-      correct speaker.
+- [x] Evidence quotes are attributed to the correct speaker — all six recorded wrong-speaker
+      instances verified fixed.
+- [ ] Evidence quotes point at the moment the verdict is about, independently per criterion.
+      **Carried to ticket 15**; it needs a data-contract change, not more prompt tuning.
 - [x] All six criteria remain judgeable by a layperson watching the Attempt; none require
       domain expertise.
 - [x] The Feedback never praises above a failing Assessment — checked against a real Attempt
@@ -181,3 +188,86 @@ which nothing here is waiting on. This ticket touches `assessmentInstructions()`
   speaker attribution. Its Feedback opens with the premature move to cancellation, models "Could
   you tell me what happened?", explains the next acknowledgment and check, and neither praises
   courtesy nor coaches into fees. The fixed verdicts are never re-opened.
+
+- **Audit follow-up, 2026-07-31.** The audit correctly found that `asked-open-question` still had
+  a yes-or-no hole, that the grader applied two standards stricter than their projected
+  descriptions, that no durable check covered the new boundary, and that the always-Persona rule
+  for `surfaced-real-reason` produced meaningless evidence when Jordan never stated any reason.
+
+  The Rubric now owns typed `assessmentGuidance`, while `assessmentInstructions()` is generic and
+  names no criterion IDs. The two projected descriptions that had drifted now say the standards
+  actually applied: establish why before moving on or solving, and respond to the real experience
+  without defensiveness, excuses, or blame. Open-question guidance explicitly rejects yes-or-no
+  questions even when Jordan volunteers a story. Criterion 3 quotes Jordan when Jordan states a
+  reason, but falls back to the Trainee action that foreclosed discovery when no reason was stated.
+  This is the split between projector text and explicit grader guidance anticipated in this
+  ticket, with both stored on the same `RubricCriterion` so they cannot drift by criterion ID.
+
+  The live harness now exits unsuccessfully on a wrong criterion-3 verdict or speaker, a yes-or-no
+  question counted as open, a meaningless no-reason quote, or either Feedback failure. Persisted
+  Attempts can be regraded without overwriting them using `regrade-attempt.ts`; repeated readings
+  report verdict/evidence variation and exact quote reuse, with opt-in strict assertions.
+
+  Final live verification: the synthetic closed-question case correctly returned
+  `asked-open-question` not met, and the no-reason case cited the Trainee's discount offer for
+  criterion 3. Persisted Attempt 12 now has only `surfaced-real-reason` met; both "Why do you want
+  to close the account" and "Did something happen?" are rejected as open questions.
+
+  **Evidence independence remains open, so the second checkbox is reopened.** Three identical
+  regrades of Attempt 1 kept every verdict not met, but `avoided-defensiveness` alternated between
+  two Trainee quotes. Attempt 14 still reused "Can you tell me what happened?" for four criteria.
+  A Transcript that ends immediately after Jordan reveals the incident contains no later Trainee
+  quote for acknowledgment, defensiveness, or checking; the current Assessment contract still
+  requires an exact quote for all three. Another prompt cannot create independent evidence that
+  was never spoken. The honest next design is for Assessment to distinguish quoted evidence from
+  "no qualifying Trainee moment" and teach the comparison grid to display that absence. That is a
+  data-contract and UI change, not further prompt tuning, and is deliberately not hidden behind a
+  completed checkbox.
+
+  `Status:` remains `ready-for-agent`: the repository's documented triage labels do not define a
+  completed state, and the evidence-contract work above remains available. The stale harness note
+  that called the warm failure 2 of 6 is corrected to the measured 0 of 6.
+
+- **Editorial pass, 2026-07-31. One regression found and fixed; the ticket is closed and the
+  remainder is now ticket 15.**
+
+  **`understood-before-solving` was bought by the cover story.** Rewriting its `description` to
+  "Established why before moving on or trying to solve it." removed the vacuous-negative phrasing
+  but left "why" unbound, and the cover story is a why. Regraded over persisted Attempt 21 — the
+  Trainee who asks a bare "why", hears the price story, says *"Understood, the fees are higher than
+  you'd like"* and closes the account — the criterion came back **met in three readings of four**,
+  taking Attempt 21 from 0 of 6 back to 1 of 6. Criterion 3 was never exposed to this because
+  ground truth binds it; criterion 1 is simply the first criterion a Trainee can reach while still
+  inside the cover story, and it had nothing binding it.
+
+  Fixed by binding it the same way: the description now reads "Established the real reason before
+  moving on or trying to solve it." and its `assessmentGuidance` names the Private Profile as
+  ground truth for what counts as why, saying that restating or accepting the price cover story
+  never establishes it. Four further readings of Attempt 21 returned not met every time, 0 of 6
+  throughout. `scenario.test.ts` now pins the ground-truth clause on both criteria that can be
+  reached from inside the cover story, so a future rewording cannot quietly unbind either.
+
+  **The harness gained the case that would have caught it.** `ACCEPTED COVER STORY` is Attempt 21's
+  shape and fails the run if `understood-before-solving` comes back met. The harness is now nine
+  live calls, roughly $0.40. `assessment.test.ts` no longer keeps a second copy of a Rubric
+  description; it asserts against `scenario.rubric[0].description`, since that duplicate is what
+  broke when the wording changed.
+
+  **Everything else in the comment above verified independently.** The full harness passes end to
+  end, exit 0: criterion 3 correct and Persona-quoted on all four Transcripts that state a reason,
+  the no-reason case citing the Trainee's discount offer, and the closed question rejected.
+  Persisted Attempts 18 and 19 hold at 6 of 6, Attempt 12's `asked-open-question` is not met on
+  both "Why do you want to close the account" and "Did something happen?", and Attempt 22 stays at
+  0 of 6.
+
+  **Ticket 13 is not waiting on anything here.** Attempt 1 — the discount opening the demo uses on
+  purpose — now cites the Trainee's own *"I can offer you a discount on your next six months"* as
+  criterion 3's evidence, which is a line worth putting on a projector, where it used to cite
+  Jordan's generic opening. The two rewritten descriptions change what the grid renders; read them
+  before narrating the rehearsal.
+
+  `Status:` set to `done`, which is the string the other ten completed tickets in this tracker use
+  and which `docs/agents/triage-labels.md` invites the repository to adopt. The second checkbox was
+  a compound claim — right speaker *and* right moment. The speaker half is met and verified across
+  all six recorded instances; the independence half is unmet, unticked, and carried by ticket 15
+  rather than left to hold this one open.

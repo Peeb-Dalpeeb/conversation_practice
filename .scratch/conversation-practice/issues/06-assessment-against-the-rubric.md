@@ -14,6 +14,9 @@ The six criteria, all of them judgeable by any layperson watching:
 5. Did not get defensive or blame a colleague or the system.
 6. Checked that the customer felt heard before moving on.
 
+> Criteria 1 and 5 were reworded by ticket 12 — both were phrased as things the Trainee did not
+> do, and a Trainee who barely spoke met them for free. `src/scenario.ts` is the live text.
+
 The Transcript and the Rubric go to `gpt-5.6-sol` with structured output, one verdict per
 criterion. Roughly $0.04 per call — cost is not a consideration here.
 

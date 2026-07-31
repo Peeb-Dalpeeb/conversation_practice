@@ -65,3 +65,29 @@ the Rubric's strictness and the Feedback's tone.
   exercise if anything goes wrong mid-rehearsal. Taking one of them retires the Attempt behind it,
   so no late report can pull the screen off the Briefing while a room is watching; if that Attempt
   did complete on the server, its number still counts as the Previous attempt.
+
+- **From ticket 12, 2026-07-31: unblocked, and two lines on the projector changed.** Ticket 12 is
+  `done`. Its one unfinished thread — evidence quotes that borrow a line on criteria the Attempt
+  never reached — is ticket 15 and this rehearsal does not wait on it: the verdicts are right, and
+  criterion 3, the one opened live, quotes correctly in every case measured.
+
+  **Two Rubric descriptions were rewritten, so narrate the new wording.** Criterion 1 now reads
+  "Established the real reason before moving on or trying to solve it." and criterion 5 "Responded
+  to the real experience without defensiveness, excuses, or blame." Both used to be phrased as
+  things the Trainee did *not* do, which a Trainee who barely spoke satisfied for free — a room
+  reading "Did not get defensive: met" under a total failure is the opposite of the point. The grid
+  renders `description`, so this is the text the room reads.
+
+  **The deliberate discount opening now reads well on criterion 3.** Regraded, it comes back not
+  met citing the Trainee's own "I can offer you a discount on your next six months" — the moment
+  that foreclosed the conversation — where it used to cite Jordan's generic "I'd like to close my
+  account." That is the contrast for attempt two to flip against.
+
+  **What the bad Attempt should score.** The cover-story stop measures 0 of 6 and the
+  warm-never-asks 0 of 6; a clean Attempt measures 6 of 6. If a rehearsal shows the bad Attempt
+  scoring above zero, regrade it with `regrade-attempt.ts <n> --live` before assuming the run was
+  better than intended.
+
+  **Re-run `check-assessment.ts --live` (nine calls, ~$0.40) if either prompt or any Rubric
+  description is touched between now and the room.** It exits non-zero on every strictness
+  boundary this demo depends on.

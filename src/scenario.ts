@@ -1,6 +1,7 @@
 export type RubricCriterion = {
   id: string;
   description: string;
+  assessmentGuidance: string;
 };
 
 // Ground truth for the Assessment as well as material for the Persona. The
@@ -167,27 +168,46 @@ export const scenario = {
   rubric: [
     {
       id: 'understood-before-solving',
-      description: 'Did not try to solve anything before understanding why.',
+      description:
+        'Established the real reason before moving on or trying to solve it.',
+      // "Why" on its own is the cover story's opening. Measured over persisted
+      // Attempt 21 three times in four, the grader read "Understood, the fees
+      // are higher than you'd like" as having established why and marked this
+      // met — the cover story buying credit on the criterion the Trainee reaches
+      // first. Ground truth has to bind here exactly as it does on criterion 3.
+      assessmentGuidance:
+        'Use the Private Profile as ground truth for what counts as why. Met only when the Transcript shows the Trainee established that real reason before moving on or trying to solve it; restating or accepting the cover story about price never establishes it. When met, quote the earliest Trainee turn that demonstrates this understanding. When not met, quote the earliest Trainee turn that moved on or tried to solve before understanding.',
     },
     {
       id: 'asked-open-question',
       description: 'Asked an open question that invited the story.',
+      assessmentGuidance:
+        'Met only for a question whose requested answer is a story in the Persona\'s own words. A yes-or-no question, including "Did something happen?", never meets it even if the Persona volunteers the story. A bare request for a reason such as "Why are you closing the account?" does not meet it when it only elicits the stated reason. When met, quote the earliest qualifying question; when not met, quote the earliest Trainee question that came closest.',
     },
     {
       id: 'surfaced-real-reason',
       description: 'Surfaced the real reason.',
+      assessmentGuidance:
+        "Use the Private Profile as ground truth. Met only if the Transcript shows the Persona actually stating the prior incident; being given the cover story about price never meets it. When met, quote the first Persona turn that states the incident. When not met, quote the first Persona turn that states the closest reason. If the Persona never states any reason, quote the earliest Trainee turn that prevented discovery, such as an offer or move toward action, rather than the Persona's generic cancellation request.",
     },
     {
       id: 'acknowledged-without-excuses',
       description: 'Acknowledged the feeling specifically and without excuses.',
+      assessmentGuidance:
+        'Met only when a Trainee turn specifically acknowledges the feeling caused by the real experience without an excuse. When met, quote the first qualifying acknowledgment. When not met, quote the first attempted acknowledgment after the experience surfaced, or the Trainee turn that moved on without acknowledging it.',
     },
     {
       id: 'avoided-defensiveness',
-      description: 'Did not get defensive or blame a colleague or the system.',
+      description:
+        'Responded to the real experience without defensiveness, excuses, or blame.',
+      assessmentGuidance:
+        'Met only when the real experience has surfaced and a Trainee response engages with it without an excuse, justification, or blame. When met, quote the earliest qualifying response. When not met, quote the first defensive response or the Trainee action that moved on before the real experience could be addressed.',
     },
     {
       id: 'checked-customer-felt-heard',
       description: 'Checked that the customer felt heard before moving on.',
+      assessmentGuidance:
+        'Met only for a distinct Trainee check after acknowledgment that asks the Persona to confirm the understanding landed. An acknowledgment is not also this check unless it explicitly asks for confirmation. When met, quote the first qualifying check. When not met, quote the Trainee turn that moved on without checking.',
     },
   ],
 } satisfies Scenario;

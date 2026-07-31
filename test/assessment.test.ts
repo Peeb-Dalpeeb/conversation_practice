@@ -123,9 +123,9 @@ describe('the OpenAI Assessment boundary', () => {
     });
     expect(body).not.toHaveProperty('previous_response_id');
     expect(body).not.toHaveProperty('conversation');
-    expect(JSON.stringify(body)).toContain(
-      'Did not try to solve anything before understanding why.'
-    );
+    // The exact wording is pinned once, in the Scenario's own test. Here the
+    // claim is only that the Rubric's layperson-visible text reaches the call.
+    expect(JSON.stringify(body)).toContain(scenario.rubric[0].description);
     expect(JSON.stringify(body)).toContain('Can you tell me what happened?');
   });
 
@@ -155,8 +155,18 @@ describe('the OpenAI Assessment boundary', () => {
     }
 
     expect(body).toContain(privateProfile.priorIncident);
-    expect(JSON.parse(body)).toMatchObject({
-      instructions: expect.stringContaining('cover story') as string,
+    const request = JSON.parse(body) as {
+      instructions: string;
+      input: string;
+    };
+    expect(request).toMatchObject({
+      instructions: expect.stringContaining('assessmentGuidance') as string,
+    });
+    expect(request.instructions).not.toMatch(
+      /understood-before-solving|avoided-defensiveness|checked-customer-felt-heard|surfaced-real-reason/
+    );
+    expect(JSON.parse(request.input)).toMatchObject({
+      rubric: scenario.rubric,
     });
   });
 
