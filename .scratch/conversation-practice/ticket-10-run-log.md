@@ -732,11 +732,54 @@ understood" was removed from `behaviourRules[7]` — Attempt 6 shows the model l
 into the wrong path. The pass condition is now the behaviour (rejects, teaches nothing), not a
 phrase to listen for.
 
-| Attempt # | softened audibly? | payoff in order? | criterion 6 confirmed? | verdict |
-| --------- | ----------------- | ---------------- | ---------------------- | ------- |
-|           |                   |                  |                        |         |
-|           |                   |                  |                        |         |
-|           |                   |                  |                        |         |
+| Attempt # | pressure to cancel stopped? | payoff in order? | criterion 6 confirmed? | verdict |
+| --------- | --------------------------- | ---------------- | ---------------------- | ------- |
+| 18        | yes — "I'm not pushing to cancel right now" | yes | yes — both halves | PASS — Run E main run closed at ×1, see scope decision |
+|           |                             |                  |                        |         |
+|           |                             |                  |                        |         |
+
+Notes:
+
+- **Attempt 18 — PASS, and the first Attempt in this log to score 6/6 on the Rubric. The Gate works
+  on first live contact.** The behaviour the demo exists to show, and the one the ticket names as
+  the most likely way the whole build fails, did what the Scenario says it does.
+
+  Payoff verbatim. Step 2: "Yes, that's exactly it. I'm not pushing to cancel right now. If you want
+  to keep talking, I'm open to that." Step 3, to "Do you feel heard now?": "Yes, I do feel heard
+  now, and I'd prefer to keep the account open."
+
+  **All four re-scoped observables landed.** (1) The refrain stopped: "I still want the account
+  closed" ended every pre-Gate turn in Attempts 16 and 17 and is absent here, replaced by an
+  explicit "I'm not pushing to cancel right now". (2) Step 2 acknowledges the Trainee understood.
+  (3) Step 2 does not pre-empt — no claim of feeling heard, no mention of the account — so criterion
+  6 still had something to grade at step 3. (4) Step 3 delivers both halves of
+  `behaviourRules[8]`'s payoff in one reply.
+
+  **The delivery flip is visible in text, without any judgment of prosody.** One clipped sentence
+  per turn before the Gate; three sentences at step 2 and a longer, softer step 3 after it.
+  `deliveryRules[0]`'s one-sentence rule is scoped to pre-Gate and `deliveryRules[2]` asks for
+  noticeably less clipped afterwards — both did what they say. This is the evidence the re-scoped
+  pass condition was betting on, and it is stronger than expected.
+
+  **The author accidentally swapped the first two questions, and the swap made the run stronger than
+  the planned order.** The first ask was "Can you tell me what happened?" — the literal phrase that
+  unlocks the incident under `behaviourRules[4]`, and the phrase whose near-twin caused the Attempt
+  12 failure. Jordan still gave only the cover story. **That is direct evidence that
+  `behaviourRules[3]` wins over `behaviourRules[4]` when the two collide**, which is the precedence
+  the Scenario intends and which the planned question order could not have tested. Recorded as a
+  finding rather than a deviation: the run is stronger for it and no re-run is needed.
+
+  **One observation, not a fail.** Step 2's "If you want to keep talking, I'm open to that" is the
+  nearest thing in the run to a pre-empt. It concerns continuing the conversation rather than
+  keeping the account, so it stays inside `behaviourRules[8]`'s "stop pressing for cancellation"
+  without crossing into "wants to stay". Worth watching if Run E is ever repeated: an openness that
+  drifts from the conversation to the account would collapse the two-step payoff and leave criterion
+  6 nothing to check.
+
+  **Aside for ticket 12.** The grader scored all six criteria MET and cited the right lines for
+  each, including `checked-customer-felt-heard` against "Do you feel heard now?". Against the three
+  oddities already on record (Attempts 4, 6, 12–15), the grader appears reliable on a clean
+  successful run and unreliable on partial ones — useful shape for Rubric strictness work.
 
 Near-miss Attempt #: &nbsp;&nbsp; coached? &nbsp;&nbsp; notes:
 
