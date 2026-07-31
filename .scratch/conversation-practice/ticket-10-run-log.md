@@ -79,10 +79,37 @@ so neither their passes nor their observed sub-runs carry over.
 | Attempt # | colder each time? | any softening? | one-sentence replies? | verdict |
 | --------- | ----------------- | -------------- | --------------------- | ------- |
 | 9         | yes — in the words | no            | yes                   | PASS 1/3 |
-|           |                   |                |                       |         |
+| 10        | no — turns 4 and 6 near-identical | no | yes            | FAIL — streak broken |
 |           |                   |                |                       |         |
 
 Notes:
+
+- **Attempt 10 — FAIL. Whole reply repeated, caused by the Attempt 8 edit.** Replies: "I'm not
+  interested, and I want the account closed." (9 words) / "That has already been answered, and I
+  still want the account closed." (12) / "This has already been answered, and I still want the
+  account closed." (12) / "I'm not interested, and this repetition doesn't change it; close the
+  account." (13). Author reported by ear: "the second and third responses were almost identical
+  in this attempt."
+
+  Turns 4 and 6 differ by one word — "That" against "This". That is a whole reply repeated, which
+  `deliveryRules[1]` forbids outright ("never repeat or paraphrase an earlier reply"). Streak
+  broken: Attempt 9 no longer counts toward ×3 and the count returns to zero.
+
+  **Fifth instance of literal surface-wording pattern-matching, and the second caused by a tuning
+  patch.** The pestering clause added after Attempt 8 supplied the phrase "this has already been
+  answered", and the model promoted it from one permitted thing to say into the entire reply,
+  twice.
+
+  **Root cause: a conflict introduced by that same edit.** `behaviourRules[2]` says "say **only**
+  that Jordan is not interested and wants the account closed", while `deliveryRules[1]` says
+  "never repeat or paraphrase an earlier reply". Jordan cannot say only one thing across four
+  refusals without paraphrasing herself; the two rules are unsatisfiable together and "say only"
+  won. Same shape as the brevity-versus-escalation conflict diagnosed after Attempt 4.
+
+  The rest of the run held. No shrink (9 → 12 → 12 → 13), no softening, no thanks, no warmth, no
+  incident content, no hang-up, and no coaching — the pestering clause stayed about the repetition
+  for a second consecutive Attempt, which is the risk it was flagged for. Lock rule held: ten
+  Attempts, five wordings, no softening in any of them.
 
 - **Attempt 9 — PASS, pass 1 of 3. Both Attempt 8 edits landed, including the risky one.**
   Replies: "I'm not interested and I want the account closed." (9 words) / "I'm not interested and
