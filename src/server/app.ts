@@ -10,7 +10,11 @@ import {
   reconstructTranscriptSnapshot,
   type CompleteAttempt,
 } from './attempt-completion.js';
-import type { ReadLatestAttempt } from './attempt-store.js';
+import { createAttemptComparison } from '../attempt-comparison.js';
+import type {
+  ReadComparisonAttempts,
+  ReadLatestAttempt,
+} from './attempt-store.js';
 import type { MintRealtimeClientSecret } from './realtime.js';
 
 const unavailableRealtimeClientSecret: MintRealtimeClientSecret = () =>
@@ -21,6 +25,8 @@ const unavailableAttemptCompleter: CompleteAttempt = () =>
   Promise.reject(new Error('Attempt completion is not configured.'));
 const unavailableLatestAttemptReader: ReadLatestAttempt = () =>
   Promise.resolve(undefined);
+const unavailableComparisonAttemptReader: ReadComparisonAttempts = () =>
+  Promise.resolve([]);
 const defaultRawEventLogByteLimit = 8 * 1024 * 1024;
 
 type ApiServerOptions = {
@@ -28,6 +34,7 @@ type ApiServerOptions = {
   mintRealtimeClientSecret?: MintRealtimeClientSecret;
   completeAttempt?: CompleteAttempt;
   rawEventLogByteLimit?: number;
+  readComparisonAttempts?: ReadComparisonAttempts;
   readLatestAttempt?: ReadLatestAttempt;
 };
 
@@ -89,11 +96,22 @@ async function readRawEventLogRequest(
   }
 }
 
+function sendAttemptComparisonReadFailure(response: ServerResponse) {
+  response.writeHead(500, {
+    'Cache-Control': 'no-store',
+    'Content-Type': 'application/json',
+  });
+  response.end(
+    JSON.stringify({ error: 'Attempt comparison could not be read.' })
+  );
+}
+
 export function createApiServer({
   currentScenario,
   mintRealtimeClientSecret = unavailableRealtimeClientSecret,
   completeAttempt = unavailableAttemptCompleter,
   rawEventLogByteLimit = defaultRawEventLogByteLimit,
+  readComparisonAttempts = unavailableComparisonAttemptReader,
   readLatestAttempt = unavailableLatestAttemptReader,
 }: ApiServerOptions) {
   return createServer((request, response) => {
@@ -122,6 +140,33 @@ export function createApiServer({
             'Content-Type': 'application/json',
           });
           response.end(JSON.stringify({ error: 'Attempt could not be read.' }));
+        }
+      );
+      return;
+    }
+
+    if (
+      request.method === 'GET' &&
+      request.url === '/api/attempts/comparison'
+    ) {
+      void readComparisonAttempts(currentScenario.id).then(
+        (attempts) => {
+          try {
+            const comparison = createAttemptComparison(
+              currentScenario.rubric,
+              attempts
+            );
+            response.writeHead(200, {
+              'Cache-Control': 'no-store',
+              'Content-Type': 'application/json',
+            });
+            response.end(JSON.stringify(comparison));
+          } catch {
+            sendAttemptComparisonReadFailure(response);
+          }
+        },
+        () => {
+          sendAttemptComparisonReadFailure(response);
         }
       );
       return;

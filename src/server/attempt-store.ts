@@ -28,6 +28,9 @@ export type StoreAttempt = (attempt: UnnumberedAttempt) => Promise<Attempt>;
 export type ReadLatestAttempt = (
   scenarioId: string
 ) => Promise<Attempt | undefined>;
+export type ReadComparisonAttempts = (
+  scenarioId: string
+) => Promise<readonly Attempt[]>;
 
 function isFileExistsError(error: unknown): error is NodeJS.ErrnoException {
   return (
@@ -126,5 +129,46 @@ export function createLatestAttemptReader(
     );
 
     return JSON.parse(contents) as Attempt;
+  };
+}
+
+export function createComparisonAttemptReader(
+  directory = resolve('data', 'attempts')
+): ReadComparisonAttempts {
+  return async (scenarioId) => {
+    const scenarioDirectory = scenarioAttemptDirectory(directory, scenarioId);
+    let filenames: string[];
+
+    try {
+      filenames = await readdir(scenarioDirectory);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        (error as NodeJS.ErrnoException).code === 'ENOENT'
+      ) {
+        return [];
+      }
+
+      throw error;
+    }
+
+    const comparisonFiles = filenames
+      .flatMap((filename) => {
+        const number = attemptNumberFromFilename(filename);
+        return number === undefined ? [] : [{ filename, number }];
+      })
+      .sort((left, right) => left.number - right.number)
+      .slice(-2);
+
+    return Promise.all(
+      comparisonFiles.map(async ({ filename }) => {
+        const contents = await readFile(
+          resolve(scenarioDirectory, filename),
+          'utf8'
+        );
+        return JSON.parse(contents) as Attempt;
+      })
+    );
   };
 }

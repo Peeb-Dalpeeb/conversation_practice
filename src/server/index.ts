@@ -6,6 +6,7 @@ import { createAttemptCompleter } from './attempt-completion.js';
 import { createOpenAiAttemptAssessor } from './assessment.js';
 import {
   createAttemptStore,
+  createComparisonAttemptReader,
   createLatestAttemptReader,
 } from './attempt-store.js';
 import { readServerEnvironment } from './environment.js';
@@ -30,6 +31,7 @@ const server = createApiServer({
     storeAttempt: createAttemptStore(),
     storeRawEventLog: createRawEventLogStore(),
   }),
+  readComparisonAttempts: createComparisonAttemptReader(),
   readLatestAttempt: createLatestAttemptReader(),
 });
 

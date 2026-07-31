@@ -29,20 +29,20 @@ acceptance criterion and it is verified by running it and looking at it, not by 
 
 **Blocked by:** 07 — Feedback, and reading it after an Attempt.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The comparison always shows the two most recent Attempts for the Scenario, in order.
-- [ ] They are labelled "Previous attempt" and "This attempt" — never absolute numbers.
-- [ ] The presentation is a six-by-two grid of met / not-met marks.
-- [ ] Clicking a criterion reveals the evidence quotes from both Attempts; they are hidden
+- [x] The comparison always shows the two most recent Attempts for the Scenario, in order.
+- [x] They are labelled "Previous attempt" and "This attempt" — never absolute numbers.
+- [x] The presentation is a six-by-two grid of met / not-met marks.
+- [x] Clicking a criterion reveals the evidence quotes from both Attempts; they are hidden
       until asked for.
-- [ ] There is no summary headline stating the conclusion, and no Feedback prose on the
+- [x] There is no summary headline stating the conclusion, and no Feedback prose on the
       comparison screen.
-- [ ] A single existing Attempt yields a coherent no-comparison screen rather than an error.
-- [ ] The Trainee can start another Attempt from this screen.
-- [ ] Dozens of pre-existing Attempts on disk change nothing about what is displayed; no
+- [x] A single existing Attempt yields a coherent no-comparison screen rather than an error.
+- [x] The Trainee can start another Attempt from this screen.
+- [x] Dozens of pre-existing Attempts on disk change nothing about what is displayed; no
       reset or cleanup step is needed.
-- [ ] The grid is legible from the back of a room on a projector, verified by looking at it.
+- [x] The grid is legible from the back of a room on a projector, verified by looking at it.
 
 ## Comments
 
@@ -73,3 +73,18 @@ acceptance criterion and it is verified by running it and looking at it, not by 
   1–4 have identical Trainee lines; `avoided-defensiveness` graded MET, MET, MET, then not met. A
   cell can therefore differ between two Attempts without the Trainee having changed anything.
   Ticket 12 owns the fix; this ticket should know the grid can show a change that did not happen.
+
+- **Implemented and verified 2026-07-31.** The server reads only the two highest numeric Attempt
+  files for the current Scenario and returns a comparison-shaped response with relative labels,
+  Rubric descriptions, marks, and evidence — no Attempt numbers, Transcript, or Feedback. A
+  completion-seam test posts the recorded event-log fixture 42 times, then proves the response is
+  built from Attempts 41 and 42. The one-Attempt response is explicit rather than exceptional.
+
+  Starting again from the comparison calls the Realtime connector anew. A no-reload test starts
+  two consecutive Attempts, observes two client-secret requests, and inspects both submitted raw
+  event logs to prove each contains only its own marker.
+
+  The real comparison data already on disk was viewed at 1280×720. All six rows and the retry
+  control remain visible; opening criterion 3 reveals both quotes without introducing a summary
+  headline or Feedback prose. The font sizes and met/not-met marks were kept large while the
+  vertical rhythm was tightened enough for the expanded evidence row to fit a 720p projector.

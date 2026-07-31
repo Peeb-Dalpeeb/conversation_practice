@@ -475,7 +475,9 @@ describe('the Trainee-facing app', () => {
     expect(screen.getByRole('status')).toBe(outcomeStatus);
     expect(outcomeStatus.textContent).toBe('Your Feedback is ready.');
     expect(outcomeStatus.getAttribute('aria-live')).toBe('polite');
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'See your comparison' })
+    ).toBeTruthy();
   });
 
   it('distinguishes a judging failure from an incomplete event log', async () => {

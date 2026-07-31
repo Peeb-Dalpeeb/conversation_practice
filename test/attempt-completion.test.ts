@@ -17,11 +17,13 @@ import {
   createAttemptCompleter,
   reconstructTranscript,
   reconstructTranscriptSnapshot,
+  type AssessAttempt,
   type Assessment,
   type CreateFeedback,
 } from '../src/server/attempt-completion.js';
 import { createApiServer } from '../src/server/app.js';
 import {
+  createComparisonAttemptReader,
   createLatestAttemptReader,
   createAttemptStore,
   type Attempt,
@@ -93,27 +95,26 @@ async function startCompletionServer(
         transcript.at(-1)?.speaker === 'persona'
         ? 'Assessment and Transcript received.'
         : 'Judging inputs were incomplete.'
-    )
+    ),
+  assessAttempt: AssessAttempt = (transcript, rubric) => {
+    const criterion = rubric.find(({ id }) => id === 'asked-open-question');
+    const traineeTurn = transcript.find(({ speaker }) => speaker === 'trainee');
+    const assessment: Assessment = {
+      criteria: [
+        {
+          criterionId: criterion?.id ?? 'rubric-not-received',
+          met: criterion !== undefined && traineeTurn !== undefined,
+          evidence: traineeTurn?.text ?? 'transcript-not-received',
+        },
+      ],
+    };
+
+    return Promise.resolve(assessment);
+  }
 ) {
   const completeAttempt = createAttemptCompleter({
     scenario,
-    assessAttempt: (transcript, rubric) => {
-      const criterion = rubric.find(({ id }) => id === 'asked-open-question');
-      const traineeTurn = transcript.find(
-        ({ speaker }) => speaker === 'trainee'
-      );
-      const assessment: Assessment = {
-        criteria: [
-          {
-            criterionId: criterion?.id ?? 'rubric-not-received',
-            met: criterion !== undefined && traineeTurn !== undefined,
-            evidence: traineeTurn?.text ?? 'transcript-not-received',
-          },
-        ],
-      };
-
-      return Promise.resolve(assessment);
-    },
+    assessAttempt,
     createFeedback,
     storeAttempt: createAttemptStore(attemptDirectory),
     storeRawEventLog,
@@ -121,6 +122,7 @@ async function startCompletionServer(
   const server = createApiServer({
     currentScenario: scenario,
     completeAttempt,
+    readComparisonAttempts: createComparisonAttemptReader(attemptDirectory),
     readLatestAttempt: createLatestAttemptReader(attemptDirectory),
   });
   servers.push(server);
@@ -803,6 +805,54 @@ describe('completed Attempts', () => {
     await expect(
       createLatestAttemptReader(attemptDirectory)(scenario.id)
     ).resolves.toMatchObject({ number: 7 });
+  });
+
+  it('serves only the two most recent Attempts when dozens are already on disk', async () => {
+    const attemptDirectory = await createTemporaryDirectory();
+    let assessedAttemptNumber = 0;
+    const port = await startCompletionServer(
+      attemptDirectory,
+      undefined,
+      undefined,
+      (_transcript, rubric) => {
+        assessedAttemptNumber += 1;
+
+        return Promise.resolve({
+          criteria: rubric.map((criterion) => ({
+            criterionId: criterion.id,
+            met: true,
+            evidence: `Evidence from ${String(assessedAttemptNumber)}.`,
+          })),
+        });
+      }
+    );
+    const rawEventLog = await readFixture('clean-stop-in-silence.json');
+
+    for (let attempt = 1; attempt <= 42; attempt += 1) {
+      const completionResponse = await postRawEventLog(port, rawEventLog);
+      expect(completionResponse.status).toBe(200);
+    }
+
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/comparison`
+    );
+    const comparison = (await response.json()) as {
+      status: string;
+      columns: string[];
+      criteria: { outcomes: { evidence: string }[] }[];
+    };
+
+    expect(response.status).toBe(200);
+    expect(comparison).toMatchObject({
+      status: 'ready',
+      columns: ['Previous attempt', 'This attempt'],
+    });
+    expect(comparison.criteria).toHaveLength(6);
+    expect(comparison.criteria[0]?.outcomes).toMatchObject([
+      { evidence: 'Evidence from 41.' },
+      { evidence: 'Evidence from 42.' },
+    ]);
+    expect(JSON.stringify(comparison)).not.toContain('Evidence from 40.');
   });
 
   it('marks a Persona turn cut off when the Trainee stops mid-conversation', async () => {

@@ -1049,6 +1049,69 @@ describe('a live Attempt in progress', () => {
     expect(rawEventLogRequest).not.toHaveProperty('keepalive');
   });
 
+  it('starts the next Attempt with a fresh credential and isolated event log without a reload', async () => {
+    const { fetchMock } = stubBrowser();
+    const first = startAttempt();
+    const firstLiveAttempt = await first.attempt;
+    const firstChannel = liveDataChannel();
+    const firstOnlyEvent = {
+      type: 'test.attempt-identifier',
+      attempt: 'first',
+    };
+
+    firstChannel.deliver(firstOnlyEvent);
+    firstLiveAttempt.stop();
+    settleEmptyStopCommands(firstChannel);
+    await vi.waitFor(() => {
+      expect(first.onAttemptCompleted).toHaveBeenCalledOnce();
+    });
+
+    const second = startAttempt();
+    const secondLiveAttempt = await second.attempt;
+    const secondChannel = liveDataChannel();
+    const secondOnlyEvent = {
+      type: 'test.attempt-identifier',
+      attempt: 'second',
+    };
+
+    secondChannel.deliver(secondOnlyEvent);
+    secondLiveAttempt.stop();
+    settleEmptyStopCommands(secondChannel);
+    await vi.waitFor(() => {
+      expect(second.onAttemptCompleted).toHaveBeenCalledOnce();
+    });
+
+    const clientSecretRequests = fetchMock.mock.calls.filter(
+      ([url]) => url === clientSecretUrl
+    );
+    const eventLogRequests = fetchMock.mock.calls.filter(
+      ([url]) => url === rawEventLogUrl
+    );
+    const eventLogs = eventLogRequests.map(([, init]) => {
+      if (typeof init?.body !== 'string') {
+        throw new TypeError('Expected an event log request body.');
+      }
+
+      return JSON.parse(init.body) as unknown[];
+    });
+    const attemptIdentifiers = eventLogs.map((eventLog) =>
+      eventLog.flatMap((envelope) => {
+        const serializedEvent = (envelope as { event?: unknown }).event;
+
+        if (typeof serializedEvent !== 'string') {
+          return [];
+        }
+
+        const event = JSON.parse(serializedEvent) as { attempt?: unknown };
+        return typeof event.attempt === 'string' ? [event.attempt] : [];
+      })
+    );
+
+    expect(clientSecretRequests).toHaveLength(2);
+    expect(eventLogs).toHaveLength(2);
+    expect(attemptIdentifiers).toEqual([['first'], ['second']]);
+  });
+
   it('forwards event logs larger than the keepalive request limit', async () => {
     const { fetchMock } = stubBrowser();
     const { attempt } = startAttempt();

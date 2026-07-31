@@ -26,6 +26,23 @@ const completedAttempt: Attempt = {
   },
 };
 
+function completedAttemptWithMarks(
+  number: number,
+  marks: readonly boolean[]
+): Attempt {
+  return {
+    ...completedAttempt,
+    number,
+    assessment: {
+      criteria: scenario.rubric.map((criterion, index) => ({
+        criterionId: criterion.id,
+        met: marks[index] ?? false,
+        evidence: `Evidence from Attempt ${String(number)} for ${criterion.id}.`,
+      })),
+    },
+  };
+}
+
 async function startApiServer(
   currentScenario: Scenario = scenario
 ): Promise<number> {
@@ -107,6 +124,86 @@ describe('the server HTTP interface', () => {
         name: 'Public Persona',
         publicDescription: 'Public description supplied at startup.',
       },
+    });
+  });
+
+  it('returns the two comparison Attempts with relative labels in rubric order', async () => {
+    const previousAttempt = completedAttemptWithMarks(40, [
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+    ]);
+    const thisAttempt = completedAttemptWithMarks(41, [
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+    ]);
+    const server = createApiServer({
+      currentScenario: scenario,
+      readComparisonAttempts: () =>
+        Promise.resolve([previousAttempt, thisAttempt]),
+    });
+    servers.push(server);
+
+    await new Promise<void>((resolveListening) => {
+      server.listen(0, '127.0.0.1', resolveListening);
+    });
+
+    const port = (server.address() as AddressInfo).port;
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/comparison`
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual({
+      status: 'ready',
+      columns: ['Previous attempt', 'This attempt'],
+      criteria: scenario.rubric.map((criterion, index) => ({
+        criterionId: criterion.id,
+        description: criterion.description,
+        outcomes: [
+          {
+            met: previousAttempt.assessment.criteria[index]?.met,
+            evidence: previousAttempt.assessment.criteria[index]?.evidence,
+          },
+          {
+            met: thisAttempt.assessment.criteria[index]?.met,
+            evidence: thisAttempt.assessment.criteria[index]?.evidence,
+          },
+        ],
+      })),
+    });
+  });
+
+  it('returns a coherent result when there is only one Attempt', async () => {
+    const server = createApiServer({
+      currentScenario: scenario,
+      readComparisonAttempts: () =>
+        Promise.resolve([
+          completedAttemptWithMarks(1, [true, false, false, true, true, false]),
+        ]),
+    });
+    servers.push(server);
+
+    await new Promise<void>((resolveListening) => {
+      server.listen(0, '127.0.0.1', resolveListening);
+    });
+
+    const port = (server.address() as AddressInfo).port;
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/comparison`
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      status: 'not-enough-attempts',
     });
   });
 

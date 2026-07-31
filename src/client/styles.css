@@ -232,6 +232,176 @@ h1 {
   margin-top: 1.25rem;
 }
 
+.feedback__continue {
+  margin-top: 2.25rem;
+}
+
+.shell--comparison {
+  align-items: center;
+  padding: clamp(0.75rem, 1.5vw, 1.5rem);
+  background: #ede8df;
+}
+
+.comparison {
+  width: min(100%, 88rem);
+}
+
+.comparison-grid {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid rgb(60 49 40 / 16%);
+  border-radius: 1.35rem;
+  border-spacing: 0;
+  background: rgb(255 253 248 / 94%);
+  box-shadow: 0 1.8rem 5rem rgb(66 52 38 / 13%);
+  table-layout: fixed;
+}
+
+.comparison-grid thead td,
+.comparison-grid thead th {
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid rgb(60 49 40 / 16%);
+  background: #ddd5c9;
+}
+
+.comparison-grid thead td {
+  width: 50%;
+}
+
+.comparison-grid thead th {
+  width: 25%;
+  color: #514941;
+  font-size: clamp(1.05rem, 1.8vw, 1.4rem);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  text-align: center;
+}
+
+.comparison-grid thead th + th,
+.comparison-grid__criterion > td + td,
+.comparison-grid__evidence > td + td {
+  border-left: 1px solid rgb(60 49 40 / 12%);
+}
+
+.comparison-grid__criterion > th,
+.comparison-grid__criterion > td {
+  border-bottom: 1px solid rgb(60 49 40 / 10%);
+}
+
+.comparison-grid__criterion > th {
+  padding: 0;
+  text-align: left;
+}
+
+.comparison-grid__criterion > td {
+  padding: 0.85rem 1rem;
+  text-align: center;
+}
+
+.criterion-button {
+  display: grid;
+  align-items: center;
+  width: 100%;
+  min-height: 4.35rem;
+  padding: 0.8rem 1.2rem;
+  border: 0;
+  background: transparent;
+  color: #342f2a;
+  cursor: pointer;
+  font-size: clamp(1rem, 1.5vw, 1.24rem);
+  font-weight: 720;
+  gap: 1rem;
+  grid-template-columns: 2.15rem 1fr 1.5rem;
+  line-height: 1.25;
+  text-align: left;
+  transition: background 140ms ease;
+}
+
+.criterion-button:hover,
+.criterion-button[aria-expanded='true'] {
+  background: #f4ece1;
+}
+
+.criterion-button:focus-visible {
+  position: relative;
+  outline: 0.2rem solid #d08154;
+  outline-offset: -0.2rem;
+}
+
+.criterion-button__number {
+  color: #a44d2c;
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.criterion-button__reveal {
+  color: #876e60;
+  font-size: 1.55rem;
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+}
+
+.comparison-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 8.6rem;
+  padding: 0.58rem 0.85rem;
+  border-radius: 999px;
+  font-size: clamp(1rem, 1.7vw, 1.32rem);
+  font-weight: 850;
+  gap: 0.55rem;
+  line-height: 1;
+}
+
+.comparison-mark > span {
+  font-size: 1.45em;
+  font-weight: 650;
+}
+
+.comparison-mark--met {
+  background: #d9e9df;
+  color: #20594d;
+}
+
+.comparison-mark--not-met {
+  background: #f1ddd3;
+  color: #8a351d;
+}
+
+.comparison-grid__evidence > th,
+.comparison-grid__evidence > td {
+  padding: 1.05rem 1.25rem 1.25rem;
+  border-bottom: 1px solid rgb(60 49 40 / 10%);
+  background: #f5efe6;
+  vertical-align: top;
+}
+
+.comparison-grid__evidence > th {
+  color: #8a7c70;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.comparison-grid__evidence blockquote {
+  margin: 0;
+  color: #514941;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1rem, 1.45vw, 1.2rem);
+  line-height: 1.45;
+}
+
+.comparison__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.9rem;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -409,6 +579,7 @@ h1 {
 
 @media (prefers-reduced-motion: reduce) {
   .start-button,
+  .criterion-button,
   .stop-button {
     transition: none;
   }

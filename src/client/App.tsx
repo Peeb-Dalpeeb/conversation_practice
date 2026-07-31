@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 
+import type { AttemptComparison } from '../attempt-comparison.js';
 import type { PublicScenario } from '../scenario.js';
 import type { TranscriptSnapshot } from '../transcript.js';
 import {
@@ -28,7 +29,14 @@ type AppState =
       phase: 'stopped' | 'preparing' | 'judging';
     }
   | { name: 'judging-failed' }
-  | { name: 'feedback'; feedback: string }
+  | { name: 'feedback'; feedback: string; scenario: PublicScenario }
+  | { name: 'comparison-loading'; scenario: PublicScenario }
+  | {
+      name: 'comparison';
+      comparison: AttemptComparison;
+      scenario: PublicScenario;
+    }
+  | { name: 'comparison-failed'; scenario: PublicScenario }
   | { name: 'failed'; reason: string; scenario: PublicScenario }
   | { name: 'unavailable' };
 
@@ -68,11 +76,51 @@ function isPublicScenario(value: unknown): value is PublicScenario {
   );
 }
 
+function isAttemptComparison(value: unknown): value is AttemptComparison {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (value.status === 'not-enough-attempts') {
+    return true;
+  }
+
+  if (
+    value.status !== 'ready' ||
+    !Array.isArray(value.columns) ||
+    value.columns.length !== 2 ||
+    value.columns[0] !== 'Previous attempt' ||
+    value.columns[1] !== 'This attempt' ||
+    !Array.isArray(value.criteria) ||
+    value.criteria.length !== 6
+  ) {
+    return false;
+  }
+
+  return value.criteria.every(
+    (criterion) =>
+      isRecord(criterion) &&
+      typeof criterion.criterionId === 'string' &&
+      typeof criterion.description === 'string' &&
+      Array.isArray(criterion.outcomes) &&
+      criterion.outcomes.length === 2 &&
+      criterion.outcomes.every(
+        (outcome) =>
+          isRecord(outcome) &&
+          typeof outcome.met === 'boolean' &&
+          typeof outcome.evidence === 'string'
+      )
+  );
+}
+
 export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
   const [state, setState] = useState<AppState>({ name: 'loading' });
   const [debugTranscript, setDebugTranscript] = useState<DebugTranscriptState>({
     name: 'hidden',
   });
+  const [expandedCriterionId, setExpandedCriterionId] = useState<string | null>(
+    null
+  );
   const attemptController = useRef<AbortController | null>(null);
   const liveAttempt = useRef<RealtimeAttempt | null>(null);
   const releaseAttempt = useCallback(() => {
@@ -277,7 +325,11 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
         onAttemptCompleted: (attempt) => {
           setState(
             attempt.feedback.status === 'completed'
-              ? { name: 'feedback', feedback: attempt.feedback.prose }
+              ? {
+                  name: 'feedback',
+                  feedback: attempt.feedback.prose,
+                  scenario,
+                }
               : { name: 'judging-failed' }
           );
         },
@@ -314,6 +366,31 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
             : unexplainedFailureMessage,
         scenario,
       });
+    }
+  };
+
+  const showComparison = async (scenario: PublicScenario) => {
+    setExpandedCriterionId(null);
+    setState({ name: 'comparison-loading', scenario });
+
+    try {
+      const response = await fetch('/api/attempts/comparison', {
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        setState({ name: 'comparison-failed', scenario });
+        return;
+      }
+
+      const comparison: unknown = await response.json();
+      setState(
+        isAttemptComparison(comparison)
+          ? { name: 'comparison', comparison, scenario }
+          : { name: 'comparison-failed', scenario }
+      );
+    } catch {
+      setState({ name: 'comparison-failed', scenario });
     }
   };
 
@@ -451,6 +528,160 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
     );
   }
 
+  if (state.name === 'comparison-loading') {
+    return (
+      <main className="shell">
+        <p className="loading" role="status">
+          Preparing your comparison…
+        </p>
+      </main>
+    );
+  }
+
+  if (state.name === 'comparison-failed') {
+    return (
+      <main className="shell">
+        <section className="notice" aria-labelledby="comparison-failed-title">
+          <p className="eyebrow">Attempt complete</p>
+          <h1 id="comparison-failed-title">
+            The comparison could not be loaded.
+          </h1>
+          <p>You can still take the Scenario again now.</p>
+          <button
+            className="start-button"
+            type="button"
+            onClick={() => void startAttempt(state.scenario)}
+          >
+            Take the Scenario again
+            <span aria-hidden="true">→</span>
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (state.name === 'comparison') {
+    const { comparison, scenario: comparedScenario } = state;
+
+    if (comparison.status === 'not-enough-attempts') {
+      return (
+        <main className="shell">
+          <section className="notice" aria-labelledby="comparison-empty-title">
+            <p className="eyebrow">Attempt complete</p>
+            <h1 id="comparison-empty-title">One more Attempt to compare.</h1>
+            <p>
+              Take the Scenario again while this Attempt is still fresh. Your
+              next result will appear beside this one.
+            </p>
+            <button
+              className="start-button"
+              type="button"
+              onClick={() => void startAttempt(comparedScenario)}
+            >
+              Take the Scenario again
+              <span aria-hidden="true">→</span>
+            </button>
+          </section>
+        </main>
+      );
+    }
+
+    return (
+      <main className="shell shell--comparison">
+        <section className="comparison" aria-label="Attempt comparison">
+          <h1 className="visually-hidden">Attempt comparison</h1>
+          <table className="comparison-grid">
+            <caption className="visually-hidden">
+              The six Rubric criteria for the two most recent Attempts.
+            </caption>
+            <thead>
+              <tr>
+                <td aria-hidden="true" />
+                {comparison.columns.map((column) => (
+                  <th scope="col" key={column}>
+                    {column}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {comparison.criteria.map((criterion, index) => {
+                const expanded = expandedCriterionId === criterion.criterionId;
+                const evidenceRowId = `${criterion.criterionId}-evidence`;
+
+                return (
+                  <Fragment key={criterion.criterionId}>
+                    <tr className="comparison-grid__criterion">
+                      <th scope="row">
+                        <button
+                          className="criterion-button"
+                          type="button"
+                          aria-expanded={expanded}
+                          aria-controls={evidenceRowId}
+                          onClick={() =>
+                            setExpandedCriterionId(
+                              expanded ? null : criterion.criterionId
+                            )
+                          }
+                        >
+                          <span className="criterion-button__number">
+                            {String(index + 1).padStart(2, '0')}
+                          </span>
+                          <span>{criterion.description}</span>
+                          <span
+                            className="criterion-button__reveal"
+                            aria-hidden="true"
+                          >
+                            {expanded ? '−' : '+'}
+                          </span>
+                        </button>
+                      </th>
+                      {criterion.outcomes.map((outcome, outcomeIndex) => (
+                        <td key={comparison.columns[outcomeIndex]}>
+                          <span
+                            className={`comparison-mark comparison-mark--${outcome.met ? 'met' : 'not-met'}`}
+                          >
+                            <span aria-hidden="true">
+                              {outcome.met ? '✓' : '×'}
+                            </span>
+                            {outcome.met ? 'Met' : 'Not met'}
+                          </span>
+                        </td>
+                      ))}
+                    </tr>
+                    {expanded ? (
+                      <tr
+                        className="comparison-grid__evidence"
+                        id={evidenceRowId}
+                      >
+                        <th scope="row">Evidence</th>
+                        {criterion.outcomes.map((outcome, outcomeIndex) => (
+                          <td key={comparison.columns[outcomeIndex]}>
+                            <blockquote>“{outcome.evidence}”</blockquote>
+                          </td>
+                        ))}
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="comparison__actions">
+            <button
+              className="start-button"
+              type="button"
+              onClick={() => void startAttempt(comparedScenario)}
+            >
+              Take the Scenario again
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   if (state.name === 'ended' || state.name === 'feedback') {
     const feedbackReady = state.name === 'feedback';
     const status = feedbackReady
@@ -482,11 +713,21 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
             {status}
           </p>
           {feedbackReady ? (
-            <div className="feedback__copy">
-              {paragraphs.map((paragraph, index) => (
-                <p key={`${index}-${paragraph}`}>{paragraph}</p>
-              ))}
-            </div>
+            <>
+              <div className="feedback__copy">
+                {paragraphs.map((paragraph, index) => (
+                  <p key={`${index}-${paragraph}`}>{paragraph}</p>
+                ))}
+              </div>
+              <button
+                className="start-button feedback__continue"
+                type="button"
+                onClick={() => void showComparison(state.scenario)}
+              >
+                See your comparison
+                <span aria-hidden="true">→</span>
+              </button>
+            </>
           ) : null}
         </section>
       </main>
