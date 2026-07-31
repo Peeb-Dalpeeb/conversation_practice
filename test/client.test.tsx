@@ -72,6 +72,7 @@ function stubRealtimeAttempt(stop = vi.fn()): RealtimeAttempt {
 afterEach(() => {
   vi.useRealTimers();
   cleanup();
+  window.sessionStorage.clear();
   vi.unstubAllGlobals();
 });
 
@@ -600,8 +601,8 @@ describe('the Trainee-facing app', () => {
     expect(
       screen.getByRole('region', { name: 'Evidence for Rubric criterion 1' })
     ).toBeTruthy();
-    expect(screen.getByText('Previous attempt evidence:')).toBeTruthy();
-    expect(screen.getByText('This attempt evidence:')).toBeTruthy();
+    expect(screen.getByText('Previous attempt evidence')).toBeTruthy();
+    expect(screen.getByText('This attempt evidence')).toBeTruthy();
 
     fireEvent.click(firstCriterion);
     expect(screen.queryByText(/Previous evidence 1/)).toBeNull();
@@ -611,6 +612,129 @@ describe('the Trainee-facing app', () => {
       screen.getByRole('button', { name: 'Take the Scenario again' })
     );
     expect(connectAttempt).toHaveBeenCalledTimes(3);
+  });
+
+  it('keeps the browser practice sequence across a reload in the same tab', async () => {
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            url.startsWith('/api/attempts/comparison')
+              ? readyComparison
+              : publicScenario
+          ),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const completions: Array<(attempt: CompletedAttempt) => void> = [];
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
+      ({ onAttemptCompleted }) => {
+        completions.push(onAttemptCompleted);
+        return Promise.resolve(stubRealtimeAttempt());
+      }
+    );
+
+    const firstPage = render(<App connectAttempt={connectAttempt} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    act(() =>
+      completions[0]?.({
+        scenarioId: publicScenario.id,
+        number: 23,
+        feedback: { status: 'completed', prose: 'First Feedback prose.' },
+      })
+    );
+    firstPage.unmount();
+
+    render(<App connectAttempt={connectAttempt} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    act(() =>
+      completions[1]?.({
+        scenarioId: publicScenario.id,
+        number: 24,
+        feedback: { status: 'completed', prose: 'Second Feedback prose.' },
+      })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'See your comparison' })
+    );
+
+    expect(
+      await screen.findByRole('table', { name: /six Rubric criteria/i })
+    ).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/attempts/comparison?attempt=23&attempt=24',
+      expect.objectContaining({ cache: 'no-store' })
+    );
+  });
+
+  it('ignores malformed browser practice sequence data', async () => {
+    window.sessionStorage.setItem(
+      `conversation-practice:practice-sequence:v1:${publicScenario.id}`,
+      '[23,"not-an-attempt"]'
+    );
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            url.startsWith('/api/attempts/comparison')
+              ? { status: 'not-enough-attempts' }
+              : publicScenario
+          ),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    let completeAttempt: ((attempt: CompletedAttempt) => void) | undefined;
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
+      ({ onAttemptCompleted }) => {
+        completeAttempt = onAttemptCompleted;
+        return Promise.resolve(stubRealtimeAttempt());
+      }
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    act(() =>
+      completeAttempt?.({
+        scenarioId: publicScenario.id,
+        number: 24,
+        feedback: { status: 'completed', prose: 'Current Feedback prose.' },
+      })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'See your comparison' })
+    );
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'One more Attempt to compare.',
+      })
+    ).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/attempts/comparison?attempt=24',
+      expect.objectContaining({ cache: 'no-store' })
+    );
   });
 
   it('retries a comparison fetch without discarding the completed Attempt', async () => {
@@ -767,6 +891,10 @@ describe('the Trainee-facing app', () => {
     ).toBeTruthy();
     expect(screen.getByText(/server terminal/i)).toBeTruthy();
     expect(screen.queryByText(/event log could not/i)).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Back to the Briefing' })
+    );
+    expect(screen.getByRole('button', { name: 'Start attempt' })).toBeTruthy();
   });
 
   it('lets the Trainee stop while the live line is still connecting', async () => {
@@ -793,6 +921,10 @@ describe('the Trainee-facing app', () => {
     expect(screen.getByRole('status').textContent).toBe(
       'Your microphone is off.'
     );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Back to the Briefing' })
+    );
+    expect(screen.getByRole('button', { name: 'Start attempt' })).toBeTruthy();
   });
 
   it('explains a line that never opened and offers the Briefing again', async () => {
@@ -871,11 +1003,8 @@ describe('the Trainee-facing app', () => {
   it('shows when the completed Attempt event log could not be saved', async () => {
     respondWithScenario();
     let reportAttemptDataFailed: (() => void) | undefined;
-    let reportAttemptCompleted:
-      ((attempt: CompletedAttempt) => void) | undefined;
     const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
-      ({ onAttemptCompleted, onAttemptDataFailed }) => {
-        reportAttemptCompleted = onAttemptCompleted;
+      ({ onAttemptDataFailed }) => {
         reportAttemptDataFailed = onAttemptDataFailed;
         return Promise.resolve(stubRealtimeAttempt());
       }
@@ -897,22 +1026,142 @@ describe('the Trainee-facing app', () => {
         name: 'The Attempt event log could not be completed.',
       })
     ).toBeTruthy();
+    expect(screen.getByText(/could not be saved/i)).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Back to the Briefing' })
+    );
+    expect(screen.getByRole('button', { name: 'Start attempt' })).toBeTruthy();
+  });
 
+  it('retires the Attempt a Trainee leaves behind without losing its number', async () => {
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            url.startsWith('/api/attempts/comparison')
+              ? readyComparison
+              : publicScenario
+          ),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const connections: Array<{
+      complete: (attempt: CompletedAttempt) => void;
+      failData: () => void;
+    }> = [];
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
+      ({ onAttemptCompleted, onAttemptDataFailed }) => {
+        connections.push({
+          complete: onAttemptCompleted,
+          failData: onAttemptDataFailed,
+        });
+        return Promise.resolve(stubRealtimeAttempt());
+      }
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    act(() => connections[0]?.failData());
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Back to the Briefing' })
+    );
+
+    // The Trainee is standing on the Briefing having chosen to leave. A late
+    // report from the Attempt they left must not take the screen back.
     act(() =>
-      reportAttemptCompleted?.({
+      connections[0]?.complete({
         scenarioId: publicScenario.id,
-        number: 1,
+        number: 23,
         feedback: {
           status: 'completed',
-          prose: 'A completed Attempt is authoritative.',
+          prose: 'Late Feedback from the retired Attempt.',
         },
       })
     );
 
-    expect(screen.getByRole('heading', { name: 'Your Feedback' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start attempt' })).toBeTruthy();
     expect(
-      screen.getByText('A completed Attempt is authoritative.')
+      screen.queryByText('Late Feedback from the retired Attempt.')
+    ).toBeNull();
+
+    // The record is still authoritative: Attempt 23 completed, so it is the
+    // Previous attempt of the practice sequence.
+    fireEvent.click(screen.getByRole('button', { name: 'Start attempt' }));
+    act(() =>
+      connections[1]?.complete({
+        scenarioId: publicScenario.id,
+        number: 24,
+        feedback: { status: 'completed', prose: 'Current Feedback prose.' },
+      })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'See your comparison' })
+    );
+
+    expect(
+      await screen.findByRole('table', { name: /six Rubric criteria/i })
     ).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/attempts/comparison?attempt=23&attempt=24',
+      expect.objectContaining({ cache: 'no-store' })
+    );
+  });
+
+  it('does not let a recovered earlier Attempt replace a newer live Attempt', async () => {
+    respondWithScenario();
+    const connections: Array<{
+      complete: (attempt: CompletedAttempt) => void;
+      failData: () => void;
+    }> = [];
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
+      ({ onAttemptCompleted, onAttemptDataFailed }) => {
+        connections.push({
+          complete: onAttemptCompleted,
+          failData: onAttemptDataFailed,
+        });
+        return Promise.resolve(stubRealtimeAttempt());
+      }
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    act(() => connections[0]?.failData());
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Back to the Briefing' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Start attempt' }));
+    expect((await screen.findByRole('status')).textContent).toContain(
+      'Listening'
+    );
+
+    act(() =>
+      connections[0]?.complete({
+        scenarioId: publicScenario.id,
+        number: 23,
+        feedback: {
+          status: 'completed',
+          prose: 'Late Feedback from the earlier Attempt.',
+        },
+      })
+    );
+
+    expect(screen.getByRole('status').textContent).toContain('Listening');
+    expect(
+      screen.queryByText('Late Feedback from the earlier Attempt.')
+    ).toBeNull();
+    expect(screen.getByRole('button', { name: 'Stop attempt' })).toBeTruthy();
   });
 
   it('keeps the incomplete log notice when the line also drops', async () => {

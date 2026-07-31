@@ -40,3 +40,28 @@ the Rubric's strictness and the Feedback's tone.
 - [ ] Pre-existing tuning Attempts on disk cause no visible problem and require no cleanup.
 - [ ] The Briefing and constraints are narrated, not displayed during an Attempt.
 - [ ] The full run is rehearsed end to end at least twice without intervention.
+
+## Comments
+
+- **From ticket 11, 2026-07-31: the practice sequence now survives a reload, so demo the run in a
+  tab that has not been tuned in.** The last two completed Attempt numbers are held in
+  `sessionStorage`, keyed per Scenario. This was done so a reload cannot silently destroy a demo
+  sequence mid-run — but it also removes the reset that used to happen for free. Before, F5 started
+  a fresh sequence; now the sequence lives as long as the tab does.
+
+  What that changes for this run: ticket 11 guarantees that the first demo Attempt shows the
+  one-Attempt screen rather than comparing against a leftover tuning Attempt. That guarantee now
+  depends on the demo starting in a tab where no Attempt has been completed. Tune in one tab, demo
+  in a new one — or close the tab between the two. Attempt two's comparison is unaffected either
+  way, because it always shows the last two.
+
+  This is a ritual, and line 10 of this ticket says there is not supposed to be one. It is one
+  keystroke rather than a cleanup step, and the alternative — a reload wiping the sequence between
+  Attempt one and Attempt two — is worse in front of a room. Worth confirming during the rehearsal
+  that it is actually invisible, and worth deciding then whether "no reset ritual" is satisfied.
+
+  Also new from ticket 11: a stop taken while connecting, a failed event log, and a failed judging
+  all now offer "Back to the Briefing" instead of dead-ending. Those are the recovery paths to
+  exercise if anything goes wrong mid-rehearsal. Taking one of them retires the Attempt behind it,
+  so no late report can pull the screen off the Briefing while a room is watching; if that Attempt
+  did complete on the server, its number still counts as the Previous attempt.

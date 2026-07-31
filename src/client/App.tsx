@@ -14,21 +14,80 @@ import {
 const unexplainedFailureMessage =
   'The live line could not be opened. Check that the local server is running, then try again.';
 
+const practiceSequenceStorageKey = (scenarioId: string) =>
+  `conversation-practice:practice-sequence:v1:${scenarioId}`;
+
+function validPracticeAttemptNumbers(value: unknown): readonly number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const attemptNumbers: unknown[] = value;
+  if (
+    attemptNumbers.length > 2 ||
+    !attemptNumbers.every(
+      (attemptNumber): attemptNumber is number =>
+        typeof attemptNumber === 'number' &&
+        Number.isSafeInteger(attemptNumber) &&
+        attemptNumber > 0
+    )
+  ) {
+    return [];
+  }
+
+  if (new Set(attemptNumbers).size !== attemptNumbers.length) {
+    return [];
+  }
+
+  return [...attemptNumbers].sort((left, right) => left - right);
+}
+
+function readPracticeAttemptNumbers(scenarioId: string): readonly number[] {
+  try {
+    const storedSequence = window.sessionStorage.getItem(
+      practiceSequenceStorageKey(scenarioId)
+    );
+
+    return storedSequence === null
+      ? []
+      : validPracticeAttemptNumbers(JSON.parse(storedSequence));
+  } catch {
+    return [];
+  }
+}
+
+function writePracticeAttemptNumbers(
+  scenarioId: string,
+  attemptNumbers: readonly number[]
+) {
+  try {
+    window.sessionStorage.setItem(
+      practiceSequenceStorageKey(scenarioId),
+      JSON.stringify(attemptNumbers)
+    );
+  } catch {
+    // Storage can be unavailable without making an Attempt unusable. The
+    // in-memory sequence still provides the same-page comparison flow.
+  }
+}
+
 type AppState =
   | { name: 'loading' }
   | { name: 'briefing'; scenario: PublicScenario }
-  | { name: 'connecting' }
+  | { name: 'connecting'; scenario: PublicScenario }
   | {
       name: 'live';
       activity: AttemptActivity;
       personaName: string;
+      scenario: PublicScenario;
     }
-  | { name: 'data-failed' }
+  | { name: 'data-failed'; scenario: PublicScenario }
   | {
       name: 'ended';
       phase: 'stopped' | 'preparing' | 'judging';
+      scenario: PublicScenario;
     }
-  | { name: 'judging-failed' }
+  | { name: 'judging-failed'; scenario: PublicScenario }
   | {
       name: 'feedback';
       feedback: string;
@@ -136,6 +195,7 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
     null
   );
   const attemptController = useRef<AbortController | null>(null);
+  const attemptRun = useRef(0);
   const comparisonController = useRef<AbortController | null>(null);
   const practiceAttemptNumbers = useRef<readonly number[]>([]);
   const liveAttempt = useRef<RealtimeAttempt | null>(null);
@@ -145,6 +205,15 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
     attemptController.current = null;
     liveAttempt.current = null;
   }, []);
+  // Leaving a failure screen retires the Attempt behind it. If the server later
+  // reports that Attempt completed, its number still enters the practice
+  // sequence — the record is authoritative — but it can no longer replace the
+  // screen the Trainee chose to move to.
+  const returnToBriefing = (scenario: PublicScenario) => {
+    attemptRun.current += 1;
+    releaseAttempt();
+    setState({ name: 'briefing', scenario });
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -161,11 +230,12 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
         }
 
         const body: unknown = await response.json();
-        setState(
-          isPublicScenario(body)
-            ? { name: 'briefing', scenario: body }
-            : { name: 'unavailable' }
-        );
+        if (isPublicScenario(body)) {
+          practiceAttemptNumbers.current = readPracticeAttemptNumbers(body.id);
+          setState({ name: 'briefing', scenario: body });
+        } else {
+          setState({ name: 'unavailable' });
+        }
       } catch (error) {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
           setState({ name: 'unavailable' });
@@ -274,26 +344,34 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
     const judgingExpected = liveAttempt.current !== null;
     releaseAttempt();
     setState((currentState) =>
-      currentState.name === 'data-failed'
-        ? currentState
-        : {
+      currentState.name === 'connecting' || currentState.name === 'live'
+        ? {
             name: 'ended',
             phase: judgingExpected ? 'preparing' : 'stopped',
+            scenario: currentState.scenario,
           }
+        : currentState
     );
   };
 
   const startAttempt = async (scenario: PublicScenario) => {
     const controller = new AbortController();
+    const run = attemptRun.current + 1;
+    attemptRun.current = run;
+    const isCurrentAttempt = () => attemptRun.current === run;
     let connectionEnded = false;
     setDebugTranscript({ name: 'hidden' });
     attemptController.current = controller;
-    setState({ name: 'connecting' });
+    setState({ name: 'connecting', scenario });
 
     try {
       const attempt = await connectAttempt({
         signal: controller.signal,
         onActivity: (activity) => {
+          if (!isCurrentAttempt()) {
+            return;
+          }
+
           setState((currentState) =>
             currentState.name === 'live'
               ? { ...currentState, activity }
@@ -301,15 +379,23 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
           );
         },
         onAttemptEnding: () => {
+          if (!isCurrentAttempt()) {
+            return;
+          }
+
           attemptController.current = null;
           liveAttempt.current = null;
           setState((currentState) =>
             currentState.name === 'data-failed'
               ? currentState
-              : { name: 'ended', phase: 'preparing' }
+              : { name: 'ended', phase: 'preparing', scenario }
           );
         },
         onEnded: () => {
+          if (!isCurrentAttempt()) {
+            return;
+          }
+
           connectionEnded = true;
           releaseAttempt();
           // A dropped line and an incomplete log are reported in that order,
@@ -319,24 +405,36 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
               ? currentState
               : currentState.name === 'ended'
                 ? currentState
-                : { name: 'ended', phase: 'preparing' }
+                : { name: 'ended', phase: 'preparing', scenario }
           );
         },
         onAttemptDataFailed: () => {
-          setState({ name: 'data-failed' });
+          if (!isCurrentAttempt()) {
+            return;
+          }
+
+          setState({ name: 'data-failed', scenario });
         },
         onAttemptJudgingFailed: () => {
+          if (!isCurrentAttempt()) {
+            return;
+          }
+
           setState((currentState) =>
             currentState.name === 'data-failed'
               ? currentState
-              : { name: 'judging-failed' }
+              : { name: 'judging-failed', scenario }
           );
         },
         onJudgingStarted: () => {
+          if (!isCurrentAttempt()) {
+            return;
+          }
+
           setState((currentState) =>
             currentState.name === 'data-failed'
               ? currentState
-              : { name: 'ended', phase: 'judging' }
+              : { name: 'ended', phase: 'judging', scenario }
           );
         },
         onAttemptCompleted: (attempt) => {
@@ -348,6 +446,12 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
                 .sort((left, right) => left - right)
                 .slice(-2);
           practiceAttemptNumbers.current = attemptNumbers;
+          writePracticeAttemptNumbers(scenario.id, attemptNumbers);
+
+          if (!isCurrentAttempt()) {
+            return;
+          }
+
           setState(
             attempt.feedback.status === 'completed'
               ? {
@@ -356,12 +460,12 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
                   scenario,
                   attemptNumbers,
                 }
-              : { name: 'judging-failed' }
+              : { name: 'judging-failed', scenario }
           );
         },
       });
 
-      if (controller.signal.aborted || connectionEnded) {
+      if (!isCurrentAttempt() || controller.signal.aborted || connectionEnded) {
         attempt.stop();
         return;
       }
@@ -371,8 +475,13 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
         name: 'live',
         activity: 'listening',
         personaName: scenario.persona.name,
+        scenario,
       });
     } catch (error) {
+      if (!isCurrentAttempt()) {
+        return;
+      }
+
       const stoppedByTrainee =
         (error instanceof DOMException && error.name === 'AbortError') ||
         controller.signal.aborted;
@@ -733,13 +842,12 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
                             role="region"
                             aria-label={`Evidence for ${criterion.description}`}
                           >
-                            <span>Evidence</span>
                             {criterion.outcomes.map((outcome, outcomeIndex) => (
                               <blockquote
                                 key={comparison.columns[outcomeIndex]}
                               >
-                                <span className="visually-hidden">
-                                  {comparison.columns[outcomeIndex]} evidence:
+                                <span className="comparison-grid__evidence-column">
+                                  {comparison.columns[outcomeIndex]} evidence
                                 </span>
                                 “{outcome.evidence}”
                               </blockquote>
@@ -806,6 +914,14 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
                 <span aria-hidden="true">→</span>
               </button>
             </>
+          ) : state.phase === 'stopped' ? (
+            <button
+              className="start-button"
+              type="button"
+              onClick={() => returnToBriefing(state.scenario)}
+            >
+              Back to the Briefing
+            </button>
           ) : null}
         </section>
       </main>
@@ -820,7 +936,17 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
           <h1 id="attempt-data-title">
             The Attempt event log could not be completed.
           </h1>
-          <p>Keep this page open and check that the local server is running.</p>
+          <p>
+            This Attempt could not be saved, so it cannot be judged. Check that
+            the local server is running, then take the Scenario again.
+          </p>
+          <button
+            className="start-button"
+            type="button"
+            onClick={() => returnToBriefing(state.scenario)}
+          >
+            Back to the Briefing
+          </button>
         </section>
       </main>
     );
@@ -836,6 +962,13 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
             The Attempt reached the server, but its results could not be
             prepared. Check the server terminal for details.
           </p>
+          <button
+            className="start-button"
+            type="button"
+            onClick={() => returnToBriefing(state.scenario)}
+          >
+            Back to the Briefing
+          </button>
         </section>
       </main>
     );

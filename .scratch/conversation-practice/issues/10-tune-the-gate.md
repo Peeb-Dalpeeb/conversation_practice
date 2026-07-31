@@ -53,7 +53,7 @@ nothing extra — the Scenario is already up and the runs are already happening.
 
 **Blocked by:** 09 — Hidden debug view.
 
-**Status:** ready-for-human
+**Status:** done
 
 - [x] The Gate is written in the Scenario file as an explicit flip condition, not as a
       described mood or a warmth gradient.

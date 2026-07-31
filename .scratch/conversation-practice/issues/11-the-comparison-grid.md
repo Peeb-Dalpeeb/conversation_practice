@@ -29,7 +29,10 @@ acceptance criterion and it is verified by running it and looking at it, not by 
 
 **Blocked by:** 07 — Feedback, and reading it after an Attempt.
 
-**Status:** done
+**Status:** ready-for-human
+
+Everything automatable is built and passing. One thing still needs a person: looking at the rebuilt
+evidence row on a projector (acceptance item 9, reopened below).
 
 - [x] The comparison always shows the two most recent Attempts completed in the current browser
       practice sequence, in order.
@@ -43,7 +46,9 @@ acceptance criterion and it is verified by running it and looking at it, not by 
 - [x] The Trainee can start another Attempt from this screen.
 - [x] Dozens of pre-existing Attempts on disk change nothing about what is displayed; no
       reset or cleanup step is needed.
-- [x] The grid is legible from the back of a room on a projector, verified by looking at it.
+- [ ] The grid is legible from the back of a room on a projector, verified by looking at it.
+      Reopened: the evidence row was rebuilt after the last visual check and no one has looked at
+      it since. Geometry is measured and fits; legibility is not measurable.
 
 ## Comments
 
@@ -75,13 +80,13 @@ acceptance criterion and it is verified by running it and looking at it, not by 
   cell can therefore differ between two Attempts without the Trainee having changed anything.
   Ticket 12 owns the fix; this ticket should know the grid can show a change that did not happen.
 
-- **Implemented and verified 2026-07-31.** A browser practice sequence begins when the page loads.
-  The comparison request names only the last two Attempt numbers completed in that sequence, so
-  the first demo Attempt receives the one-Attempt screen even when tuning Attempts remain on disk;
-  the second demo Attempt compares against the first. This is the mechanism that makes tuning and
-  earlier mis-start records harmless without cleanup. A completed Attempt inside the current
-  sequence remains a real Attempt—the application cannot infer that the Trainee meant to discard
-  it merely from its length.
+- **Implemented and verified 2026-07-31.** A browser practice sequence lasts for the lifetime of a
+  browser tab, including page reloads. The comparison request names only the last two Attempt
+  numbers completed in that sequence, so the first demo Attempt receives the one-Attempt screen
+  even when tuning Attempts remain on disk; the second demo Attempt compares against the first.
+  This is the mechanism that makes tuning and earlier mis-start records harmless without cleanup.
+  A completed Attempt inside the current sequence remains a real Attempt—the application cannot
+  infer that the Trainee meant to discard it merely from its length.
 
   The server orders the selected Attempts by their persisted numbers and returns relative labels,
   Rubric descriptions, marks, and evidence—no Attempt numbers, Transcript, or Feedback. With no
@@ -107,3 +112,80 @@ acceptance criterion and it is verified by running it and looking at it, not by 
   real latest compatible pair on disk. Both bottom-row evidence quotes and the restart control are
   visible together, and the document height equals the 650 px viewport (no vertical scroll). This
   is stricter than the original 1280×720 criterion-3 check.
+
+- **The 650 px fit was measured on a pair with unusually short quotes, and acceptance item 9 was
+  failing. Fixed 2026-07-31.** Both earlier checks used Attempts 21 → 22, whose longest evidence
+  quote is 90 characters. That is not representative: criterion 3 is answered by the Persona turn
+  that reveals the prior incident, and those turns are long. The re-check used 17 → 18, whose
+  criterion 3 quotes are 133 and 125 characters — the tallest evidence row any pair on disk
+  produces for the criterion the spec says the author opens live.
+
+  **17 → 18 is a worst-case layout pair, not the demo.** `surfaced-real-reason` is already met in
+  both, so opening criterion 3 there shows two long quotes and no flip. The spec is explicit that
+  criterion 3 flipping from not-met to met *is* the demo; ticket 10's handoff called 17 → 18 "the
+  demo shape" on its 3/6 → 6/6 score alone, and those two statements do not agree. On disk the
+  consecutive pairs where criterion 3 actually flips are 6 → 7, 11 → 12 and 13 → 14. Choosing a
+  live pair that flips criterion 3 belongs to the dry run (ticket 13); nothing on this screen can
+  produce it.
+
+  Measured against that pair with criterion 3 open, the screen scrolled: 726 px of content in a
+  1280×650 viewport (76 px over) and 756 px in a full 1280×720 viewport (36 px over). The last two
+  criterion rows sat below the fold. Across all 132 evidence quotes on disk, 15 exceed 100
+  characters and the longest is 162; the 162-character case overflowed 650 by 103 px.
+
+  The cause was horizontal, not vertical. The expanded evidence row mirrored the table's
+  `50% 25% 25%` columns, so each quote had a 306 px column and a 130-character quote wrapped to five
+  lines. The quotes now take the full table width as two 620 px columns, and each names its own
+  column (“Previous attempt evidence”) rather than relying on an alignment it no longer has. The
+  vertical rhythm is tightened only inside the existing `@media (max-height: 700px)` block, so the
+  desktop screen is unchanged and no type or mark size was reduced anywhere — the evidence quote,
+  the marks and the criterion labels are still 18.56 / 21.12 / 19.2 px at 1280 wide.
+
+  Re-measured with 17 → 18, criterion 3 open: 650/650 at 1280×650 and 720/720 at 1280×720, no
+  scroll in either, and no scroll at 1366×768 or 1920×1080. The worst 162-character quote on disk
+  now fits 1280×650 in both columns with the row unchanged at 135 px. Criterion 6 open at 1280×650
+  leaves the last quote ending at 610 px with the restart control still on screen. The pairs that
+  actually flip criterion 3 were measured too and are no tighter, because their not-met quote is
+  short: 13 → 14 (55 and 164 characters) gives the same 135 px row and 11 → 12 gives 108 px, both
+  without scroll at 1280×650.
+
+  **What this does not establish.** Every number here is geometry — content height against viewport
+  height. Acceptance item 9 asks whether the grid is legible from the back of a room, and that was
+  not checked by eye on a projector, or by eye at all. It stays open until someone looks at it.
+
+  Also removed a `margin-left: auto` on the restart control that computed to `0px` — it is an
+  inline-flex child of a table cell, so the declaration never did anything. The control's position
+  is unchanged; only the dead declaration is gone.
+
+- **Reload and failure recovery hardened 2026-07-31.** The last two completed Attempt numbers are
+  stored under a versioned, Scenario-specific `sessionStorage` key. A reload in the same tab keeps
+  the practice sequence, and other tabs do not share subsequent sequence updates. Stored data is
+  validated as unique positive safe integers and malformed or unavailable browser storage falls
+  back to the in-memory sequence. A rendered-App test completes one Attempt, unmounts and remounts
+  the page, completes the second, and proves the comparison request names both persisted Attempt
+  numbers.
+
+  A stop taken during `connecting`, `data-failed` and `judging-failed` now offer “Back to the
+  Briefing” rather than becoming dead ends. Starting a new Attempt also makes callbacks from an
+  older recovered Attempt stale: a late successful completion is still remembered in the practice
+  sequence, but cannot replace the newer live screen with old Feedback. This race is covered at the
+  rendered App seam.
+
+  **Taking the way out retires the Attempt behind it.** The staleness guard first fired only when a
+  new Attempt started, so a Trainee who left a failure screen and then stood still could have the
+  Briefing replaced by that Attempt's Feedback with no input at all — a screen changing by itself
+  while a room watches. Leaving now retires the Attempt directly. The two halves are separate on
+  purpose: the completed record is still authoritative, so a retired Attempt's number still enters
+  the practice sequence and becomes the Previous attempt, while its Feedback can no longer take
+  back a screen the Trainee chose. Both halves are asserted together at the rendered App seam.
+
+  The earlier seam test asserted the opposite — that a late completion took over the Briefing — and
+  it described something the connector cannot produce. Every route into `data-failed` and
+  `judging-failed` is terminal: `attempt_data_incomplete` returns at `src/client/realtime.ts:512`
+  without entering recovery, and the other route is reached only after `recoverNewerAttempt` has
+  already exhausted its window. No completion follows either one, so nothing was traded away.
+
+  That also made the `data-failed` copy wrong. It read “Keep this page open and check that the
+  local server is running,” which promised a retry that does not exist; keeping the page open
+  changed nothing, and a button to leave now sat underneath it. It says the Attempt could not be
+  saved and points at taking the Scenario again.

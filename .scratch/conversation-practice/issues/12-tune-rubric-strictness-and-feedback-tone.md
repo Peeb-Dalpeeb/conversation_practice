@@ -46,6 +46,12 @@ recorded: it costs two criteria only when the Attempt stops before the Trainee s
 anything, and one — "did not get defensive" — once the Attempt reaches a solution. That one
 criterion is the remaining strictness work.
 
+**Superseded on 2026-07-31 — read the first Comment before acting on this paragraph.** The same
+case re-measured as Attempt 22 scores 0 of 6, and `avoided-defensiveness` came back not met on
+evidence that proves nothing. The remaining strictness work is still that one criterion, but it
+now presents as a correct verdict with a bad quote rather than as an inflated score, which is
+harder to see and is the thing to tune against.
+
 Both remaining evidence smells are quote reuse rather than wrong verdicts: the cover-story
 run cites "Can you tell me what happened?" for four of its six criteria, and the 9-turn
 Attempt cites one Trainee reflection for both "acknowledged the feeling" and "checked that
@@ -64,8 +70,9 @@ but never asked. If they were not kept, record them before starting.
 four failed criteria. Written to the Trainee rather than about them. Points at specific
 moments from their Attempt rather than at conversations in general. Tells them what to do
 differently, not merely what they got wrong. The case to tune against is the warm, courteous,
-professional Trainee who never asks what happened and scores 1 of 6: the Feedback must be
-useful to them without softening the verdict.
+professional Trainee who never asks what happened and scores 1 of 6 — Attempt 22 on this
+machine, which re-measured as 0 of 6: the Feedback must be useful to them without softening the
+verdict.
 
 **Measured 2026-07-29, and this is the Feedback's real problem — it coaches towards the cover
 story.** Ticket 07's live check ran Feedback over that exact warm Attempt. It did not soften
@@ -105,6 +112,10 @@ read back the Assessment and Feedback, edit, run again.
 **Blocked by:** 11 — The comparison grid.
 
 **Status:** ready-for-agent
+
+Ticket 11 is finished apart from one human check — whether the grid is legible on a projector —
+which nothing here is waiting on. This ticket touches `assessmentInstructions()` and
+`feedbackInstructions()` only; it shares no code with the comparison screen.
 
 - [ ] Criterion 3 is judged strictly; being given the cover story does not meet it, verified
       across several real Attempts.

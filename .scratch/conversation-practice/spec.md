@@ -42,7 +42,7 @@ separate step turns the Assessment into Feedback: coaching prose written for the
 which is not allowed to re-judge the Attempt.
 
 Then the Trainee tries again. Afterwards they see the two most recent Attempts completed in
-the current browser practice sequence side by side as a six-by-two grid of met/not-met
+the current browser-tab practice sequence side by side as a six-by-two grid of met/not-met
 marks, with the evidence quote for any criterion revealed on click. The improvement is the
 product.
 
@@ -152,7 +152,7 @@ incident is acknowledged without excuses.
 
 37. As a Trainee, I want to take the Scenario again immediately after reading my Feedback,
     so that I can act on it while I still remember what I said.
-38. As a Trainee, I want to see my two most recent Attempts from this browser practice sequence
+38. As a Trainee, I want to see my two most recent Attempts from this browser-tab practice sequence
     side by side, so that I can see whether I actually improved without an earlier tuning Attempt
     appearing in the comparison.
 39. As a Trainee, I want the comparison shown as a compact grid of met/not-met marks, so
@@ -267,9 +267,10 @@ verdict per criterion.
 Transcript and is instructed not to re-judge.
 
 **Storage and comparison.** JSON on disk, Attempts numbered per Scenario. The browser names the
-last two Attempts completed in its current practice sequence; the server orders and compares those
-records. A comparison request without an explicit selection falls back to the latest two valid,
-current-Rubric Attempts for diagnostics.
+last two Attempts completed in its current tab-scoped practice sequence; `sessionStorage` keeps
+that sequence across page reloads without sharing subsequent changes with another tab. The server
+orders and compares those records. A comparison request without an explicit selection falls back
+to the latest two valid, current-Rubric Attempts for diagnostics.
 
 ### Provider and models
 
@@ -368,13 +369,14 @@ Judging fires when the Attempt ends, by any of the three routes.
 Attempt records are JSON on disk, numbered per Scenario, each holding the reassembled
 Transcript, the Assessment, and the Feedback.
 
-The comparison **always shows the two most recent Attempts completed in the current browser
+The comparison **always shows the two most recent Attempts completed in the current browser-tab
 practice sequence, labelled relatively** — "Previous attempt" and "This attempt". The browser
-passes those persisted Attempt numbers to the server; after the first Attempt in a new sequence,
-the one-Attempt screen is shown even when tuning records already exist. By demo day roughly forty
-tuning Attempts will sit on disk, but none can become the left column of the new sequence. Relative
-labels remain honest at any number and the spoken narration supplies "one" and "two". No pre-demo
-reset ritual to forget while a room watches.
+passes those persisted Attempt numbers to the server; `sessionStorage` preserves them across a
+reload in the same tab, while each tab's later sequence updates remain independent. After the first
+Attempt in a new sequence, the one-Attempt screen is shown even when tuning records already exist.
+By demo day roughly forty tuning Attempts will sit on disk, but none can become the left column of
+the new sequence. Relative labels remain honest at any number and the spoken narration supplies
+"one" and "two". No pre-demo reset ritual to forget while a room watches.
 
 Rejected: absolute numbering plus clearing storage (a manual step on demo day is a liability);
 separate practice and demo storage (real plumbing for a sequence-boundary problem); an Attempt
@@ -448,8 +450,9 @@ This seam covers turn reassembly, Hang-up tool handling, the hard cap, Attempt n
 persistence, and default latest-valid-pair comparison.
 
 **Browser seam: the rendered Trainee-facing App.** Exercise the public controls and HTTP boundary.
-This seam covers current-sequence selection, the one-Attempt state, evidence disclosure, retry, and
-starting the next Attempt without a reload. It does not assert CSS geometry.
+This seam covers current-sequence selection across reload/remount, the one-Attempt state, evidence
+disclosure, comparison retry, failure recovery, and starting the next Attempt. It does not assert
+CSS geometry.
 
 This is the reason reassembly was moved server-side. The alternative — a pure
 events-to-Transcript module tested in the browser package plus a separate HTTP seam taking
@@ -473,8 +476,11 @@ where the Trainee stops mid-conversation.
 - The default comparison returns the two most recent valid current-Rubric Attempts, in order,
   labelled relatively.
 - A single existing Attempt yields a coherent no-comparison result rather than an error.
-- The browser requests only the last two Attempts completed in the current practice sequence.
+- The browser requests only the last two Attempts completed in the current tab-scoped practice
+  sequence, including after a reload.
 - Evidence stays absent until its Rubric criterion is expanded, and a failed comparison can retry.
+- Stopped-before-connection and failed-completion screens offer a path back without allowing a late
+  callback from an older Attempt to replace a newer live Attempt.
 
 ### What will explicitly not be automated
 
