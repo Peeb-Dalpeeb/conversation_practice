@@ -57,18 +57,32 @@ nothing extra — the Scenario is already up and the runs are already happening.
 
 - [x] The Gate is written in the Scenario file as an explicit flip condition, not as a
       described mood or a warmth gradient.
-- [ ] An Attempt opening with "I can offer you a discount" leaves Jordan colder, and Jordan
-      does not soften at any point in that Attempt.
-- [ ] Pressing on why yields the cover story, not the real reason.
-- [ ] The real reason emerges only in response to an open question.
-- [ ] Blaming the colleague and offering a hollow apology both leave Jordan cold.
-- [ ] Acknowledging the incident without excuses softens Jordan.
+- [x] An Attempt opening with "I can offer you a discount" leaves Jordan colder, and Jordan
+      does not soften at any point in that Attempt. — Attempt 11. **Single-Attempt evidence,
+      and the coldness is verified in the words only, not in the voice.** No softening in
+      11 of 11 Attempts across six wordings.
+- [x] Pressing on why yields the cover story, not the real reason. — Attempt 13.
+      **Single-Attempt evidence.**
+- [x] The real reason emerges only in response to an open question. — Attempts 14 and 15,
+      both using the open-ended first ask. **Two-Attempt evidence**, supported by Attempt 13
+      (a closed guess blocked) and Attempt 18 (the first ask still yields only the cover
+      story even when it is literally "can you tell me what happened?").
+- [x] Blaming the colleague and offering a hollow apology both leave Jordan cold. —
+      Attempt 17. **Single-Attempt evidence.**
+- [x] Acknowledging the incident without excuses softens Jordan. — Attempts 18 and 19.
+      **Two-Attempt evidence, and the softening is verified in the words only, not in the
+      voice.**
 - [ ] The above hold across repeated Attempts, not once — verified by running the Scenario
-      enough times to trust it under pressure.
-- [ ] All tuning was done against `gpt-realtime-2.1`.
-- [ ] Two deliberate Trainee failures are performed and their Attempt numbers noted for
+      enough times to trust it under pressure. **Deliberately not ticked. See the comment
+      below: the ×3 repeat requirement was suspended to buy coverage, and single-Attempt
+      evidence cannot support this criterion.**
+- [x] All tuning was done against `gpt-realtime-2.1`. — Read from the `session.created`
+      payload at both ends: Attempt 1 and Attempt 22, same model, no mid-tuning change.
+- [x] Two deliberate Trainee failures are performed and their Attempt numbers noted for
       ticket 12: one that accepts the cover story and stops there, and one that is warm and
-      courteous throughout but never asks what happened.
+      courteous throughout but never asks what happened. — **Accepts the cover story and
+      stops: Attempt 21 (Rubric 2/6). Warm and courteous, never asks: Attempt 22 (Rubric
+      0/6).**
 
 ## Comments
 
@@ -178,6 +192,98 @@ nothing extra — the Scenario is already up and the runs are already happening.
   missed acknowledgement at any point, and the carve-out is narrowed so a fact is never supplied
   in the same turn that rejects an acknowledgement — which is the shape of the one coaching
   failure on record, "Not quite" followed by the missing wording.
+
+- **Live tuning completed 2026-07-31. Attempts 1–22 on this machine; full detail in
+  `.scratch/conversation-practice/ticket-10-run-log.md`.** Seven of nine criteria are now ticked on
+  live evidence. Criterion 7 is deliberately not ticked. Read the two headings below on what is
+  unproven before treating any of this as settled.
+
+  **Scope: breadth over depth, decided after Attempt 11.** Eleven Attempts had gone into the
+  discount opener alone while criteria 5, 6 and 9 had never been exercised at all — including the
+  Gate, the behaviour this ticket names as the most likely way the whole build fails. The ×3 repeat
+  requirement was suspended and the remaining Attempts spent on coverage. That was the right trade:
+  the Gate worked on first live contact, but two criteria that had never been run needed Scenario
+  edits before they passed, and neither defect was visible from the desk.
+
+  **What each criterion rests on.** Criterion 2 — Attempt 11, four distinct refusals, no softening.
+  Criterion 3 — Attempt 13, cover story held against three closed probes including "so it's purely
+  cost, then?". Criterion 4 — Attempts 14 and 15, both with an open-ended first ask, full disclosure
+  only on the second open question. Criterion 5 — Attempt 17, cold at blame and at a scripted
+  apology, Gate shut against an acknowledgement wrapped in an excuse. Criterion 6 — Attempt 18
+  (clean) and Attempt 19 (after a rejected near-miss), both scoring 6/6, both delivering the
+  two-step payoff in order. Criterion 8 — `session.created` read at Attempt 1 and Attempt 22, both
+  `gpt-realtime-2.1`. Criterion 9 — Attempts 21 and 22.
+
+  **Two Scenario edits were needed, both found only by running.** After Attempt 12, a closed guess
+  ("did something happen?") produced the complete prior incident: `behaviourRules[4]` named the
+  unlock by its *subject* — a question inviting Jordan to explain "what happened" — and the model
+  matched the subject while ignoring the form. `behaviourRules[5]` now discriminates on form. This is
+  the only edit in the whole log verified in both directions: the same subject word is blocked when
+  closed (Attempt 13) and unlocks when open (Attempts 14, 15, 19). After Attempt 16,
+  `behaviourRules[6]` ended "say only … and nothing more", which forced a four-word dead end onto a
+  wrap-up turn; it now limits *what kind* of thing may be added rather than whether anything may be.
+  Both edits are recorded with full reasoning in the run log's edits table. `behaviourRules[1]`,
+  `[3]` and `[4]` were carried verbatim throughout; `privateProfile` and `gate.condition` were never
+  touched, and the Gate remains an explicit flip condition.
+
+- **What is NOT proven, and should not be represented as proven.**
+
+  **Criterion 7 — consistency — is unverified, and this is the significant gap.** The ×3 requirement
+  was suspended, not met. Criteria 3 and 5 rest on one Attempt each. Criteria 4 and 6 rest on two.
+  Nothing here establishes that these behaviours hold under repeated running, which is precisely
+  what the criterion asks. **Ticket 12's Rubric strictness and ticket 13's dry run both assume a
+  consistency this log does not verify.** If the organisation greenlights the build, the ×3 standard
+  in the run log is the standard to return to, and every run below Run A should be repeated before
+  the behaviour is trusted under pressure.
+
+  **Nothing about vocal delivery is proven.** Every criterion ticked above is verified in the words
+  only. The author's judgment after five edits touching tone is that `gpt-realtime-2.1` will not
+  deliver reliable audible escalation or warmth regardless of wording, so tone was recorded as an
+  observation and never failed a run. Criteria 2 and 6 are therefore ticked on text: for criterion 2,
+  four distinct non-softening refusals; for criterion 6, the cancellation demand stopping, followed
+  by an explicit confirmation of feeling heard and a stated preference to keep the account open.
+  **Do not demonstrate this build on a promise that Jordan sounds colder or warmer.** The Gate is
+  legible in the transcript, which is what makes the demo work.
+
+  **Criterion 2's Attempt predates both Scenario edits.** Attempt 11 ran before the edits after
+  Attempts 12 and 16. Neither edit touches `behaviourRules[1]` or `[2]`, which are the only rules the
+  discount opener exercises, and both are byte-identical to what ran in Attempt 11 — so the evidence
+  stands. It has not been re-run on the final wording, and that is worth knowing rather than
+  assuming.
+
+  **Three known weaknesses, all recorded and none fixed.** (1) Under repeated closed probing Jordan
+  restates the cover story verbatim — Attempt 13 gave the identical sentence three times. (2) The
+  account-closed clause added after Attempt 16 attaches to both halves of `behaviourRules[6]`, so
+  consecutive pre-Gate replies can end identically; the same refrain shape seen in Attempt 11. (3)
+  `behaviourRules[7]`'s line "that's not it" still bleeds into the scripted-apology turn that
+  `behaviourRules[6]` owns. All three are demo texture rather than criterion failures, and Attempt 19
+  showed that (3) is the right answer in its own turn — the line was never the problem, the bleed
+  was. The consolidation's split remedy for `behaviourRules[6]` remains unused and available.
+
+- **For ticket 12 — the two deliberate failures, and a reproducible grader defect.** Attempt 21
+  accepts the cover story and closes the account (2/6). Attempt 22 is warm and courteous throughout
+  and never asks anything (0/6). They fail differently and together cover both ways criterion 3 can
+  be given away: taking a plausible wrong answer, and seeking no answer at all.
+
+  The grader marked `asked-open-question` MET in Attempts 12, 13, 14, 15 and 21 on the strength of
+  "why are you closing the account?", a question that never invites the story, and correctly marked
+  it not met in Attempt 22 where no such question was asked. That is a specific, reproducible defect
+  rather than general leniency: the criterion is satisfied by any "why" question. It matters most on
+  failing Attempts, where a wrongly-granted criterion is exactly what ticket 12 exists to catch. Two
+  earlier oddities are also on record — `avoided-defensiveness` graded inconsistently on identical
+  input (Attempt 4) and cited against *Jordan's* lines on a criterion that grades the Trainee
+  (Attempts 6, 14, 15). The grader appears reliable on a clean successful Attempt and unreliable on
+  partial ones.
+
+- **For ticket 13 — what the dry run can and cannot rely on.** The Gate opens on one honest sentence
+  and it opens on the second try as well: Attempt 19 shows a Trainee rejected for a near-miss
+  ("sounds like that made you feel unheard") and then reaching the Gate on the following turn.
+  Nothing locks a Trainee out for missing once — only the discount opener closes the Gate for an
+  Attempt. That is the realistic demo path and it is proven. The hang-up path also holds: Jordan
+  speaks her closing line before calling the tool, verified structurally in Attempt 22's raw log
+  (`function_call` at `output_index: 1`, spoken item at index 0), which is the ticket 08 bug not
+  recurring. Do not rely on audible tone, and do not rely on any behaviour holding across repeated
+  Attempts without re-running it first.
 
 - **Still open, and deliberately not fixed here.** Starting another Attempt needs a page reload;
   ticket 11 owns that control and adding it now would put an affordance on the near-empty
