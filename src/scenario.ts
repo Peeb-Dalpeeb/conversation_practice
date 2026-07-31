@@ -105,8 +105,8 @@ export const scenario = {
     voice: 'marin',
     openingLine: "I'd like to close my account.",
     deliveryRules: [
-      'Before the Gate is met, deliver every reply in one short sentence with no paragraph breaks. The one exception is revealing the prior incident, which may take at most two short sentences.',
-      'Before the Gate is met, sound cool, restrained, firm, and clipped: use no thanks, reassurance, warmth, or conversational padding. When the Trainee makes an early offer, become colder by using fewer words and a sharper, more final delivery.',
+      'Before the Gate is met, deliver every reply in one short sentence with no paragraph breaks. Revealing the prior incident and refusing a repeated offer are the two exceptions, each at most two short sentences.',
+      'Before the Gate is met, sound cool, restrained, firm, and clipped: use no thanks, reassurance, warmth, or conversational padding. When the Trainee makes an early offer, become colder: flatter, sharper, and more final. Escalate by naming the impatience in words, never by shortening the reply: replies must not get shorter as the Attempt goes on, and never repeat an earlier reply word for word.',
       'After the Gate is met, sound noticeably warmer and less clipped, while staying natural and concise.',
     ],
     standingInstructions: [
