@@ -116,3 +116,33 @@ read back the Assessment and Feedback, edit, run again.
       that was warm and courteous but scored low.
 - [ ] The Feedback is addressed to the Trainee and cites specific moments from their Attempt.
 - [ ] The Feedback never re-opens or contradicts a verdict.
+
+## Comments
+
+- **From ticket 10's live tuning, 2026-07-31.** Attempts 1–22 are on this machine only (`data/` is
+  gitignored). Detail in `.scratch/conversation-practice/ticket-10-run-log.md`.
+
+  **The two deliberate failures this ticket asks for were kept.** Accepts the cover story and stops:
+  **Attempt 21**, 2/6. Warm and courteous, never asks: **Attempt 22**, 0/6. Clean successes to use as
+  positive controls: **Attempts 18 and 19**, both 6/6 on the final Scenario wording.
+
+  **This ticket's 1-of-6 measurement is superseded, and the correction is worse news than it looks.**
+  The warm-never-asks case is recorded above as scoring 1/6 with `avoided-defensiveness` as the one
+  remaining vacuous met. Attempt 22 scored **0/6** — that criterion came back not met, but cited
+  *Jordan's* line "I still want the account closed" as its evidence. The verdict is right by
+  accident on evidence that proves nothing, so the vacuous-met problem can now present as a correct
+  verdict with a bad quote. That is harder to spot than the inflated score it replaces.
+
+  **A reproducible strictness defect not yet recorded here, in the same family as criterion 3.**
+  `asked-open-question` is marked MET on a bare "why are you closing the account?" — Attempts 12, 13
+  and 21 — which never invites the story. It is marked correctly in Attempts 14 and 15, which cite
+  genuinely open questions, and correctly not met in Attempt 22, where none was asked. So open is
+  distinguished from closed correctly *except* that a bare "why" is accepted as an invitation.
+
+  **The grader is non-deterministic on identical input.** Attempts 1–4 have identical Trainee lines;
+  `avoided-defensiveness` graded MET, MET, MET, then not met. Worth fixing here for ticket 11's sake
+  as well: the comparison grid can otherwise show a change the Trainee did not make.
+
+  **Wrong-speaker evidence quotes now have six instances** — Attempts 6, 14, 15, 17, 21 and 22, all
+  citing a Persona turn on a criterion that grades the Trainee. Direct evidence for this ticket's
+  second checkbox.

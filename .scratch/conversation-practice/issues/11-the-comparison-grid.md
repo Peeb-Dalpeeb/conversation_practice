@@ -43,3 +43,33 @@ acceptance criterion and it is verified by running it and looking at it, not by 
 - [ ] Dozens of pre-existing Attempts on disk change nothing about what is displayed; no
       reset or cleanup step is needed.
 - [ ] The grid is legible from the back of a room on a projector, verified by looking at it.
+
+## Comments
+
+- **From ticket 10's live tuning, 2026-07-31 — three things this ticket cannot derive.** Attempts
+  1–22 are on this machine only (`data/` is gitignored). Detail in
+  `.scratch/conversation-practice/ticket-10-run-log.md`.
+
+  **Cross-Attempt isolation currently rests on the page reload, and this ticket removes it.** Attempt
+  3 verified there is no channel between Attempts: `session.created` carries no `conversation`
+  field, the `conversation.item.added` count matches that Attempt's turns exactly, no item predates
+  the first Trainee line, and `instructions` is exactly `buildPersonaInstructions` output. Each
+  Attempt also mints a fresh 60-second client secret (`src/server/realtime.ts:77`). **All of that
+  was verified under F5.** If "start another Attempt from this screen" leaks any conversation state,
+  "Previous attempt" and "This attempt" become a fresh Jordan compared against one who remembers —
+  which silently voids the comparison this screen exists to make. Re-verify from the raw event log,
+  the same way, and note the 60-second expiry means the control must re-mint rather than reuse.
+
+  **Mis-started Attempts persist as real records.** Attempt 20 is a two-turn abort sitting on disk
+  as a legitimate Attempt, and it would have been "Previous attempt" for Attempt 21. A one-click
+  restart makes mis-starts more frequent, and "the two most recent Attempts" will put a two-turn
+  fragment on a projector.
+
+  **Real pairs already on disk, so the grid can be built and judged without running anything.**
+  Attempts 17 (3/6) → 18 (6/6) are consecutive and are the demo shape — a genuine improvement.
+  21 (2/6) → 22 (0/6) is a decline. 18 → 19 is 6/6 twice.
+
+  **Caution for the grid's premise: the grader is non-deterministic on identical input.** Attempts
+  1–4 have identical Trainee lines; `avoided-defensiveness` graded MET, MET, MET, then not met. A
+  cell can therefore differ between two Attempts without the Trainee having changed anything.
+  Ticket 12 owns the fix; this ticket should know the grid can show a change that did not happen.

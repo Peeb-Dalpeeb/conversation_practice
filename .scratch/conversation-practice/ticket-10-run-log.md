@@ -778,7 +778,7 @@ Notes:
 
   **Aside for ticket 12.** The grader scored all six criteria MET and cited the right lines for
   each, including `checked-customer-felt-heard` against "Do you feel heard now?". Against the three
-  oddities already on record (Attempts 4, 6, 12–15), the grader appears reliable on a clean
+  oddities already on record (Attempts 4, 6, 12, 13), the grader appears reliable on a clean
   successful run and unreliable on partial ones — useful shape for Rubric strictness work.
 
 Near-miss Attempt #: **19** &nbsp;&nbsp; coached? **no** &nbsp;&nbsp; verdict: **PASS — near-miss
@@ -869,7 +869,7 @@ details fixed? **not exercised — see below** &nbsp;&nbsp; verdict: **PASS.** R
 
   **Aside for ticket 12, continuing the grader record.** `asked-open-question` was marked MET on
   "Why are you closing the account?" in a run containing no open question — the same looseness seen
-  in Attempts 12–15. On a deliberate failure this matters more than on a good run: it is a criterion
+  in Attempts 12 and 13. On a deliberate failure this matters more than on a good run: it is a criterion
   being given away, which is exactly what ticket 12 exists to tune.
 
   **Attempt 20 is void.** A mis-started run, aborted after two turns ("Why are you choosing um"). Not
@@ -918,11 +918,15 @@ verdict: **PASS.** Rubric scored 0/6.
   answer at all. Between them they cover the two ways criterion 3 can be given away.
 
   **Sharpened grader finding for ticket 12.** `asked-open-question` was correctly marked **not met**
-  here, having been wrongly marked MET in Attempts 12–15 and 21. The grader is therefore not loosely
-  random: it specifically treats "why are you closing the account?" as satisfying "asked an open
-  question that invited the story". That is a precise, reproducible defect to tune against rather
-  than a vague impression of leniency, and it matters most on failing Attempts, where a
-  wrongly-granted criterion is exactly what ticket 12 exists to catch.
+  here, having been wrongly marked MET in Attempts 12, 13 and 21. The grader is therefore not
+  loosely random: it specifically treats a bare "why are you closing the account?" as satisfying
+  "asked an open question that invited the story". **Verified in both directions on 2026-07-31:**
+  wrongly MET on that bare "why" in Attempts 12, 13 and 21; correctly MET in Attempts 14 and 15,
+  which cite genuinely open questions ("can you tell me what happened?", "can you tell me what led
+  to this?"); correctly not met in Attempt 22, where no such question was asked. So the grader
+  distinguishes open from closed correctly *except* that it accepts a bare "why" as an invitation to
+  the story. A precise, reproducible defect rather than general leniency, and it matters most on
+  failing Attempts, where a wrongly-granted criterion is exactly what ticket 12 exists to catch.
 
 ---
 

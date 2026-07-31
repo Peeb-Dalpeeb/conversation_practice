@@ -265,15 +265,17 @@ nothing extra — the Scenario is already up and the runs are already happening.
   and never asks anything (0/6). They fail differently and together cover both ways criterion 3 can
   be given away: taking a plausible wrong answer, and seeking no answer at all.
 
-  The grader marked `asked-open-question` MET in Attempts 12, 13, 14, 15 and 21 on the strength of
-  "why are you closing the account?", a question that never invites the story, and correctly marked
-  it not met in Attempt 22 where no such question was asked. That is a specific, reproducible defect
-  rather than general leniency: the criterion is satisfied by any "why" question. It matters most on
-  failing Attempts, where a wrongly-granted criterion is exactly what ticket 12 exists to catch. Two
-  earlier oddities are also on record — `avoided-defensiveness` graded inconsistently on identical
-  input (Attempt 4) and cited against *Jordan's* lines on a criterion that grades the Trainee
-  (Attempts 6, 14, 15). The grader appears reliable on a clean successful Attempt and unreliable on
-  partial ones.
+  The grader marked `asked-open-question` MET in Attempts 12, 13 and 21 on the strength of a bare
+  "why are you closing the account?", a question that never invites the story. It marked the same
+  criterion correctly in Attempts 14 and 15, which cite genuinely open questions, and correctly not
+  met in Attempt 22, where none was asked. So the defect is specific and reproducible rather than
+  general leniency: open is distinguished from closed correctly *except* that a bare "why" is
+  accepted as an invitation to the story. It matters most on failing Attempts, where a
+  wrongly-granted criterion is exactly what ticket 12 exists to catch. Two other oddities are on
+  record — `avoided-defensiveness` graded MET, MET, MET then not met across Attempts 1–4 on
+  identical Trainee lines, and evidence quotes taken from *Jordan's* turns on criteria that grade the
+  Trainee (Attempts 6, 14, 15, 21, 22). The grader appears reliable on a clean successful Attempt and
+  unreliable on partial ones.
 
 - **For ticket 13 — what the dry run can and cannot rely on.** The Gate opens on one honest sentence
   and it opens on the second try as well: Attempt 19 shows a Trainee rejected for a near-miss
