@@ -147,7 +147,7 @@ describe('the server HTTP interface', () => {
     const server = createApiServer({
       currentScenario: scenario,
       readComparisonAttempts: () =>
-        Promise.resolve([previousAttempt, thisAttempt]),
+        Promise.resolve([thisAttempt, previousAttempt]),
     });
     servers.push(server);
 
@@ -205,6 +205,27 @@ describe('the server HTTP interface', () => {
     await expect(response.json()).resolves.toEqual({
       status: 'not-enough-attempts',
     });
+  });
+
+  it('rejects invalid comparison Attempt selections', async () => {
+    const port = await startApiServer();
+    const invalidQueries = [
+      'attempt=0',
+      'attempt=-1',
+      'attempt=1.5',
+      'attempt=0x10',
+      'attempt=9007199254740992',
+      'attempt=1&attempt=1',
+      'attempt=1&attempt=2&attempt=3',
+    ];
+
+    for (const query of invalidQueries) {
+      const response = await fetch(
+        `http://127.0.0.1:${port}/api/attempts/comparison?${query}`
+      );
+
+      expect(response.status, query).toBe(400);
+    }
   });
 
   it('mints a Scenario-configured credential without exposing Persona instructions', async () => {

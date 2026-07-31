@@ -24,13 +24,18 @@ export type Attempt = {
 };
 
 export type UnnumberedAttempt = Omit<Attempt, 'number'>;
+export type ComparisonAttempt = Pick<
+  Attempt,
+  'scenarioId' | 'number' | 'assessment'
+>;
 export type StoreAttempt = (attempt: UnnumberedAttempt) => Promise<Attempt>;
 export type ReadLatestAttempt = (
   scenarioId: string
 ) => Promise<Attempt | undefined>;
 export type ReadComparisonAttempts = (
-  scenarioId: string
-) => Promise<readonly Attempt[]>;
+  scenarioId: string,
+  attemptNumbers?: readonly number[]
+) => Promise<readonly ComparisonAttempt[]>;
 
 function isFileExistsError(error: unknown): error is NodeJS.ErrnoException {
   return (
@@ -40,13 +45,55 @@ function isFileExistsError(error: unknown): error is NodeJS.ErrnoException {
   );
 }
 
+function isFileMissingError(error: unknown): error is NodeJS.ErrnoException {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    (error as NodeJS.ErrnoException).code === 'ENOENT'
+  );
+}
+
 function scenarioAttemptDirectory(directory: string, scenarioId: string) {
   return resolve(directory, encodeURIComponent(scenarioId));
 }
 
 function attemptNumberFromFilename(filename: string): number | undefined {
   const match = /^(\d+)\.json$/.exec(filename);
-  return match ? Number(match[1]) : undefined;
+
+  if (!match) {
+    return undefined;
+  }
+
+  const number = Number(match[1]);
+  return Number.isSafeInteger(number) && number > 0 ? number : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isReadableComparisonAttempt(
+  value: unknown
+): value is ComparisonAttempt {
+  if (
+    !isRecord(value) ||
+    typeof value.scenarioId !== 'string' ||
+    typeof value.number !== 'number' ||
+    !Number.isSafeInteger(value.number) ||
+    value.number <= 0 ||
+    !isRecord(value.assessment) ||
+    !Array.isArray(value.assessment.criteria)
+  ) {
+    return false;
+  }
+
+  return value.assessment.criteria.every(
+    (criterion) =>
+      isRecord(criterion) &&
+      typeof criterion.criterionId === 'string' &&
+      typeof criterion.met === 'boolean' &&
+      typeof criterion.evidence === 'string'
+  );
 }
 
 export function createAttemptStore(
@@ -135,7 +182,7 @@ export function createLatestAttemptReader(
 export function createComparisonAttemptReader(
   directory = resolve('data', 'attempts')
 ): ReadComparisonAttempts {
-  return async (scenarioId) => {
+  return async (scenarioId, attemptNumbers) => {
     const scenarioDirectory = scenarioAttemptDirectory(directory, scenarioId);
     let filenames: string[];
 
@@ -153,22 +200,82 @@ export function createComparisonAttemptReader(
       throw error;
     }
 
+    const selectedAttemptNumbers = attemptNumbers
+      ? new Set(attemptNumbers)
+      : undefined;
     const comparisonFiles = filenames
       .flatMap((filename) => {
         const number = attemptNumberFromFilename(filename);
-        return number === undefined ? [] : [{ filename, number }];
+        return number === undefined ||
+          (selectedAttemptNumbers && !selectedAttemptNumbers.has(number))
+          ? []
+          : [{ filename, number }];
       })
-      .sort((left, right) => left.number - right.number)
-      .slice(-2);
+      .sort((left, right) => left.number - right.number);
 
-    return Promise.all(
-      comparisonFiles.map(async ({ filename }) => {
-        const contents = await readFile(
-          resolve(scenarioDirectory, filename),
-          'utf8'
-        );
-        return JSON.parse(contents) as Attempt;
+    const attempts = await Promise.all(
+      comparisonFiles.map(async ({ filename, number }) => {
+        let contents: string;
+
+        try {
+          contents = await readFile(
+            resolve(scenarioDirectory, filename),
+            'utf8'
+          );
+        } catch (error) {
+          if (isFileMissingError(error)) {
+            return undefined;
+          }
+
+          throw error;
+        }
+
+        let attempt: unknown;
+
+        try {
+          attempt = JSON.parse(contents);
+        } catch (error) {
+          if (!(error instanceof SyntaxError)) {
+            throw error;
+          }
+
+          console.warn(`Skipping malformed Attempt file ${filename}.`);
+          return undefined;
+        }
+
+        if (
+          !isReadableComparisonAttempt(attempt) ||
+          attempt.scenarioId !== scenarioId ||
+          attempt.number !== number
+        ) {
+          console.warn(`Skipping malformed Attempt file ${filename}.`);
+          return undefined;
+        }
+
+        return { attempt, filename };
       })
     );
+
+    const attemptsByNumber = new Map<
+      number,
+      { attempt: ComparisonAttempt; filename: string }
+    >();
+
+    for (const result of attempts) {
+      if (!result) {
+        continue;
+      }
+
+      const current = attemptsByNumber.get(result.attempt.number);
+      const canonicalFilename = `${String(result.attempt.number).padStart(4, '0')}.json`;
+
+      if (!current || result.filename === canonicalFilename) {
+        attemptsByNumber.set(result.attempt.number, result);
+      }
+    }
+
+    return [...attemptsByNumber.values()]
+      .map(({ attempt }) => attempt)
+      .sort((left, right) => left.number - right.number);
   };
 }

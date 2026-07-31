@@ -106,6 +106,29 @@ function sendAttemptComparisonReadFailure(response: ServerResponse) {
   );
 }
 
+function selectedComparisonAttemptNumbers(
+  requestUrl: string
+): readonly number[] | undefined {
+  const values = new URL(requestUrl, 'http://localhost').searchParams.getAll(
+    'attempt'
+  );
+
+  if (values.length === 0) {
+    return undefined;
+  }
+
+  const numbers = values.map((value) =>
+    /^[1-9]\d*$/.test(value) ? Number(value) : Number.NaN
+  );
+  return numbers.length <= 2 &&
+    numbers.every(
+      (number, index) =>
+        Number.isSafeInteger(number) && numbers.indexOf(number) === index
+    )
+    ? numbers
+    : [];
+}
+
 export function createApiServer({
   currentScenario,
   mintRealtimeClientSecret = unavailableRealtimeClientSecret,
@@ -147,9 +170,22 @@ export function createApiServer({
 
     if (
       request.method === 'GET' &&
-      request.url === '/api/attempts/comparison'
+      request.url !== undefined &&
+      new URL(request.url, 'http://localhost').pathname ===
+        '/api/attempts/comparison'
     ) {
-      void readComparisonAttempts(currentScenario.id).then(
+      const attemptNumbers = selectedComparisonAttemptNumbers(request.url);
+
+      if (attemptNumbers?.length === 0) {
+        response.writeHead(400, {
+          'Cache-Control': 'no-store',
+          'Content-Type': 'application/json',
+        });
+        response.end(JSON.stringify({ error: 'Invalid Attempt selection.' }));
+        return;
+      }
+
+      void readComparisonAttempts(currentScenario.id, attemptNumbers).then(
         (attempts) => {
           try {
             const comparison = createAttemptComparison(

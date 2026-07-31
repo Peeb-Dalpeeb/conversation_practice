@@ -1,5 +1,5 @@
 import type { RubricCriterion } from './scenario.js';
-import type { Attempt } from './server/attempt-store.js';
+import type { ComparisonAttempt } from './server/attempt-store.js';
 
 export type ComparisonOutcome = {
   met: boolean;
@@ -19,7 +19,7 @@ export type AttemptComparison =
     };
 
 function outcomeForCriterion(
-  attempt: Attempt,
+  attempt: ComparisonAttempt,
   criterionId: string
 ): ComparisonOutcome {
   const outcome = attempt.assessment.criteria.find(
@@ -37,15 +37,32 @@ function outcomeForCriterion(
 
 export function createAttemptComparison(
   rubric: readonly RubricCriterion[],
-  attempts: readonly Attempt[]
+  attempts: readonly ComparisonAttempt[]
 ): AttemptComparison {
-  if (attempts.length < 2) {
+  const rubricCriterionIds = new Set(rubric.map(({ id }) => id));
+  const comparableAttempts = [...attempts]
+    .filter((attempt) => {
+      const assessmentCriterionIds = new Set(
+        attempt.assessment.criteria.map(({ criterionId }) => criterionId)
+      );
+
+      return (
+        rubricCriterionIds.size === assessmentCriterionIds.size &&
+        [...rubricCriterionIds].every((criterionId) =>
+          assessmentCriterionIds.has(criterionId)
+        )
+      );
+    })
+    .sort((left, right) => left.number - right.number)
+    .slice(-2);
+
+  if (comparableAttempts.length < 2) {
     return { status: 'not-enough-attempts' };
   }
 
-  const [previousAttempt, thisAttempt] = attempts.slice(-2) as [
-    Attempt,
-    Attempt,
+  const [previousAttempt, thisAttempt] = comparableAttempts as [
+    ComparisonAttempt,
+    ComparisonAttempt,
   ];
 
   return {

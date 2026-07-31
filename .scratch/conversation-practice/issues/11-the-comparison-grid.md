@@ -1,9 +1,9 @@
 # 11 — The comparison grid
 
-**What to build:** After reading their Feedback, the Trainee sees their two most recent
-Attempts side by side as a six-by-two grid of met / not-met marks, and can take the Scenario
-again immediately — while they still remember what they said. The improvement is the
-product.
+**What to build:** After reading their Feedback, the Trainee sees the two most recent Attempts
+completed in the current browser practice sequence side by side as a six-by-two grid of met /
+not-met marks, and can take the Scenario again immediately — while they still remember what they
+said. The improvement is the product.
 
 The two Attempts are labelled **relatively**: "Previous attempt" and "This attempt". Not
 "Attempt 40" and "Attempt 41". By demo day roughly forty tuning Attempts will be sitting on
@@ -31,7 +31,8 @@ acceptance criterion and it is verified by running it and looking at it, not by 
 
 **Status:** done
 
-- [x] The comparison always shows the two most recent Attempts for the Scenario, in order.
+- [x] The comparison always shows the two most recent Attempts completed in the current browser
+      practice sequence, in order.
 - [x] They are labelled "Previous attempt" and "This attempt" — never absolute numbers.
 - [x] The presentation is a six-by-two grid of met / not-met marks.
 - [x] Clicking a criterion reveals the evidence quotes from both Attempts; they are hidden
@@ -74,17 +75,35 @@ acceptance criterion and it is verified by running it and looking at it, not by 
   cell can therefore differ between two Attempts without the Trainee having changed anything.
   Ticket 12 owns the fix; this ticket should know the grid can show a change that did not happen.
 
-- **Implemented and verified 2026-07-31.** The server reads only the two highest numeric Attempt
-  files for the current Scenario and returns a comparison-shaped response with relative labels,
-  Rubric descriptions, marks, and evidence — no Attempt numbers, Transcript, or Feedback. A
-  completion-seam test posts the recorded event-log fixture 42 times, then proves the response is
-  built from Attempts 41 and 42. The one-Attempt response is explicit rather than exceptional.
+- **Implemented and verified 2026-07-31.** A browser practice sequence begins when the page loads.
+  The comparison request names only the last two Attempt numbers completed in that sequence, so
+  the first demo Attempt receives the one-Attempt screen even when tuning Attempts remain on disk;
+  the second demo Attempt compares against the first. This is the mechanism that makes tuning and
+  earlier mis-start records harmless without cleanup. A completed Attempt inside the current
+  sequence remains a real Attempt—the application cannot infer that the Trainee meant to discard
+  it merely from its length.
 
-  Starting again from the comparison calls the Realtime connector anew. A no-reload test starts
-  two consecutive Attempts, observes two client-secret requests, and inspects both submitted raw
-  event logs to prove each contains only its own marker.
+  The server orders the selected Attempts by their persisted numbers and returns relative labels,
+  Rubric descriptions, marks, and evidence—no Attempt numbers, Transcript, or Feedback. With no
+  explicit selection it still compares the latest two valid, current-Rubric Attempts. Unreadable
+  JSON and Assessments incompatible with the current Rubric are skipped rather than collapsing the
+  whole screen. A completion-seam test posts the recorded event-log fixture 42 times and proves the
+  default response is built from Attempts 41 and 42; another proves exact selection and malformed
+  record recovery.
 
-  The real comparison data already on disk was viewed at 1280×720. All six rows and the retry
-  control remain visible; opening criterion 3 reveals both quotes without introducing a summary
-  headline or Feedback prose. The font sizes and met/not-met marks were kept large while the
-  vertical rhythm was tightened enough for the expanded evidence row to fit a 720p projector.
+  **Reveal-flow decision:** Feedback remains on its own screen and “See your comparison” is an
+  explicit author-controlled reveal. This makes the transition in the written “Feedback, then
+  comparison” flow a deliberate click rather than an automatic replacement of the Feedback.
+
+  Starting again from the comparison calls the Realtime connector anew. The automated no-reload
+  tests prove the App control calls the connector again, two client-secret requests are made, and
+  the two submitted client-side raw-event-log buffers contain disjoint markers. They do **not**
+  reproduce ticket 10's live provider readings: `session.created` conversation identity, exact
+  `conversation.item.added` count, earliest item relative to the first Trainee line, and exact
+  `buildPersonaInstructions` output remain a live dry-run check. No additional live microphone run
+  was performed while addressing these findings.
+
+  The grid was rechecked in an actual 1280×650 browser viewport with criterion 6 expanded using the
+  real latest compatible pair on disk. Both bottom-row evidence quotes and the restart control are
+  visible together, and the document height equals the 650 px viewport (no vertical scroll). This
+  is stricter than the original 1280×720 criterion-3 check.

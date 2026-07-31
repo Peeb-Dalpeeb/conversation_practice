@@ -29,14 +29,28 @@ type AppState =
       phase: 'stopped' | 'preparing' | 'judging';
     }
   | { name: 'judging-failed' }
-  | { name: 'feedback'; feedback: string; scenario: PublicScenario }
-  | { name: 'comparison-loading'; scenario: PublicScenario }
+  | {
+      name: 'feedback';
+      feedback: string;
+      scenario: PublicScenario;
+      attemptNumbers: readonly number[];
+    }
+  | {
+      name: 'comparison-loading';
+      scenario: PublicScenario;
+      attemptNumbers: readonly number[];
+    }
   | {
       name: 'comparison';
       comparison: AttemptComparison;
       scenario: PublicScenario;
+      attemptNumbers: readonly number[];
     }
-  | { name: 'comparison-failed'; scenario: PublicScenario }
+  | {
+      name: 'comparison-failed';
+      scenario: PublicScenario;
+      attemptNumbers: readonly number[];
+    }
   | { name: 'failed'; reason: string; scenario: PublicScenario }
   | { name: 'unavailable' };
 
@@ -122,6 +136,8 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
     null
   );
   const attemptController = useRef<AbortController | null>(null);
+  const comparisonController = useRef<AbortController | null>(null);
+  const practiceAttemptNumbers = useRef<readonly number[]>([]);
   const liveAttempt = useRef<RealtimeAttempt | null>(null);
   const releaseAttempt = useCallback(() => {
     attemptController.current?.abort();
@@ -164,6 +180,7 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
 
   useEffect(
     () => () => {
+      comparisonController.current?.abort();
       releaseAttempt();
     },
     [releaseAttempt]
@@ -323,12 +340,21 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
           );
         },
         onAttemptCompleted: (attempt) => {
+          const attemptNumbers = practiceAttemptNumbers.current.includes(
+            attempt.number
+          )
+            ? practiceAttemptNumbers.current
+            : [...practiceAttemptNumbers.current, attempt.number]
+                .sort((left, right) => left - right)
+                .slice(-2);
+          practiceAttemptNumbers.current = attemptNumbers;
           setState(
             attempt.feedback.status === 'completed'
               ? {
                   name: 'feedback',
                   feedback: attempt.feedback.prose,
                   scenario,
+                  attemptNumbers,
                 }
               : { name: 'judging-failed' }
           );
@@ -369,28 +395,57 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
     }
   };
 
-  const showComparison = async (scenario: PublicScenario) => {
+  const showComparison = async (
+    scenario: PublicScenario,
+    attemptNumbers: readonly number[]
+  ) => {
+    comparisonController.current?.abort();
+    const controller = new AbortController();
+    comparisonController.current = controller;
     setExpandedCriterionId(null);
-    setState({ name: 'comparison-loading', scenario });
+    setState({ name: 'comparison-loading', scenario, attemptNumbers });
 
     try {
-      const response = await fetch('/api/attempts/comparison', {
-        cache: 'no-store',
-      });
+      const parameters = new URLSearchParams();
+      for (const attemptNumber of attemptNumbers) {
+        parameters.append('attempt', String(attemptNumber));
+      }
+      const response = await fetch(
+        `/api/attempts/comparison?${parameters.toString()}`,
+        {
+          signal: controller.signal,
+          cache: 'no-store',
+        }
+      );
+
+      if (controller.signal.aborted) {
+        return;
+      }
 
       if (!response.ok) {
-        setState({ name: 'comparison-failed', scenario });
+        setState({ name: 'comparison-failed', scenario, attemptNumbers });
         return;
       }
 
       const comparison: unknown = await response.json();
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
       setState(
         isAttemptComparison(comparison)
-          ? { name: 'comparison', comparison, scenario }
-          : { name: 'comparison-failed', scenario }
+          ? { name: 'comparison', comparison, scenario, attemptNumbers }
+          : { name: 'comparison-failed', scenario, attemptNumbers }
       );
-    } catch {
-      setState({ name: 'comparison-failed', scenario });
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        setState({ name: 'comparison-failed', scenario, attemptNumbers });
+      }
+    } finally {
+      if (comparisonController.current === controller) {
+        comparisonController.current = null;
+      }
     }
   };
 
@@ -547,14 +602,25 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
             The comparison could not be loaded.
           </h1>
           <p>You can still take the Scenario again now.</p>
-          <button
-            className="start-button"
-            type="button"
-            onClick={() => void startAttempt(state.scenario)}
-          >
-            Take the Scenario again
-            <span aria-hidden="true">→</span>
-          </button>
+          <div className="notice__actions">
+            <button
+              className="retry-button"
+              type="button"
+              onClick={() =>
+                void showComparison(state.scenario, state.attemptNumbers)
+              }
+            >
+              Try again
+            </button>
+            <button
+              className="start-button"
+              type="button"
+              onClick={() => void startAttempt(state.scenario)}
+            >
+              Take the Scenario again
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
         </section>
       </main>
     );
@@ -596,7 +662,16 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
             </caption>
             <thead>
               <tr>
-                <td aria-hidden="true" />
+                <td>
+                  <button
+                    className="start-button comparison__restart"
+                    type="button"
+                    onClick={() => void startAttempt(comparedScenario)}
+                  >
+                    Take the Scenario again
+                    <span aria-hidden="true">→</span>
+                  </button>
+                </td>
                 {comparison.columns.map((column) => (
                   <th scope="col" key={column}>
                     {column}
@@ -617,7 +692,7 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
                           className="criterion-button"
                           type="button"
                           aria-expanded={expanded}
-                          aria-controls={evidenceRowId}
+                          aria-controls={expanded ? evidenceRowId : undefined}
                           onClick={() =>
                             setExpandedCriterionId(
                               expanded ? null : criterion.criterionId
@@ -650,16 +725,27 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
                       ))}
                     </tr>
                     {expanded ? (
-                      <tr
-                        className="comparison-grid__evidence"
-                        id={evidenceRowId}
-                      >
-                        <th scope="row">Evidence</th>
-                        {criterion.outcomes.map((outcome, outcomeIndex) => (
-                          <td key={comparison.columns[outcomeIndex]}>
-                            <blockquote>“{outcome.evidence}”</blockquote>
-                          </td>
-                        ))}
+                      <tr className="comparison-grid__evidence">
+                        <td colSpan={3}>
+                          <div
+                            className="comparison-grid__evidence-detail"
+                            id={evidenceRowId}
+                            role="region"
+                            aria-label={`Evidence for ${criterion.description}`}
+                          >
+                            <span>Evidence</span>
+                            {criterion.outcomes.map((outcome, outcomeIndex) => (
+                              <blockquote
+                                key={comparison.columns[outcomeIndex]}
+                              >
+                                <span className="visually-hidden">
+                                  {comparison.columns[outcomeIndex]} evidence:
+                                </span>
+                                “{outcome.evidence}”
+                              </blockquote>
+                            ))}
+                          </div>
+                        </td>
                       </tr>
                     ) : null}
                   </Fragment>
@@ -667,16 +753,6 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
               })}
             </tbody>
           </table>
-          <div className="comparison__actions">
-            <button
-              className="start-button"
-              type="button"
-              onClick={() => void startAttempt(comparedScenario)}
-            >
-              Take the Scenario again
-              <span aria-hidden="true">→</span>
-            </button>
-          </div>
         </section>
       </main>
     );
@@ -722,7 +798,9 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
               <button
                 className="start-button feedback__continue"
                 type="button"
-                onClick={() => void showComparison(state.scenario)}
+                onClick={() =>
+                  void showComparison(state.scenario, state.attemptNumbers)
+                }
               >
                 See your comparison
                 <span aria-hidden="true">→</span>

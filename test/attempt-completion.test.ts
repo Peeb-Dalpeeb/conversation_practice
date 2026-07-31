@@ -855,6 +855,90 @@ describe('completed Attempts', () => {
     expect(JSON.stringify(comparison)).not.toContain('Evidence from 40.');
   });
 
+  it('compares selected Attempts and ignores unreadable or incompatible records', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const attemptDirectory = await createTemporaryDirectory();
+    let assessedAttemptNumber = 0;
+    const port = await startCompletionServer(
+      attemptDirectory,
+      undefined,
+      undefined,
+      (_transcript, rubric) => {
+        assessedAttemptNumber += 1;
+
+        return Promise.resolve({
+          criteria: rubric.map((criterion) => ({
+            criterionId: criterion.id,
+            met: true,
+            evidence: `Evidence from ${String(assessedAttemptNumber)}.`,
+          })),
+        });
+      }
+    );
+    const rawEventLog = await readFixture('clean-stop-in-silence.json');
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      expect((await postRawEventLog(port, rawEventLog)).status).toBe(200);
+    }
+
+    const scenarioDirectory = resolve(
+      attemptDirectory,
+      encodeURIComponent(scenario.id)
+    );
+    await writeFile(
+      resolve(scenarioDirectory, '1.json'),
+      JSON.stringify(await readPersistedAttempt(attemptDirectory, 1))
+    );
+    await writeFile(resolve(scenarioDirectory, '0004.json'), '{');
+    await writeFile(
+      resolve(scenarioDirectory, '0005.json'),
+      JSON.stringify({
+        ...(await readPersistedAttempt(attemptDirectory, 3)),
+        number: 5,
+        assessment: { criteria: [] },
+      })
+    );
+
+    const latestResponse = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/comparison`
+    );
+    const latestComparison = (await latestResponse.json()) as {
+      status: string;
+      criteria: { outcomes: { evidence: string }[] }[];
+    };
+
+    expect(latestResponse.status).toBe(200);
+    expect(warning).toHaveBeenCalledWith(
+      'Skipping malformed Attempt file 0004.json.'
+    );
+    expect(latestComparison.status).toBe('ready');
+    expect(latestComparison.criteria[0]?.outcomes).toEqual([
+      expect.objectContaining({ evidence: 'Evidence from 2.' }),
+      expect.objectContaining({ evidence: 'Evidence from 3.' }),
+    ]);
+
+    const selectedResponse = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/comparison?attempt=1&attempt=3`
+    );
+    const selectedComparison = (await selectedResponse.json()) as {
+      status: string;
+      criteria: { outcomes: { evidence: string }[] }[];
+    };
+
+    expect(selectedResponse.status).toBe(200);
+    expect(selectedComparison.criteria[0]?.outcomes).toEqual([
+      expect.objectContaining({ evidence: 'Evidence from 1.' }),
+      expect.objectContaining({ evidence: 'Evidence from 3.' }),
+    ]);
+
+    const duplicateSelectionResponse = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/comparison?attempt=1`
+    );
+    await expect(duplicateSelectionResponse.json()).resolves.toEqual({
+      status: 'not-enough-attempts',
+    });
+  });
+
   it('marks a Persona turn cut off when the Trainee stops mid-conversation', async () => {
     const attemptDirectory = await createTemporaryDirectory();
     const port = await startCompletionServer(attemptDirectory);

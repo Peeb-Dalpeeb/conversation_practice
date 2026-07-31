@@ -41,9 +41,10 @@ can check the judgment against what they just heard. That is the Assessment. A s
 separate step turns the Assessment into Feedback: coaching prose written for the Trainee,
 which is not allowed to re-judge the Attempt.
 
-Then the Trainee tries again. Afterwards they see the two most recent Attempts side by
-side as a six-by-two grid of met/not-met marks, with the evidence quote for any criterion
-revealed on click. The improvement is the product.
+Then the Trainee tries again. Afterwards they see the two most recent Attempts completed in
+the current browser practice sequence side by side as a six-by-two grid of met/not-met
+marks, with the evidence quote for any criterion revealed on click. The improvement is the
+product.
 
 The one Scenario is "The Customer Who's Had Enough". The Trainee is a service
 representative; the customer, Jordan Avery, opens with *"I'd like to close my account."*
@@ -151,8 +152,9 @@ incident is acknowledged without excuses.
 
 37. As a Trainee, I want to take the Scenario again immediately after reading my Feedback,
     so that I can act on it while I still remember what I said.
-38. As a Trainee, I want to see my two most recent Attempts side by side, so that I can see
-    whether I actually improved.
+38. As a Trainee, I want to see my two most recent Attempts from this browser practice sequence
+    side by side, so that I can see whether I actually improved without an earlier tuning Attempt
+    appearing in the comparison.
 39. As a Trainee, I want the comparison shown as a compact grid of met/not-met marks, so
     that the change is visible at a glance.
 40. As a Trainee, I want the two Attempts labelled relatively — "Previous attempt" and
@@ -264,8 +266,10 @@ verdict per criterion.
 **Feedback call.** A second, separate call that receives the Assessment *and* the
 Transcript and is instructed not to re-judge.
 
-**Storage and comparison.** JSON on disk, Attempts numbered per Scenario, the comparison
-reading the two most recent.
+**Storage and comparison.** JSON on disk, Attempts numbered per Scenario. The browser names the
+last two Attempts completed in its current practice sequence; the server orders and compares those
+records. A comparison request without an explicit selection falls back to the latest two valid,
+current-Rubric Attempts for diagnostics.
 
 ### Provider and models
 
@@ -364,15 +368,17 @@ Judging fires when the Attempt ends, by any of the three routes.
 Attempt records are JSON on disk, numbered per Scenario, each holding the reassembled
 Transcript, the Assessment, and the Feedback.
 
-The comparison **always shows the two most recent Attempts, labelled relatively** —
-"Previous attempt" and "This attempt". By demo day roughly forty tuning Attempts will sit
-on disk, so absolute numbering would put "Attempt 41" on a projector under narration saying
-"attempt one". Relative labels are honest at any number and the spoken narration supplies
-"one" and "two". No pre-demo reset ritual to forget while a room watches.
+The comparison **always shows the two most recent Attempts completed in the current browser
+practice sequence, labelled relatively** — "Previous attempt" and "This attempt". The browser
+passes those persisted Attempt numbers to the server; after the first Attempt in a new sequence,
+the one-Attempt screen is shown even when tuning records already exist. By demo day roughly forty
+tuning Attempts will sit on disk, but none can become the left column of the new sequence. Relative
+labels remain honest at any number and the spoken narration supplies "one" and "two". No pre-demo
+reset ritual to forget while a room watches.
 
-Rejected: absolute numbering plus clearing storage (a manual step on demo day is a
-liability); separate practice and demo storage (real plumbing for a cosmetic problem); an
-Attempt picker (the most UI, and one more thing to click correctly while presenting).
+Rejected: absolute numbering plus clearing storage (a manual step on demo day is a liability);
+separate practice and demo storage (real plumbing for a sequence-boundary problem); an Attempt
+picker (the most UI, and one more thing to click correctly while presenting).
 
 Presentation is a **six-by-two grid of met/not-met**, with evidence quotes revealed on
 click. Legible from the back of a room; the author opens criterion 3 live to show the exact
@@ -434,12 +440,16 @@ observes — the persisted Attempt, the reconstructed turn order, which criteria
 met — and should survive a rewrite of how any of it is computed. Do not assert on internal
 function calls, module structure, or the shape of intermediate values.
 
-### The seam
+### The seams
 
-**One seam: the server's Attempt-completion endpoint.** Post a recorded realtime event log,
-assert the persisted Attempt. The two model calls (Assessment, Feedback) are injected and
-stubbed. This single seam covers turn reassembly, Hang-up tool handling, the hard cap,
-Attempt numbering, persistence, and the pairing of the two most recent Attempts.
+**Primary seam: the server's Attempt-completion endpoint.** Post a recorded realtime event log,
+assert the persisted Attempt. The two model calls (Assessment, Feedback) are injected and stubbed.
+This seam covers turn reassembly, Hang-up tool handling, the hard cap, Attempt numbering,
+persistence, and default latest-valid-pair comparison.
+
+**Browser seam: the rendered Trainee-facing App.** Exercise the public controls and HTTP boundary.
+This seam covers current-sequence selection, the one-Attempt state, evidence disclosure, retry, and
+starting the next Attempt without a reload. It does not assert CSS geometry.
 
 This is the reason reassembly was moved server-side. The alternative — a pure
 events-to-Transcript module tested in the browser package plus a separate HTTP seam taking
@@ -460,8 +470,11 @@ where the Trainee stops mid-conversation.
 - The hard cap terminates the Attempt and triggers judging.
 - Feedback receives the Assessment and the Transcript, and Assessment runs first.
 - Attempts are persisted with Transcript, Assessment and Feedback, numbered per Scenario.
-- The comparison returns the two most recent Attempts, in order, labelled relatively.
+- The default comparison returns the two most recent valid current-Rubric Attempts, in order,
+  labelled relatively.
 - A single existing Attempt yields a coherent no-comparison result rather than an error.
+- The browser requests only the last two Attempts completed in the current practice sequence.
+- Evidence stays absent until its Rubric criterion is expanded, and a failed comparison can retry.
 
 ### What will explicitly not be automated
 
@@ -475,9 +488,10 @@ author has to make by listening.
 The instrument for this is the hidden debug view plus the persisted Attempt records: run
 the Scenario, read back what happened, edit the Scenario file, run it again.
 
-Also not automated: the realtime WebRTC connection itself (managed by the API), and the
-comparison grid's rendering (verified by running it and looking at it on a projector, which
-is the actual acceptance criterion).
+Also not automated: the realtime WebRTC connection itself (managed by the API), and the comparison
+grid's visual geometry and projector legibility (verified by running it and looking at it on a
+projector, which is the actual acceptance criterion). Deterministic browser states and interactions
+are automated at the rendered App seam.
 
 ### Prior art
 
