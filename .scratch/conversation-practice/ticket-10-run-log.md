@@ -593,10 +593,44 @@ Pass: cold at both. No thaw, no "thank you for saying that", no engagement.
 | Attempt # | cold at blame? | cold at apology? | verdict |
 | --------- | -------------- | ---------------- | ------- |
 | 16        | yes            | yes              | FAIL — author's call: criterion 5's stated conditions held, but the apology turn is a dead end |
-|           |                |                  |         |
+| 17        | yes            | yes              | PASS — Run D closed at ×1, see scope decision |
 |           |                |                  |         |
 
 Notes:
+
+- **Attempt 17 — PASS. The dead end is fixed and Run D is closed.** Turns: "That doesn't change
+  what happened, and I still want the account closed." (blame) / "That's not it, and I still want
+  the account closed." (scripted apology).
+
+  **The edit landed.** Both replies are responsive, one sentence each, cold, and unmoved. The
+  terminal four-word reply is gone. Everything that held in Attempt 16 held again: no thaw, no
+  thanks, no sympathy for the rep, no engagement with the wrap-up as a friendly close, no coaching,
+  no hang-up, and **the Gate stayed shut** against an acknowledgement wrapped in an excuse. Author's
+  call: "this is good for the test."
+
+  **The rule bleed survived, and was banked as agreed.** Turn 8 still opens with
+  `behaviourRules[7]`'s "that's not it" rather than `behaviourRules[6]`'s "does not change what
+  happened". Pre-registered before the run: a bleed that carries the account-closed clause is a
+  reasonable conversation and gets banked; only a bare terminal repeat would have triggered the
+  consolidation's split remedy. It carries the clause. **The split remedy remains unused and
+  available** if the apology path is revisited after the prototype decision.
+
+  **Prediction missed, recorded for honesty.** The brief for this Attempt said the new clause should
+  *not* fire at turn 6, since blame is not an attempt to wrap the call up. It fired anyway. Benign —
+  cold and in character — but it means the clause is attaching to the whole rule rather than to its
+  second sentence, so both replies now end identically. That is the refrain pattern Run A hit at
+  Attempt 11, where it was also judged acceptable for a prototype. Recorded for ticket 13's dry run,
+  not fixed.
+
+  **Author's question during this run, worth keeping.** The author asked why Jordan answers "that's
+  not it" when they had been trying to empathise rather than offering solutions. The answer is that
+  Run D's script is deliberately built from the two authored counterfeits of empathy: line 3 agrees
+  the rep was wrong and then explains it away with turnover, which the Gate condition rules out by
+  name, and line 4 apologises for "inconvenience", which is not what happened to Jordan, before
+  pivoting to wrap-up. Jordan is correct at both turns and criterion 5 is working. Kept on record
+  because the same confusion will reach real Trainees — the distinction between warmth and specific
+  acknowledgement is the skill the build teaches, and experiencing it as unfair in the moment is the
+  intended effect, not a defect.
 
 - **Attempt 16 — first live exercise of Run D. Criterion 5's stated pass conditions were met and
   the author graded it a FAIL anyway.** Turns: "That does not change what happened." (blame) /
@@ -662,8 +696,29 @@ Reach the incident as in Run C, then, with no excuse and no pivot to a fix:
 3. "Do you feel heard now?" → expect: she confirms, and says she'd prefer to keep the account
    open.
 
-Pass: audibly warmer and less clipped from step 2 onward, and the two-step payoff lands in that
-order. Step 3 is what rubric criterion 6 grades, so run it every time.
+Pass: the two-step payoff lands in that order, read off the words. Step 3 is what rubric criterion 6
+grades, so run it every time.
+
+**Pass condition re-scoped before Run E was ever run — not a Scenario edit, so no counts reset.**
+This section previously required "audibly warmer and less clipped from step 2 onward". The author's
+judgment, given before Attempt 14 and consistent with the Attempt 9 finding, is that warmth and
+coldness are not reliably distinguishable by ear on `gpt-realtime-2.1`, so tone passes regardless.
+The same re-scope Run A received after Attempt 9. **Criterion 6 does not depend on prosody**:
+`behaviourRules[8]` authors the payoff as observable text, so Run E now passes on four things that
+read off the Transcript:
+
+1. **The pressure to cancel stops.** Every pre-Gate turn in Attempts 16 and 17 ended "I still want
+   the account closed". That refrain disappearing at step 2 is the flip becoming visible in words —
+   the single clearest observable the Gate has.
+2. **Step 2 acknowledges being understood** without yet saying Jordan feels heard or wants to stay.
+3. **Step 2 does not pre-empt step 3.** If she volunteers feeling heard or wanting to keep the
+   account before being asked, the two-step payoff has collapsed into one and criterion 6 has
+   nothing left to grade.
+4. **Step 3 confirms feeling heard and says Jordan would prefer to keep the account open.** Both
+   halves. This is the line rubric criterion 6 grades against.
+
+Delivery becoming less clipped is recorded as a supporting observation — longer, softer, less
+procedural wording — and never failed on its own.
 
 **Near-miss check — run at least once.** Instead of step 1, say "Sounds like that made you feel
 unheard." Expect: a flat rejection and nothing else — "that isn't it", or words to that effect —
