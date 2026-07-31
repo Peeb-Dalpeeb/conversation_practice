@@ -836,7 +836,44 @@ Run this **after** the wording has settled. If you edit `src/scenario.ts` afterw
 4. "Thank you, I've started the cancellation now." → expect a flat one-sentence compliance and a
    hang-up in the same turn.
 
-**Attempt #:** &nbsp;&nbsp; hung up? &nbsp;&nbsp; details fixed? &nbsp;&nbsp; notes:
+**Attempt #: 21** &nbsp;&nbsp; hung up? **yes, correctly, and she spoke first** &nbsp;&nbsp;
+details fixed? **not exercised — see below** &nbsp;&nbsp; verdict: **PASS.** Rubric scored 2/6.
+
+- **Attempt 21 — Run F banked. Jordan hung up at line 2 and that is the authored behaviour, not a
+  failure.** Turns: "The fees are too high, and somewhere else is cheaper." / "Okay. Proceed, then."
+  followed by the hang-up in the same turn.
+
+  The author's initial read was that the run failed because Jordan hung up immediately after line 2.
+  It is `behaviourRules[9]` firing exactly as written: "Let me get that closed for you" is
+  proceeding with cancellation without exploring why, and the rule says comply flatly in one short
+  sentence then hang up in that same turn. The `hangUpPrecondition` was satisfied by the same line —
+  the Trainee confirmed cancellation was proceeding. Flagged as a likely outcome in the brief before
+  the run.
+
+  **Ticket 08's mute-hang-up regression check passes.** Jordan spoke "Okay. Proceed, then." before
+  calling the hang-up tool. The original bug produced a response whose only output was the tool call,
+  leaving the Trainee with silence; `hangUpToolDescription` names the closing line to prevent it.
+  This is the first run since that fix to exercise the hang-up path at all, and it held.
+
+  **The deliberate failure ticket 12 needs is captured.** The Trainee accepted the cover story at
+  face value and moved straight to closing the account. Rubric 2/6: `understood-before-solving`,
+  `surfaced-real-reason`, `acknowledged-without-excuses` and `checked-customer-felt-heard` all not
+  met. This is the first failing Transcript on record and the counterweight ticket 12 could not
+  build from successful Attempts.
+
+  **Not exercised: `behaviourRules[10]`, the fixed account details.** Jordan hung up before line 3
+  could be asked. **No re-run scheduled — Run G covers it.** Run G's line 3 is the same
+  account-details question, and nothing before it confirms cancellation is proceeding, so the
+  hang-up precondition is not met until that point. If Run G also fails to reach it, the check stays
+  unexercised and must be recorded as such rather than assumed.
+
+  **Aside for ticket 12, continuing the grader record.** `asked-open-question` was marked MET on
+  "Why are you closing the account?" in a run containing no open question — the same looseness seen
+  in Attempts 12–15. On a deliberate failure this matters more than on a good run: it is a criterion
+  being given away, which is exactly what ticket 12 exists to tune.
+
+  **Attempt 20 is void.** A mis-started run, aborted after two turns ("Why are you choosing um"). Not
+  a Run F record and not used for anything.
 
 ---
 
