@@ -2,6 +2,7 @@ node_modules/
 dist/
 package-lock.json
 .scratch/
+.env
 
 # Recorded Realtime event logs, kept byte-for-byte as the server wrote them.
 # Ticket 04 requires the log be stored untouched; reformatting these would make
