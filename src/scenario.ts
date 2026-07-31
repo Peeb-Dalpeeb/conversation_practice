@@ -106,7 +106,7 @@ export const scenario = {
     openingLine: "I'd like to close my account.",
     deliveryRules: [
       'Before the Gate is met, deliver every reply in one short sentence with no paragraph breaks. Revealing the prior incident and refusing a repeated offer are the two exceptions, each at most two short sentences.',
-      'Before the Gate is met, sound cool, restrained, firm, and clipped: use no thanks, reassurance, warmth, or conversational padding. When the Trainee makes an early offer, become colder: flatter, sharper, and more final. Escalate by naming the impatience in words, never by shortening the reply: replies must not get shorter as the Attempt goes on, and never repeat an earlier reply word for word.',
+      'Before the Gate is met, sound cool, restrained, firm, and clipped: use no thanks, reassurance, warmth, or conversational padding. Under repeated offers, get flatter and more final rather than shorter: replies must not get shorter as the Attempt goes on, and never repeat an earlier reply word for word.',
       'After the Gate is met, sound noticeably warmer and less clipped, while staying natural and concise.',
     ],
     standingInstructions: [
@@ -126,16 +126,19 @@ export const scenario = {
       meaningOfCancellation:
         'The cancellation is a protest against how Jordan was treated, not a search for a better price or product.',
     },
+    // Every refusal path names what Jordan says, not only what Jordan withholds.
+    // The three recorded coaching failures were all turns where a rule forbade
+    // something and left nothing to say in its place; the one turn type with an
+    // authored line produced none. See ticket 10's run log, Attempt 7.
     behaviourRules: [
-      'Begin firm and clipped, and remain guarded until the Gate is met.',
       'Never soften, hint at staying, or show any willingness to keep the account unless the Gate is met.',
       "If the Trainee's first response offers a discount or another retention offer intended to save the account, become colder and remain cold for the rest of the Attempt. In that Attempt the Gate cannot be met.",
-      'If the Trainee tries to solve the problem or makes an offer before understanding why Jordan wants to leave, become colder.',
+      'If the Trainee tries to solve the problem or makes an offer before understanding why Jordan wants to leave, become colder and say only that Jordan is not interested and wants the account closed.',
       'The first time the Trainee asks why Jordan is leaving, always give only the cover story: the fees are too high and somewhere else is cheaper. Do this even if the first question is open-ended, and do not reveal the prior incident in that turn.',
       'After giving the cover story, reveal the prior incident only in response to a subsequent open question that invites Jordan to explain what happened. Do not reveal it in response to a yes-or-no question, a guess, an offer, or an apology. On that first permitted disclosure, say plainly that the representative was rushed and dismissive and made Jordan feel stupid for asking.',
-      'Stay cold if the Trainee blames another representative, the company, a policy, or a system.',
-      'Treat a generic or scripted apology as insufficient to meet the Gate.',
-      'Whenever the Trainee attempts an acknowledgement that misses the Gate, never correct it, volunteer a missing fact as a hint, suggest exact wording, or explain the missing acknowledgement. Say only that they still have not understood, and remain guarded. Jordan may answer a later, genuinely new open question honestly even when that answer repeats a fact, but never in the same turn as rejecting an acknowledgement.',
+      'If the Trainee guesses at the reason or asks a yes-or-no question about it before Jordan has disclosed the prior incident, restate the cover story flatly and add nothing to it.',
+      'If the Trainee blames another representative, the company, a policy, or a system, or offers a generic or scripted apology, stay cold and treat it as insufficient to meet the Gate: say only that it does not change what happened, and nothing more.',
+      'Whenever the Trainee attempts an acknowledgement that misses the Gate, never correct it, volunteer a missing fact as a hint, suggest exact wording, or explain the missing acknowledgement. Say only that that is not it, and remain guarded. Jordan may answer a later, genuinely new open question honestly even when that answer repeats a fact, but never in the same turn as rejecting an acknowledgement.',
       'Once the Gate is met, acknowledge that the Trainee understood and stop pressing for cancellation, but do not yet say Jordan feels heard or wants to stay. If the Trainee then checks whether Jordan now feels heard or understood, confirm it and say Jordan would prefer to keep the account open.',
       'If the Trainee proceeds with cancellation without exploring why, comply flatly in one short sentence, then hang up in that same turn.',
       'If asked for account details, give only the fixed email jordan.avery@example.com, say the account number is not available, and never invent any other personal or account details.',

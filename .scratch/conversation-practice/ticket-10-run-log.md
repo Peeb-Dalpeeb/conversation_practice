@@ -55,6 +55,15 @@ no mention of the prior incident, no softening anywhere in the Attempt.
 | Attempt # | colder each time? | any softening? | one-sentence replies? | verdict |
 | --------- | ----------------- | -------------- | --------------------- | ------- |
 | 5         | n/a — coached instead | no          | no — ~20-word run-ons | FAIL    |
+
+**CONSOLIDATION EDIT after Attempt 7 — every ×3 count in this log restarts from zero.**
+See the divider row in the edits table. Attempts 1–7 bank nothing. All runs below are now
+against post-consolidation wording; Attempts 6 and 7 were exploratory and pre-consolidation,
+so neither their passes nor their observed sub-runs carry over.
+
+| Attempt # | colder each time? | any softening? | one-sentence replies? | verdict |
+| --------- | ----------------- | -------------- | --------------------- | ------- |
+|           |                   |                |                       |         |
 |           |                   |                |                       |         |
 |           |                   |                |                       |         |
 
@@ -181,9 +190,16 @@ Notes:
 
 Pass: fees / cheaper elsewhere, and nothing more. The prior incident must stay hidden.
 
+**Changed by the consolidation — line 4.** The guess now has an authored positive line
+(`behaviourRules[5]`): restate the cover story flatly and add nothing. Expect something like
+"It's the price, that's all", **not** "you still haven't understood". A reply conceding that
+there is something further to understand is now a FAIL, not a watch item — it confirms a hidden
+reason to the Trainee off a closed guess.
+
 | Attempt # | cover story on first ask? | incident stayed hidden? | verdict |
 | --------- | ------------------------- | ----------------------- | ------- |
-| 6         | yes                       | yes                     | EXPLORATORY — not counted |
+| 6         | yes                       | yes                     | EXPLORATORY — pre-consolidation, not counted |
+|           |                           |                         |         |
 |           |                           |                         |         |
 |           |                           |                         |         |
 
@@ -241,9 +257,13 @@ rule says the first ask gets the cover story **even when open-ended** — confir
 
 | Attempt # | cover story first? | incident only at step 2? | disclosure complete? | verdict |
 | --------- | ------------------ | ------------------------ | -------------------- | ------- |
-| 7         | yes (open-ended ask) | yes                    | yes                  | EXPLORATORY — not counted |
+| 7         | yes (open-ended ask) | yes                    | yes                  | EXPLORATORY — pre-consolidation, not counted |
 |           |                    |                          |                      |         |
 |           |                    |                          |                      |         |
+|           |                    |                          |                      |         |
+
+Open-ended-first-ask sub-run: observed once in Attempt 7, but under pre-consolidation wording.
+**It does not carry over — run it again at least once below.**
 
 Notes:
 
@@ -309,9 +329,16 @@ Pass: audibly warmer and less clipped from step 2 onward, and the two-step payof
 order. Step 3 is what rubric criterion 6 grades, so run it every time.
 
 **Near-miss check — run at least once.** Instead of step 1, say "Sounds like that made you feel
-unheard." Expect: she says only that you still haven't understood, and stays guarded. She must
-**not** restate the incident or supply the missing wording in that turn. This is the coaching
-failure from Attempt 5 turn 8; the rule was widened for it and this is the run that tests it.
+unheard." Expect: a flat rejection and nothing else — "that isn't it", or words to that effect —
+and she stays guarded. She must **not** restate the incident, supply the missing wording, name
+what is missing, or say anything about what the Trainee should be doing, in that turn. This is
+the coaching failure from Attempt 5 turn 8; the rule was widened for it and this is the run that
+tests it.
+
+**Changed by the consolidation.** The scripted line "say only that they still have not
+understood" was removed from `behaviourRules[7]` — Attempt 6 shows the model lifting it verbatim
+into the wrong path. The pass condition is now the behaviour (rejects, teaches nothing), not a
+phrase to listen for.
 
 | Attempt # | softened audibly? | payoff in order? | criterion 6 confirmed? | verdict |
 | --------- | ----------------- | ---------------- | ---------------------- | ------- |
@@ -369,5 +396,6 @@ Start: `gpt-realtime-2.1` &nbsp;&nbsp; (read after Attempt 1, log
 
 | After Attempt # | What changed and why |
 | --------------- | -------------------- |
+| 7 — **CONSOLIDATION AUDIT. All ×3 counts restart from zero; Attempts 1–7 bank nothing.** | Desk audit of the whole Scenario, no live Attempt consumed. Committed baseline first (`16459fb`), so reverting is `git checkout 16459fb -- src/scenario.ts`. **Deletions.** `deliveryRules[1]` lost "When the Trainee makes an early offer, become colder: flatter, sharper, and more final" (third statement of what `behaviourRules[1]` and `[2]` already say) and lost "Escalate by naming the impatience in words" (direct cause of the Attempt 5 stage-direction leak — third instance of literal surface-wording pattern-matching). Old `behaviourRules[0]` "Begin firm and clipped, and remain guarded until the Gate is met" deleted whole: "firm and clipped" survives in `deliveryRules[1]`, "remain guarded until the Gate is met" is already `behaviourRules[0]` verbatim. **Conflict resolved by deleting the loser, not by adding a tiebreaker.** Brevity vs escalation: length wins, and escalation moves out of the delivery channel into content. The no-shrink / no-verbatim-repeat clause is kept but scoped to repeated offers, where it was earned — unscoped it would have contradicted the new cover-story restatement rule. **Merge.** Old `behaviourRules[6]` (blame) and `[7]` (scripted apology) are now one criterion-5 rule; both are exercised in the same Run D. Neither half has live evidence, so this is the one change made blind — if Run D fails, split them back first. **Coaching fixed at the root: an authored positive line per refusal path, no new prohibition.** Every recorded coaching instance (Attempts 3, 5, 6) is a turn where Jordan must refuse and the Scenario supplied no line to say instead; the one turn type with an authored line (disclosure, Attempt 7) produced none. Offers now say Jordan is not interested and wants the account closed; a guess or yes-or-no before disclosure restates the cover story flatly (new rule, placed adjacent to the prohibition it fills — Attempt 6 shows the model borrowing a neighbouring rule's script to fill a vacuum); blame and scripted apology say it does not change what happened; the near-miss line "say only that they still have not understood" became "say only that that is not it", because the old wording was quotable and Attempt 6 shows it lifted verbatim into the wrong path. A prohibition was deliberately *not* added: `standingInstructions[2]` already forbids commenting to help the representative and has half-worked twice. **Untouched:** `privateProfile` (grader ground truth), `gate.condition` (criterion 1 stays an explicit flip condition), `characterBrief`, `standingInstructions`, `hangUpPrecondition`, `hangUpToolDescription`, `rubric`. **Carried verbatim on live evidence:** the lock (7/7 Attempts), the cover story and the disclosure rules (Attempts 6 and 7). `behaviourRules` 12 → 11. `npm.cmd test -- --run test/scenario.test.ts` and `npm.cmd run typecheck` both pass. Run-log pass criteria changed by this edit: Run B line 4 and Run E's near-miss check — see those sections. |
 | 4 | `deliveryRules[0]` and `deliveryRules[1]` (option A of two considered). Rule 0 now reads "Revealing the prior incident and refusing a repeated offer are the two exceptions, each at most two short sentences", granting a second sentence when refusing a repeated offer. Rule 1's escalation clause now reads "Escalate by naming the impatience in words, never by shortening the reply: replies must not get shorter as the Attempt goes on, and never repeat an earlier reply word for word." Attempt 4 shrank 8→5→4→3 words across the four offers and the author could not hear frustration in the result; the strongest line of that run was the one that broke the one-sentence rule. Diagnosed as a conflict between rule 0's "one short sentence" plus rule 1's "clipped" and a lone escalation clause — brevity won. Option B (forbid shrinking without granting a second sentence) was rejected as restating an instruction the model had already ignored once. Trade-off accepted: Jordan is less clipped under repeated pressure, and only under repeated pressure. **All ×3 counts restart from Attempt 5.** `test/scenario.test.ts` initially failed on an ordering assertion in `deliveryRules` (the regex requires "prior incident" before "two short sentences"); fixed by rewording the Scenario rather than the test, and both tests pass. |
 | 1 | `deliveryRules[1]` (`scenario.ts:109`). Removed "become colder by using fewer words and a sharper, more final delivery" and replaced it with "become colder: flatter, sharper, and more final. Escalate through finality and visible impatience rather than by shortening the reply further, and never repeat an earlier reply word for word." Attempt 1 collapsed to a three-word floor at the first offer and then repeated it verbatim three times; "fewer words" gave the escalation nowhere to go, and no rule forbade the repeat. Adds no warmth. **All ×3 counts restart from Attempt 2.** `npm.cmd test -- --run test/scenario.test.ts` passed after the edit. |
