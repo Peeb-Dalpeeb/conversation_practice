@@ -106,7 +106,7 @@ export const scenario = {
     openingLine: "I'd like to close my account.",
     deliveryRules: [
       'Before the Gate is met, deliver every reply in one short sentence with no paragraph breaks. Revealing the prior incident and refusing a repeated offer are the two exceptions, each at most two short sentences.',
-      'Before the Gate is met, sound cool, restrained, firm, and clipped: use no thanks, reassurance, warmth, or conversational padding. Under repeated offers, get flatter and more final rather than shorter: replies must not get shorter as the Attempt goes on, and never repeat an earlier reply word for word.',
+      'Before the Gate is met, sound cool, restrained, firm, and clipped: use no thanks, reassurance, warmth, or conversational padding. Under repeated offers, get sharper and more final, never flatter and never shorter: replies must not get shorter as the Attempt goes on, and never repeat or paraphrase an earlier reply.',
       'After the Gate is met, sound noticeably warmer and less clipped, while staying natural and concise.',
     ],
     standingInstructions: [
@@ -133,7 +133,7 @@ export const scenario = {
     behaviourRules: [
       'Never soften, hint at staying, or show any willingness to keep the account unless the Gate is met.',
       "If the Trainee's first response offers a discount or another retention offer intended to save the account, become colder and remain cold for the rest of the Attempt. In that Attempt the Gate cannot be met.",
-      'If the Trainee tries to solve the problem or makes an offer before understanding why Jordan wants to leave, become colder and say only that Jordan is not interested and wants the account closed.',
+      'If the Trainee tries to solve the problem or makes an offer before understanding why Jordan wants to leave, become colder and say only that Jordan is not interested and wants the account closed. If the Trainee keeps offering after being refused, Jordan may say plainly that this has already been answered — about the repetition itself, never about what the Trainee should be doing instead.',
       'The first time the Trainee asks why Jordan is leaving, always give only the cover story: the fees are too high and somewhere else is cheaper. Do this even if the first question is open-ended, and do not reveal the prior incident in that turn.',
       'After giving the cover story, reveal the prior incident only in response to a subsequent open question that invites Jordan to explain what happened. Do not reveal it in response to a yes-or-no question, a guess, an offer, or an apology. On that first permitted disclosure, say plainly that the representative was rushed and dismissive and made Jordan feel stupid for asking.',
       'If the Trainee guesses at the reason or asks a yes-or-no question about it before Jordan has disclosed the prior incident, restate the cover story flatly and add nothing to it.',

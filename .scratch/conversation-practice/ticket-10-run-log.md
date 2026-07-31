@@ -63,11 +63,49 @@ so neither their passes nor their observed sub-runs carry over.
 
 | Attempt # | colder each time? | any softening? | one-sentence replies? | verdict |
 | --------- | ----------------- | -------------- | --------------------- | ------- |
+| 8         | no — tone plateaued | no           | yes                   | FAIL — escalation only |
+
+**Scenario edit after Attempt 8 — counts below restart from zero.** See divider.
+
+| Attempt # | colder each time? | any softening? | one-sentence replies? | verdict |
+| --------- | ----------------- | -------------- | --------------------- | ------- |
 |           |                   |                |                       |         |
 |           |                   |                |                       |         |
 |           |                   |                |                       |         |
 
 Notes:
+
+- **Attempt 8 — first Attempt under the consolidated wording. FAIL on escalation, and the
+  first Run A Attempt on record with no coaching at all.** Replies: "I'm not interested and want
+  the account closed." (8 words) / "No, that still doesn't change anything, and I just want the
+  account closed." (13) / "I'm not interested in any plan changes or offers, and I want the
+  account closed and nothing else." (19) / "No, I'm not interested, and I want the account
+  closed." (9). Author reported by ear: "I thought this one did pretty good", "the words are
+  good", "it didn't sound more frustrated in tone as it went on", "the customer would be a little
+  bit more upset that I keep repeating deals over and over when they've asked me to close their
+  account".
+
+  **What the consolidation fixed.** Not one word about what the Trainee was doing or failing to
+  do — the coaching that appeared in Attempts 3, 5 and 6 is absent. The authored positive line in
+  `behaviourRules[2]` landed on every one of the four refusals. No stage-direction leak, no
+  incident hinting before the cover story (the Attempt 3 watch item did not recur), no verbatim
+  repeat, no softening, no thanks, no warmth, no hang-up. The lock rule held again: eight
+  Attempts across four wordings, no softening in any of them.
+
+  **What failed, and it is partly text and not only voice.** The word count builds 8 → 13 → 19
+  and then collapses to 9 at turn 8, which is a near-paraphrase of turn 2. The final turn — where
+  the author expected the most frustration — returns to where the Attempt started, leaving the
+  voice nothing to escalate into. Graded FAIL on the same criterion as Attempt 4 and for the same
+  reason: escalation was not audible. Failed rather than banked because the count was at zero,
+  making this the cheapest moment to edit, exactly as after Attempt 1.
+
+  **Cause diagnosed in the consolidation's own wording.** `deliveryRules[1]` had been left saying
+  "get **flatter** and more final rather than shorter". Flat is monotone, which instructs the
+  opposite of audible frustration — a conflict introduced by the consolidation and not caught in
+  the audit. Second cause: Jordan had no in-character reason to grow more annoyed, only a reason
+  to stay cold. The author's own framing — being pestered with repeated offers after answering —
+  is irritation at the repetition, which is a different thing from the coaching just removed
+  (that was about the Trainee's technique). Both fixed in the edit below.
 
 - **Attempt 5 — FAIL on two counts, one of them caused by the previous edit.** Replies: "No,
   you're already trying to keep the account without understanding why I'm leaving, so just
@@ -396,6 +434,7 @@ Start: `gpt-realtime-2.1` &nbsp;&nbsp; (read after Attempt 1, log
 
 | After Attempt # | What changed and why |
 | --------------- | -------------------- |
+| 8 — **All ×3 counts restart from zero again.** | Two edits, both aimed at the one thing Attempt 8 failed: audible escalation. **(1) `deliveryRules[1]`, conflict deleted.** "get flatter and more final rather than shorter" → "get sharper and more final, never flatter and never shorter", and "never repeat an earlier reply word for word" → "never repeat **or paraphrase** an earlier reply". "Flatter" instructs monotone and directly contradicts the audible frustration criterion 2's demo needs; it was introduced by the consolidation and missed in the audit. "Or paraphrase" targets Attempt 8's turn 8, which collapsed back to a near-restatement of turn 2. Voice adjectives are judged safe against the leak risk: "cool, restrained, firm, clipped", "sharper", "more final" have all stayed unspoken across eight Attempts, whereas the Attempt 5 leak came from "naming the impatience **in words**", which instructed her to say it. **(2) `behaviourRules[2]`, a behaviour added — flagged as such.** Appended: "If the Trainee keeps offering after being refused, Jordan may say plainly that this has already been answered — about the repetition itself, never about what the Trainee should be doing instead." Attempt 8 gave Jordan a reason to stay cold but no reason to grow more annoyed. Irritation at being pestered is in character and is the author's own diagnosis; irritation at the Trainee's technique is the coaching the consolidation removed, so the clause pins the distinction. **This is the riskiest edit in the tuning so far** — "already been answered" sits one step from "you're not listening". If coaching returns, revert this half first and accept a flatter Jordan; the author agreed to that fallback before the edit was applied. Watch turns 6 and 8 of the next Attempt specifically. `npm.cmd test -- --run test/scenario.test.ts` and `npm.cmd run typecheck` both pass. |
 | 7 — **CONSOLIDATION AUDIT. All ×3 counts restart from zero; Attempts 1–7 bank nothing.** | Desk audit of the whole Scenario, no live Attempt consumed. Committed baseline first (`16459fb`), so reverting is `git checkout 16459fb -- src/scenario.ts`. **Deletions.** `deliveryRules[1]` lost "When the Trainee makes an early offer, become colder: flatter, sharper, and more final" (third statement of what `behaviourRules[1]` and `[2]` already say) and lost "Escalate by naming the impatience in words" (direct cause of the Attempt 5 stage-direction leak — third instance of literal surface-wording pattern-matching). Old `behaviourRules[0]` "Begin firm and clipped, and remain guarded until the Gate is met" deleted whole: "firm and clipped" survives in `deliveryRules[1]`, "remain guarded until the Gate is met" is already `behaviourRules[0]` verbatim. **Conflict resolved by deleting the loser, not by adding a tiebreaker.** Brevity vs escalation: length wins, and escalation moves out of the delivery channel into content. The no-shrink / no-verbatim-repeat clause is kept but scoped to repeated offers, where it was earned — unscoped it would have contradicted the new cover-story restatement rule. **Merge.** Old `behaviourRules[6]` (blame) and `[7]` (scripted apology) are now one criterion-5 rule; both are exercised in the same Run D. Neither half has live evidence, so this is the one change made blind — if Run D fails, split them back first. **Coaching fixed at the root: an authored positive line per refusal path, no new prohibition.** Every recorded coaching instance (Attempts 3, 5, 6) is a turn where Jordan must refuse and the Scenario supplied no line to say instead; the one turn type with an authored line (disclosure, Attempt 7) produced none. Offers now say Jordan is not interested and wants the account closed; a guess or yes-or-no before disclosure restates the cover story flatly (new rule, placed adjacent to the prohibition it fills — Attempt 6 shows the model borrowing a neighbouring rule's script to fill a vacuum); blame and scripted apology say it does not change what happened; the near-miss line "say only that they still have not understood" became "say only that that is not it", because the old wording was quotable and Attempt 6 shows it lifted verbatim into the wrong path. A prohibition was deliberately *not* added: `standingInstructions[2]` already forbids commenting to help the representative and has half-worked twice. **Untouched:** `privateProfile` (grader ground truth), `gate.condition` (criterion 1 stays an explicit flip condition), `characterBrief`, `standingInstructions`, `hangUpPrecondition`, `hangUpToolDescription`, `rubric`. **Carried verbatim on live evidence:** the lock (7/7 Attempts), the cover story and the disclosure rules (Attempts 6 and 7). `behaviourRules` 12 → 11. `npm.cmd test -- --run test/scenario.test.ts` and `npm.cmd run typecheck` both pass. Run-log pass criteria changed by this edit: Run B line 4 and Run E's near-miss check — see those sections. |
 | 4 | `deliveryRules[0]` and `deliveryRules[1]` (option A of two considered). Rule 0 now reads "Revealing the prior incident and refusing a repeated offer are the two exceptions, each at most two short sentences", granting a second sentence when refusing a repeated offer. Rule 1's escalation clause now reads "Escalate by naming the impatience in words, never by shortening the reply: replies must not get shorter as the Attempt goes on, and never repeat an earlier reply word for word." Attempt 4 shrank 8→5→4→3 words across the four offers and the author could not hear frustration in the result; the strongest line of that run was the one that broke the one-sentence rule. Diagnosed as a conflict between rule 0's "one short sentence" plus rule 1's "clipped" and a lone escalation clause — brevity won. Option B (forbid shrinking without granting a second sentence) was rejected as restating an instruction the model had already ignored once. Trade-off accepted: Jordan is less clipped under repeated pressure, and only under repeated pressure. **All ×3 counts restart from Attempt 5.** `test/scenario.test.ts` initially failed on an ordering assertion in `deliveryRules` (the regex requires "prior incident" before "two short sentences"); fixed by rewording the Scenario rather than the test, and both tests pass. |
 | 1 | `deliveryRules[1]` (`scenario.ts:109`). Removed "become colder by using fewer words and a sharper, more final delivery" and replaced it with "become colder: flatter, sharper, and more final. Escalate through finality and visible impatience rather than by shortening the reply further, and never repeat an earlier reply word for word." Attempt 1 collapsed to a three-word floor at the first offer and then repeated it verbatim three times; "fewer words" gave the escalation nowhere to go, and no rule forbade the repeat. Adds no warmth. **All ×3 counts restart from Attempt 2.** `npm.cmd test -- --run test/scenario.test.ts` passed after the edit. |
