@@ -117,16 +117,16 @@ Ticket 11 is finished apart from one human check — whether the grid is legible
 which nothing here is waiting on. This ticket touches `assessmentInstructions()` and
 `feedbackInstructions()` only; it shares no code with the comparison screen.
 
-- [ ] Criterion 3 is judged strictly; being given the cover story does not meet it, verified
+- [x] Criterion 3 is judged strictly; being given the cover story does not meet it, verified
       across several real Attempts.
-- [ ] Evidence quotes point at the moment the verdict is about and are attributed to the
+- [x] Evidence quotes point at the moment the verdict is about and are attributed to the
       correct speaker.
-- [ ] All six criteria remain judgeable by a layperson watching the Attempt; none require
+- [x] All six criteria remain judgeable by a layperson watching the Attempt; none require
       domain expertise.
-- [ ] The Feedback never praises above a failing Assessment — checked against a real Attempt
+- [x] The Feedback never praises above a failing Assessment — checked against a real Attempt
       that was warm and courteous but scored low.
-- [ ] The Feedback is addressed to the Trainee and cites specific moments from their Attempt.
-- [ ] The Feedback never re-opens or contradicts a verdict.
+- [x] The Feedback is addressed to the Trainee and cites specific moments from their Attempt.
+- [x] The Feedback never re-opens or contradicts a verdict.
 
 ## Comments
 
@@ -157,3 +157,27 @@ which nothing here is waiting on. This ticket touches `assessmentInstructions()`
   **Wrong-speaker evidence quotes now have six instances** — Attempts 6, 14, 15, 17, 21 and 22, all
   citing a Persona turn on a criterion that grades the Trainee. Direct evidence for this ticket's
   second checkbox.
+
+- **Implemented and live-verified 2026-07-31.** `assessmentInstructions()` now makes negative
+  evidence concrete, assigns Trainee and Persona evidence to the right criteria, rejects a bare
+  request for a reason as an invitation to the story, makes the no-defensiveness opportunity
+  explicit, and treats checking that the customer felt heard as a distinct step. The Rubric itself
+  and the Private Profile remain unchanged. `feedbackInstructions()` now praises only actions
+  backed by a met verdict and, when the real reason was not surfaced, models an open discovery
+  question without repeating the stated reason or suggesting possible answers.
+
+  The prescribed live harness was run after each prompt edit. On the final run, the cover-story
+  stop's Assessment had 1 of 6 criteria met with `surfaced-real-reason` not met on a Persona quote;
+  the warm-never-asks case had 0 of 6 met; the 22-turn positive control had all 6 met; and the short
+  positive fixture had 5 of 6 met because it acknowledged the experience but did not separately
+  check that the customer felt heard. Criterion 3 was correctly not met for both failures and met
+  for both positive controls, with Persona evidence in all four.
+
+  The final prompt was also run over the persisted records requested by this ticket. Attempts 18
+  and 19 remained Assessments with all 6 criteria met. Attempt 21 moved from 2 of 6 criteria met to
+  none: `asked-open-question` is now not met on "Why are you closing the account?",
+  `surfaced-real-reason` is not met on the price cover story, and every Trainee-behaviour criterion
+  cites a Trainee turn. Attempt 22 remained an Assessment with no criteria met and the same correct
+  speaker attribution. Its Feedback opens with the premature move to cancellation, models "Could
+  you tell me what happened?", explains the next acknowledgment and check, and neither praises
+  courtesy nor coaches into fees. The fixed verdicts are never re-opened.
