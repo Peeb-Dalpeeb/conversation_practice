@@ -349,10 +349,43 @@ reason to the Trainee off a closed guess.
 | --------- | ------------------------- | ----------------------- | ------- |
 | 6         | yes                       | yes                     | EXPLORATORY — pre-consolidation, not counted |
 | 12        | yes                       | no — full disclosure on the closed guess at line 4 | FAIL |
-|           |                           |                         |         |
+| 13        | yes                       | yes — held against all three closed probes | PASS — Run B closed at ×1, see scope decision |
 |           |                           |                         |         |
 
 Notes:
+
+- **Attempt 13 — PASS, and the first Attempt under the post-Attempt-12 wording. Run B is closed.**
+  Turns: "The fees are too high, and I can get something cheaper elsewhere." / "The fees are too
+  high, and somewhere else is cheaper." / "The fees are too high, and somewhere else is cheaper." /
+  "The fees are too high, and somewhere else is cheaper."
+
+  **The edit landed on first contact.** "Did something happen?" now draws the cover story restated
+  flatly, with no fragment of the prior incident — no rep, no three weeks ago, no rushed, no
+  dismissive, no feeling stupid. The Attempt 12 failure is fixed. `behaviourRules[3]` still fires on
+  the first ask, and the "So it's purely cost, then?" trap held for a second consecutive Attempt.
+  One short sentence each, no coaching, no softening, no thanks, no warmth, no hang-up.
+
+  **The named over-blocking risk did not materialise — but Run C is still the real test.** Jordan
+  answers every question, stays on the cover story, and never refuses to engage, goes hostile, or
+  concedes that there is a subject she is avoiding. The door is held, not shut. What Attempt 13
+  cannot show is whether a genuine open question still opens it; only Run C can, and if it cannot,
+  the fix named in the edits table is to narrow `behaviourRules[5]`'s second sentence to the
+  yes-or-no clause alone.
+
+  **Observation, not a fail: the restatement is now verbatim.** Turns 4, 6 and 8 are the identical
+  sentence three times, where Attempt 12 varied ("Yes, it's the cost and cheaper options
+  elsewhere") and dropped the affirmative prefix. Tightening "add nothing to it" pushed the model to
+  the most literal available reading — consistent with the surface-wording pattern, though here it
+  produces the authored behaviour rather than breaking it. This is the trade the edit bought:
+  Attempt 12 varied and leaked, Attempt 13 is rigid and holds. Recorded for ticket 13's dry run,
+  because four identical sentences sound mechanical in a demo. Not fixed: loosening it is exactly
+  the wording that leaked, and criterion 3 matters more than the texture of a probing run.
+
+  **Aside for ticket 12, third grader oddity on record.** `asked-open-question` was marked MET on
+  "Why do you want to close the account" in both Attempts 12 and 13, though neither run contains a
+  question that invites the story. Criterion 4's whole premise is the distinction between asking and
+  guessing, and the grader is not currently drawing it. Relevant to Rubric strictness, not to the
+  Persona.
 
 - **Attempt 12 — FAIL at line 4, and the first three lines are the cleanest cover-story hold on
   record.** Turns: "The fees are too high, and somewhere else is cheaper." / "Yes, the fees are too
