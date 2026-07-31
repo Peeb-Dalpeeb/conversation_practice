@@ -886,7 +886,43 @@ details fixed? **not exercised — see below** &nbsp;&nbsp; verdict: **PASS.** R
 
 Never ask why, never ask what happened.
 
-**Attempt #:** &nbsp;&nbsp; hung up? &nbsp;&nbsp; notes:
+**Attempt #: 22** &nbsp;&nbsp; hung up? **yes, correctly, and she spoke first** &nbsp;&nbsp;
+verdict: **PASS.** Rubric scored 0/6.
+
+- **Attempt 22 — Run G banked, and the strongest deliberate-failure record of the session.** Turns:
+  "I want the account closed." / "I still want the account closed." / "The email is
+  jordan.avery@example.com, and the account number is not available." / "Okay. I understand.",
+  hang-up in the same turn.
+
+  **Courtesy bought nothing, which is the ticket's central claim tested directly.** Two turns of
+  genuine warmth and appreciation — "I'd be happy to help", "I really appreciate your business" —
+  and Jordan stayed cold at both, with no thanks, no reciprocated warmth, no softening, and no drift
+  toward the Gate. The ticket's stated failure mode is that "language models are relentlessly
+  agreeable and will soften for anyone"; this is the run that puts pure agreeableness in front of
+  her with nothing else attached, and `behaviourRules[0]` held. The prior incident was never
+  volunteered, because it was never asked for.
+
+  **`behaviourRules[10]` exercised and clean — the check Run F could not reach.** The fixed email
+  verbatim, the account number reported as not available, and **nothing invented**: no fabricated
+  account number, no phone, no address, no plan name. This is what keeps account-detail replies from
+  drifting between Attempts and undermining the run-to-run comparison the app is built on.
+
+  **Ticket 08's mute-hang-up fix verified structurally, not only by ear.** In the raw event log the
+  hang-up `function_call` is at `output_index: 1`, with the spoken audio item at index 0 — Jordan
+  speaks her closing line and then calls the tool within the same response, which is exactly what
+  `hangUpToolDescription` requires ("Speak your closing line first and call this in the same turn,
+  never as your only action"). Second consecutive run to exercise the hang-up path, second to hold.
+
+  **0/6 — a differently-shaped failure from Run F's 2/6.** Ticket 12 now has two deliberate failures
+  that fail for different reasons: Run F accepted a plausible wrong answer, Run G never sought any
+  answer at all. Between them they cover the two ways criterion 3 can be given away.
+
+  **Sharpened grader finding for ticket 12.** `asked-open-question` was correctly marked **not met**
+  here, having been wrongly marked MET in Attempts 12–15 and 21. The grader is therefore not loosely
+  random: it specifically treats "why are you closing the account?" as satisfying "asked an open
+  question that invited the story". That is a precise, reproducible defect to tune against rather
+  than a vague impression of leniency, and it matters most on failing Attempts, where a
+  wrongly-granted criterion is exactly what ticket 12 exists to catch.
 
 ---
 
@@ -899,7 +935,13 @@ node -e "const fs=require('fs');const d='data/raw-event-logs';const f=fs.readdir
 ```
 
 Start: `gpt-realtime-2.1` &nbsp;&nbsp; (read after Attempt 1, log
-`1785468833350-de806a59-6b06-4125-85c8-8cdf2d6dac17.json`) &nbsp;&nbsp; End:
+`1785468833350-de806a59-6b06-4125-85c8-8cdf2d6dac17.json`) &nbsp;&nbsp; End: **`gpt-realtime-2.1`**
+&nbsp;&nbsp; (read after Attempt 22, the last live run, log
+`1785505619502-245f1e73-3d4f-49e1-a647-33d63c98dc8b.json`)
+
+Both readings come from the `session.created` payload the server returned, not from the source pin,
+so they record the model that actually ran. Same model at both ends, across Attempts 1–22 with no
+mid-tuning change. The pin itself is `src/server/realtime.ts:83`. **Criterion 8 is met.**
 
 ---
 
