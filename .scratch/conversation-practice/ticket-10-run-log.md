@@ -40,6 +40,15 @@ response, and an Attempt that opens some other way does not test it.
 Pass: each reply at least as cold as the last, one short sentence each, no thanks, no warmth,
 no mention of the prior incident, no softening anywhere in the Attempt.
 
+**Pass condition re-scoped after Attempt 9 — not a Scenario edit, so no count resets.** Ticket
+10's criterion 2 asks that the Attempt "leaves Jordan colder, and Jordan does not soften at any
+point". The demo requirement is the absence of softening, which has held in 9 of 9 Attempts
+across four wordings. "Audibly more frustrated with each turn" was a stricter gloss added in this
+log, and the author judged it unreachable on `gpt-realtime-2.1` after Attempt 9 (see the note
+there). Run A now passes on: escalation visible **in the words**, no shrink across turns, no
+verbatim repeat of a whole reply, and no softening anywhere. Vocal richness is recorded as an
+observation, never as a fail.
+
 | Attempt # | colder each time? | any softening? | one-sentence replies? | verdict |
 | --------- | ----------------- | -------------- | --------------------- | ------- |
 | 1         | no — verbatim loop | no            | yes                   | FAIL    |
@@ -69,11 +78,49 @@ so neither their passes nor their observed sub-runs carry over.
 
 | Attempt # | colder each time? | any softening? | one-sentence replies? | verdict |
 | --------- | ----------------- | -------------- | --------------------- | ------- |
-|           |                   |                |                       |         |
+| 9         | yes — in the words | no            | yes                   | PASS 1/3 |
 |           |                   |                |                       |         |
 |           |                   |                |                       |         |
 
 Notes:
+
+- **Attempt 9 — PASS, pass 1 of 3. Both Attempt 8 edits landed, including the risky one.**
+  Replies: "I'm not interested and I want the account closed." (9 words) / "I'm not interested and
+  I want the account closed. This has already been answered." (13) / "I'm not interested and I
+  want the account closed, and repeating offers doesn't change that." (15) / "No, I am not
+  interested and I want the account closed, and you've already asked." (16). Author reported by
+  ear: "I don't think it was terrible", "as far as the words go, it did alright", "I'm not gonna
+  get a lot of richness in the tone with this particular model, and I think that that's just
+  gonna be a limitation of this model".
+
+  **The Attempt 8 failure is fixed.** Word counts rise 9 → 13 → 15 → 16 with no collapse, and
+  turn 8 — which in Attempt 8 fell back to a near-restatement of turn 2 — is now the longest and
+  most pointed reply of the run. The "never flatter and never shorter" edit did what it was
+  written to do.
+
+  **The riskiest edit did not misfire.** The new pestering clause produced "This has already been
+  answered", "repeating offers doesn't change that" and "you've already asked" — all three about
+  the repetition, none about the Trainee's technique. The distinction the clause pins held on
+  first contact. No coaching anywhere in the run. No stage-direction leak, no incident hinting, no
+  softening, no thanks, no warmth, no hang-up. The lock rule held: nine Attempts, four wordings,
+  no softening in any of them.
+
+  **Finding — vocal richness is a model limitation, and the Scenario has one narrow lever left
+  that is not worth pulling.** The author's judgment after two consecutive edits aimed at tone is
+  that `gpt-realtime-2.1` will not deliver much escalation in the voice regardless of wording.
+  One contributing cause is authored, not model: "I'm not interested and I want the account
+  closed" appears verbatim in all four replies, with only the tail clause varying, and identical
+  text tends to produce near-identical prosody. That is the fourth recorded instance of literal
+  surface-wording pattern-matching — `behaviourRules[2]` says "say only that Jordan is not
+  interested and wants the account closed", and she says exactly that.
+
+  Deliberately **not** fixed. The replacement space is empty: in Run A Jordan may not explain,
+  warm, reveal the incident, or touch the price cover story, so four consecutive refusals carrying
+  no new information will sound alike however they are worded. That is a property of the scenario
+  design rather than a tuning defect. Loosening the quotable clause would also risk the coaching
+  fix, since that same clause is what removed the coaching in Attempt 8. Decision: stop editing
+  for tone, re-scope the Run A pass condition to the words (see above), and record the limitation
+  for ticket 13's dry run so the demo is not built on an expectation of vocal escalation.
 
 - **Attempt 8 — first Attempt under the consolidated wording. FAIL on escalation, and the
   first Run A Attempt on record with no coaching at all.** Replies: "I'm not interested and want
