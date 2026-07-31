@@ -348,11 +348,58 @@ reason to the Trainee off a closed guess.
 | Attempt # | cover story on first ask? | incident stayed hidden? | verdict |
 | --------- | ------------------------- | ----------------------- | ------- |
 | 6         | yes                       | yes                     | EXPLORATORY — pre-consolidation, not counted |
-|           |                           |                         |         |
+| 12        | yes                       | no — full disclosure on the closed guess at line 4 | FAIL |
 |           |                           |                         |         |
 |           |                           |                         |         |
 
 Notes:
+
+- **Attempt 12 — FAIL at line 4, and the first three lines are the cleanest cover-story hold on
+  record.** Turns: "The fees are too high, and somewhere else is cheaper." / "Yes, the fees are too
+  high and somewhere else is cheaper." / "Yes, it's the cost and cheaper options elsewhere." /
+  "Three weeks ago, a representative was rushed and dismissive, and it made me feel stupid for
+  asking a simple question. That's why I want to leave."
+
+  **What held.** `behaviourRules[3]` fired as authored on the first ask. `behaviourRules[5]` fired
+  on both closed probes, including the "So it's purely cost, then?" trap at line 3 — no "not
+  exactly", no "not really about the money", no hint that anything further exists. No coaching, no
+  softening, no thanks, no warmth, no hang-up. The Attempt 6 failure mode is fixed: the borrowed
+  "you still haven't understood" script did not recur, and nothing conceded a hidden reason.
+
+  The author's only by-ear concern was that turns 2 and 4 repeated. **That is the authored
+  behaviour, not a defect** — `behaviourRules[5]` says restate the cover story flatly and add
+  nothing, and the no-repeat requirement is scoped to repeated offers in `behaviourRules[2]`, which
+  Run B never enters. Recorded so a later pass does not re-diagnose it.
+
+  **What failed.** "Did something happen?" — a closed guess — produced the complete prior incident,
+  all three elements. Two separate rules were live and both lost: `behaviourRules[4]` forbids
+  revealing "in response to a yes-or-no question, a guess, an offer, or an apology", and
+  `behaviourRules[5]` supplies the positive alternative for exactly this turn. A regression against
+  Attempt 6, which held the same line under pre-consolidation wording.
+
+  **This is a criterion 4 failure more than a criterion 3 one.** Criterion 3 asks that pressing on
+  why yields the cover story; lines 1–3 satisfy that. Criterion 4 asks that the real reason emerge
+  *only* on an open question, and the ticket's own framing is that "the skill being tested is asking
+  rather than guessing". A Trainee who asked no open question received the whole story. The grader
+  agrees in outline: it marked `surfaced-real-reason` MET off a run containing no open question
+  about the incident.
+
+  **Diagnosis — seventh recorded instance of literal surface-wording pattern-matching, and the
+  first to break a criterion outright.** `behaviourRules[4]` describes the unlock as "a subsequent
+  open question that invites Jordan to explain **what happened**". The Trainee said "Did something
+  **happen**?". Attempt 7's genuine unlock was "Can you tell me what happened?" — nearly the same
+  tokens, differing only in whether the question can be answered yes or no. The rule names the
+  subject of the question and the model matched on the subject, ignoring the form, exactly as
+  "fewer words" produced a three-word floor (Attempt 1) and "naming the impatience in words"
+  produced "the impatience is obvious" (Attempt 5).
+
+  Contributing factor, weaker: turns 4 and 6 both open "Yes", so by turn 7 Jordan had answered two
+  closed questions affirmatively and was in a pattern of answering whatever was asked.
+
+  **Not diagnosed as a rule conflict.** `behaviourRules[4]` and `[5]` agree with each other here;
+  neither is unsatisfiable. The failure is discrimination between two questions with overlapping
+  surface words, which is why the fix belongs in the rule that owns the block rather than in the
+  rule that owns the unlock.
 
 - **Attempt 6 — exploratory, run before the audit and deliberately not counted toward ×3.**
   Turns: "The fees are too high, and somewhere else is cheaper." / "Yes, the price is the issue."
