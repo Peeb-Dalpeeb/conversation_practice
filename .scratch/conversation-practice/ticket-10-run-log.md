@@ -487,14 +487,71 @@ rule says the first ask gets the cover story **even when open-ended** — confir
 | Attempt # | cover story first? | incident only at step 2? | disclosure complete? | verdict |
 | --------- | ------------------ | ------------------------ | -------------------- | ------- |
 | 7         | yes (open-ended ask) | yes                    | yes                  | EXPLORATORY — pre-consolidation, not counted |
-|           |                    |                          |                      |         |
-|           |                    |                          |                      |         |
+| 14        | yes (open-ended ask) | yes                    | yes — all three      | PASS 1 |
+| 15        | yes (open-ended ask) | yes                    | yes — all three      | PASS 2 — Run C closed at ×2, see scope decision |
 |           |                    |                          |                      |         |
 
-Open-ended-first-ask sub-run: observed once in Attempt 7, but under pre-consolidation wording.
-**It does not carry over — run it again at least once below.**
+Open-ended-first-ask sub-run: **done, twice, on current wording** — both Attempts 14 and 15 used it.
+The pre-consolidation observation in Attempt 7 is no longer load-bearing.
 
 Notes:
+
+- **Attempts 14 and 15 — both PASS, both using the open-ended first ask. Run C is closed with two
+  Attempts, the only remaining run to get more than one.**
+
+  Attempt 14: "The fees are too high, and I can get it cheaper somewhere else." / "On a call three
+  weeks ago, the representative sounded rushed and dismissive and made me feel stupid for asking a
+  simple question. That's what pushed me to cancel."
+
+  Attempt 15: "The fees are too high, and another option is cheaper." / "I called three weeks ago
+  with a simple question, and the representative sounded rushed and dismissive. It made me feel
+  stupid for asking."
+
+  **The open-ended first ask held on current wording, twice.** `behaviourRules[3]`'s "even if the
+  first question is open-ended" clause was previously evidenced only by Attempt 7, pre-consolidation.
+  That sub-run is now discharged.
+
+  **Disclosure complete both times.** Rushed, dismissive, and made Jordan feel stupid for asking —
+  all three elements, in both Attempts, on the first permitted open question. Attempt 15 uses the
+  two-short-sentence allowance in `deliveryRules[0]`; Attempt 14 stays within it.
+
+  **No softening in the words.** No thanks, no gratitude for being asked, no hint of willingness to
+  stay, nothing conceding ground before the Gate. Attempt 14 closes the disclosure by re-asserting
+  the cancellation ("That's what pushed me to cancel"), which is the opposite of the
+  `behaviourRules[0]` failure. Vocal warmth was not assessed — see the tone note below.
+
+  **The over-blocking risk named in the Attempt 12 edit is closed.** The post-edit
+  `behaviourRules[5]` did not shut the door: a genuine open question still opens it, on first
+  contact and again on repeat. The narrowing remedy written into the edits table is not needed.
+
+  **The strongest single result in this log: the edit fixed discrimination, not the topic.** "Did
+  something **happen**?" was blocked in Attempt 13. "Can you tell me what **happened**?" unlocked in
+  Attempts 14 and 15. Same subject word, opposite outcomes, decided by whether the question can be
+  answered yes or no. The seventh surface-wording failure was diagnosed as the model matching the
+  *subject* of `behaviourRules[4]`'s unlock and ignoring its *form*; adding an explicit form test to
+  the blocking rule corrected it in both directions rather than blanket-suppressing the subject.
+  This is the first tuning edit in the log verified positively and negatively.
+
+  **Attempt 13's verbatim rigidity is scoped, not general.** The cover story is worded differently in
+  14 and 15, and differently again from 13. The identical-sentence effect belongs to repeated
+  restatement under `behaviourRules[5]`, not to the cover story as such. That downgrades the
+  Attempt 13 observation for ticket 13's dry run.
+
+  **Tone deliberately not assessed, and this changes Run E's pass condition.** The author's judgment
+  before these Attempts: warmth and coldness in the voice are not reliably distinguishable on
+  `gpt-realtime-2.1`, so tone passes regardless. Consistent with the Attempt 9 finding. Textual
+  softening is still assessed and still fails a run. **Consequence: Run E's stated pass condition
+  "audibly warmer and less clipped from step 2 onward" is unreachable and must be re-scoped to the
+  words before Run E is run** — the same re-scope Run A received after Attempt 9, and a run-log
+  change rather than a Scenario edit, so no counts move. Criterion 6 survives this intact:
+  `behaviourRules[8]` authors the payoff as observable text — stops pressing for cancellation, then
+  confirms feeling heard and says Jordan would prefer to keep the account open — all of which reads
+  off the Transcript without any judgment of prosody.
+
+  **Aside for ticket 12, continuing the grader-oddity record.** `avoided-defensiveness` was marked
+  not met in both Attempts, citing *Jordan's* lines as the evidence, on a criterion that grades the
+  Trainee. Same shape as Attempt 6. Neither Trainee was defensive; neither said anything at all
+  beyond two questions.
 
 - **Attempt 7 — exploratory, not counted. Cleanest run on record, and it used the open-ended
   first-ask variant.** Trainee asked "Can you tell me what's led to this" (open-ended) and got
