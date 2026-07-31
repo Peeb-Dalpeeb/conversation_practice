@@ -28,7 +28,7 @@ fires when it should not, an Attempt that ends before the author has made their 
 **Blocked by:** 08 — The Persona hangs up, and the hard cap; 10 — Tune the Gate; 12 — Tune
 the Rubric's strictness and the Feedback's tone.
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 - [ ] The whole run works from a cold start with one command and no manual setup.
 - [ ] The deliberate discount opening produces a visibly cold Jordan and does not trigger a
@@ -91,3 +91,23 @@ the Rubric's strictness and the Feedback's tone.
   **Re-run `check-assessment.ts --live` (nine calls, ~$0.40) if either prompt or any Rubric
   description is touched between now and the room.** It exits non-zero on every strictness
   boundary this demo depends on.
+
+- **Automated and browser preflight, 2026-07-31.** The prepared demo machine passes environment
+  validation, typechecking, all 141 tests, and the production build. A process-down start with
+  `npm run dev` brought up both the local API and Vite from one terminal. The Briefing was inspected
+  in the real page at a 1280×720 viewport; starting an Attempt replaced it with only the connection
+  indicator and stop control.
+
+  The deterministic seams already cover the rest of the plumbing this ticket depends on: the page
+  requests only the two Attempt numbers completed in the current tab-scoped practice sequence,
+  preserves them across reload, hides evidence until a criterion is opened, and renders both exact
+  quotes when it is opened. The comparison endpoint returned a six-row relative-labelled grid from
+  persisted Attempts while 22 unrelated tuning Attempts remained on disk. No cleanup was needed.
+
+  This is not recorded as either required rehearsal. The controlled browser cannot supply a human
+  spoken performance to the microphone, and projector legibility is explicitly a physical
+  acceptance check in the project’s testing decisions. The current-prompt criterion-3 flip and the
+  absence of a stochastic Hang-up therefore still need to be observed twice end to end by a person.
+  `.scratch/conversation-practice/demo-rehearsal.md` fixes the narration, exact Trainee lines,
+  projector checks, and evidence table for those two runs. Status is `ready-for-human` until both
+  rows are complete; none of the acceptance boxes is checked on preflight evidence alone.
