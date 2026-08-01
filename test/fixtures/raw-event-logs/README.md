@@ -8,8 +8,9 @@ Each file is an array of envelopes, each `{"direction":…,"event":"<JSON string
 or `{"direction":"server","binary":"<base64>"}`. The `event` value is a string —
 parse it before reading fields.
 
-Logs that back decisions but are not read by tests live in
-`.scratch/conversation-practice/evidence/`.
+Three older captures are retained here because the server tests read prefixes of
+them to exercise pending Transcript snapshots. They do not represent the current
+Scenario prompt, but their Realtime event shapes remain useful regression input.
 
 ## The conversation chain
 
@@ -84,11 +85,12 @@ account details and announced the cancellation without ever asking why, so the
 Hang-up precondition was met and Jordan used it. **Stop attempt** was never
 pressed.
 
-What makes it the fixture rather than the first Hang-up captured: its final
+What makes it the primary Hang-up fixture rather than the first Hang-up captured:
+its final
 `response.done` carries **both** output items — a `message` with `output_audio`
 content and the `function_call` — so Jordan spoke before leaving. The earlier
-capture carried only the tool call and he hung up mute; it is kept out of tree in
-`.scratch/conversation-practice/evidence/hang-up-without-a-closing-line.json`.
+capture carried only the tool call and Jordan hung up mute; it remains here as
+`hang-up-without-a-closing-line.json` for the pending-snapshot regression test.
 
 Event order for that response is `output_audio_buffer.started` → `response.done`
 → `output_audio_buffer.stopped`, with the client's `input_audio_buffer.commit`,
@@ -103,6 +105,16 @@ response had already completed on its own, rather than never having started.
 
 ## Turn ordering
 
-No fixture here has spoken turns arriving out of order, and none is expected to —
-see ticket 05. Order-independence is proved by shuffling a fixture's envelopes
-before feeding it in, not by a captured log.
+No fixture here has spoken turns arriving out of order, and none is expected to.
+Order-independence is proved by shuffling a fixture's envelopes before feeding it
+in, not by a captured log.
+
+## Historical pending-snapshot captures
+
+`hang-up-without-a-closing-line.json`, `persona-out-of-band-2.json`, and
+`persona-out-of-band-3.json` are development-era captures used by the server's
+pending-snapshot regression test. The first records a Persona Hang-up response
+that contained only the function call and no closing audio. The latter two were
+captured while both speakers were transcribed out of band; they include the empty
+Persona transcription responses that led the implementation to use
+`response.output_audio_transcript.done` for Persona turns.

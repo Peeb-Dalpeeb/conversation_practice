@@ -664,9 +664,9 @@ describe('the server HTTP interface', () => {
 
       const port = (server.address() as AddressInfo).port;
       const evidencePath = resolve(
-        '.scratch',
-        'conversation-practice',
-        'evidence',
+        'test',
+        'fixtures',
+        'raw-event-logs',
         fixtureName
       );
       const envelopes = JSON.parse(
