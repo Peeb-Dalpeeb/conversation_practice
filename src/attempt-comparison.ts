@@ -1,9 +1,12 @@
 import type { RubricCriterion } from './scenario.js';
 import type { ComparisonAttempt } from './server/attempt-store.js';
 
+// `evidence` is absent when the Attempt contained no qualifying Trainee moment
+// for a not-met criterion. The grid says so rather than showing a quote that
+// does not prove the verdict.
 export type ComparisonOutcome = {
   met: boolean;
-  evidence: string;
+  evidence?: string;
 };
 
 export type AttemptComparison =
@@ -32,7 +35,10 @@ function outcomeForCriterion(
     );
   }
 
-  return { met: outcome.met, evidence: outcome.evidence };
+  return {
+    met: outcome.met,
+    ...(outcome.evidence === undefined ? {} : { evidence: outcome.evidence }),
+  };
 }
 
 export function createAttemptComparison(

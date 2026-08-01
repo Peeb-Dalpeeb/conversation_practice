@@ -56,14 +56,78 @@ and may need nothing more than the tie-break rule already in the prompt to bite 
 
 **Status:** ready-for-agent
 
-Ticket 13's demo does not wait on this. The grid is legible and the verdicts are right; the
-weakness is in the supporting quote on criteria the Attempt never reached, and criterion 3 — the
-one opened live on the projector — quotes correctly in every case measured.
+**Ticket 13's demo did wait on this.** That line used to read "does not wait on this", on the
+grounds that criterion 3 quoted correctly in every case measured. It did not quote correctly in the
+shape that mattered: no fixture reproduced the demo's four-offer Attempt with Jordan volunteering
+the cover story at the end, and on that shape both of ticket 13's first rehearsals read Jordan's
+cover story under criterion 3 — the row opened live on the projector. Ticket 13 was blocked on this
+fix and on a second one found afterwards, and closed only after two further rehearsals.
 
-- [ ] A not-met verdict with no qualifying Transcript moment records that absence rather than
+- [x] A not-met verdict with no qualifying Transcript moment records that absence rather than
       quoting an unrelated line.
-- [ ] A met verdict still requires a quote, and the schema makes an unquoted met verdict
+- [x] A met verdict still requires a quote, and the schema makes an unquoted met verdict
       impossible.
-- [ ] The comparison grid renders the absence legibly from the back of a room.
+- [x] The comparison grid renders the absence legibly from the back of a room.
 - [ ] `regrade-attempt.ts --assert-distinct` passes over Attempts 12, 14 and 22.
-- [ ] Attempts persisted before the contract changed still render in the grid.
+- [x] Attempts persisted before the contract changed still render in the grid.
+
+## Comments
+
+- **Brought forward by ticket 13's two live rehearsals, 2026-07-31.** Both rehearsals hit this
+  ticket on the projector, so the contract change landed here rather than waiting. Rehearsal 1 read
+  "So, can I keep you on with that?" under criteria 5 and 6, neither of which the Trainee ever
+  demonstrated, and both rehearsals read Jordan's cover story under criterion 3 — the row opened
+  live — where the Trainee's own discount opening belonged.
+
+  **The contract.** `evidence` is now optional on an Assessment verdict. A not-met verdict may carry
+  no quote, which records that the Attempt contains no qualifying Trainee moment; a met verdict
+  without a quote is rejected by the validator with a message naming the criterion. Strict
+  structured outputs cannot express "nullable only when `met` is false", so the wire schema is
+  nullable on both `evidence` and `evidenceTurnIndex` and the validator is what makes an unquoted
+  met verdict impossible. The grid renders the absence as **No qualifying Trainee moment** in the
+  not-met colour at the same size as a quote.
+
+  **One rule moved from prose into code.** Every criterion in this Rubric judges the Trainee, so a
+  not-met verdict is proved by a Trainee turn or by nothing. A Persona quote offered under a not-met
+  verdict is discarded and recorded as an absence, with a server warning naming the discarded line.
+  It is discarded rather than rejected because a failed Assessment in front of a room is worse than
+  a row that says the Trainee never got there. A met verdict is still free to quote the Persona turn
+  that proves it — that is criterion 3's whole met branch.
+
+  **Quote reuse across two met verdicts is still the grader's judgment.** Code cannot tell which of
+  two criteria a shared turn really belongs to, and forcing distinctness would only substitute a
+  different wrong answer. Criteria 4 and 6 can legitimately rest on the same turn. What changed is
+  that the grader is no longer obliged to reuse: the not-met branches that used to send it to a
+  borrowed line now send it to an absence.
+
+  **Measured live under the new contract, 2026-07-31.** `check-assessment.ts --live` (nine calls)
+  exits zero. Criterion 3 now reads: cover-story-only → not met with **no qualifying Trainee
+  moment**, which is the honest answer for an Attempt where the Trainee asked an open question and
+  the Attempt stopped before Jordan answered; no-reason → not met quoting the Trainee's discount
+  opening; full and long Attempts → met quoting the Persona turn that reveals the incident;
+  warm-but-never-asks → not met quoting a Trainee turn. Closed-question and accepted-cover-story
+  strictness both hold. Absence is being used freely and sensibly — four of six criteria on the
+  closed-question Transcript, five of six on cover-story-only — and no borrowed line appears in any
+  of the seven readings.
+
+  Boxes stay unchecked: `--assert-distinct` over 12, 14 and 22 is a separate live run, and projector
+  legibility is a physical check. Both are for the author.
+
+- **The absence was read from the back of a room, and the fix needed a second pass, 2026-08-01.**
+  The legibility box is closed on ticket 13's rehearsal 3, where criteria 4, 5 and 6 read
+  **No qualifying Trainee moment** in the Previous attempt column at 1280×720 and 100% zoom: "That
+  checks out, and it's legible." Rehearsal 4 read the same three rows as present. The other two
+  boxes closed here are the contract itself and pre-contract Attempts still rendering, both held by
+  the automated suite. `--assert-distinct` over 12, 14 and 22 remains open and is still a live run
+  for the author.
+
+  **The contract was right and the guidance underneath it was not.** With the Persona quote refused,
+  ticket 13's demo shape stopped citing the cover story but moved criterion 3 to the third of four
+  offers rather than the opening one, because criteria 1 and 3 both name the earliest Trainee turn
+  that stopped discovery and the grader instruction forbade reusing a quote outright. Criterion 4
+  also lacked the gate criteria 5 and 6 carry, so on one reading it borrowed the closing offer for a
+  behaviour the Attempt never reached and on another it recorded the absence. Distinctness is now
+  explicitly a tie-break that never overrides a turn a criterion names, and criterion 4 gained the
+  gate. That makes the reuse this ticket set out to remove strictly narrower than "no two criteria
+  may share a line": two criteria that each independently name the same turn now both quote it, and
+  the demo's Previous column shows criteria 1 and 3 on the opening offer by design.

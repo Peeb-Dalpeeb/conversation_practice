@@ -29,10 +29,10 @@ acceptance criterion and it is verified by running it and looking at it, not by 
 
 **Blocked by:** 07 — Feedback, and reading it after an Attempt.
 
-**Status:** ready-for-human
+**Status:** done
 
-Everything automatable is built and passing. One thing still needs a person: looking at the rebuilt
-evidence row on a projector (acceptance item 9, reopened below).
+Everything automatable was built and passing; the one thing that needed a person — looking at the
+rebuilt evidence row on a projector — was done in ticket 13's rehearsals 3 and 4.
 
 - [x] The comparison always shows the two most recent Attempts completed in the current browser
       practice sequence, in order.
@@ -46,7 +46,7 @@ evidence row on a projector (acceptance item 9, reopened below).
 - [x] The Trainee can start another Attempt from this screen.
 - [x] Dozens of pre-existing Attempts on disk change nothing about what is displayed; no
       reset or cleanup step is needed.
-- [ ] The grid is legible from the back of a room on a projector, verified by looking at it.
+- [x] The grid is legible from the back of a room on a projector, verified by looking at it.
       Reopened: the evidence row was rebuilt after the last visual check and no one has looked at
       it since. Geometry is measured and fits; legibility is not measurable.
 
@@ -156,6 +156,11 @@ evidence row on a projector (acceptance item 9, reopened below).
   Also removed a `margin-left: auto` on the restart control that computed to `0px` — it is an
   inline-flex child of a table cell, so the declaration never did anything. The control's position
   is unchanged; only the dead declaration is gone.
+
+- **Closed by ticket 13's rehearsals 3 and 4, 2026-08-01.** Acceptance item 9 was looked at on the
+  projector at 1280×720 and 100% zoom in both runs, with the rebuilt evidence row open: all six rows
+  read from the back, criterion 3's quotes were read aloud from both columns, and rehearsal 3
+  confirmed the **No qualifying Trainee moment** text legible at the same distance as a quote.
 
 - **Reload and failure recovery hardened 2026-07-31.** The last two completed Attempt numbers are
   stored under a versioned, Scenario-specific `sessionStorage` key. A reload in the same tab keeps

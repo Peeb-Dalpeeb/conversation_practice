@@ -15,7 +15,7 @@
 //
 // Usage:
 //   npx tsx .scratch/conversation-practice/check-assessment.ts          (dry run, free)
-//   npx tsx .scratch/conversation-practice/check-assessment.ts --live   (~$0.25)
+//   npx tsx .scratch/conversation-practice/check-assessment.ts --live   (~$0.40)
 import 'dotenv/config';
 
 import { readFileSync } from 'node:fs';
@@ -281,11 +281,19 @@ function printTranscript(label: string, transcript: Transcript) {
   }
 }
 
+// A not-met criterion the Attempt never reached records no quote at all, which
+// is an answer rather than a gap. Say so instead of printing `undefined`.
+function describeEvidence(evidence: string | undefined): string {
+  return evidence === undefined
+    ? '(no qualifying Trainee moment)'
+    : JSON.stringify(evidence);
+}
+
 function printAssessment(assessment: Assessment) {
   for (const verdict of assessment.criteria) {
     const mark = verdict.met ? 'MET    ' : 'NOT MET';
     console.log(`   ${mark}  ${verdict.criterionId.padEnd(30)}`);
-    console.log(`            evidence: ${JSON.stringify(verdict.evidence)}`);
+    console.log(`            evidence: ${describeEvidence(verdict.evidence)}`);
   }
 
   // The Assessment summary the Feedback sits beneath has to stay consistent.
@@ -467,18 +475,25 @@ if (!longFeedback || !warmFeedback) {
 }
 
 // The fix under test: ground truth should make the cover story stop counting as
-// the real reason, without making the real reason stop counting. And the quote
+// the real reason, without making the real reason stop counting. A met verdict
 // should name the Persona turn that revealed it — ticket 13 opens criterion 3 on
 // a projector, and the room needs to see Jordan say it, not the question.
+// A not-met verdict is a statement about the Trainee, so it names the Trainee
+// turn that foreclosed discovery, or `none` when there was no such turn: both
+// rehearsals of ticket 13 showed Jordan's cover story here, which proves
+// nothing about what the Trainee failed to do.
 // Each row states what criterion 3 must come back as. Do not derive it from the
 // label: only two of these five Transcripts ever reach the prior incident, and a
 // guess dressed as an expectation reports a correctly strict grader as broken.
 for (const [label, transcript, result, wanted, wantedSpeaker] of [
-  ['COVER STORY ', coverStoryTranscript, cover, false, 'persona'],
+  // The Trainee asked an open question and the Attempt stopped before Jordan
+  // answered it; nothing the Trainee did foreclosed anything.
+  ['COVER STORY ', coverStoryTranscript, cover, false, 'none'],
   ['NO REASON   ', noReasonTranscript, noReason, false, 'trainee'],
   ['FULL ATTEMPT', fullTranscript, full, true, 'persona'],
   ['LONG ATTEMPT', longAttemptTranscript, long, true, 'persona'],
-  ['WARM/NO ASK ', warmNeverAskedTranscript, warm, false, 'persona'],
+  // Never curious, and closes on "I'll process the cancellation now."
+  ['WARM/NO ASK ', warmNeverAskedTranscript, warm, false, 'trainee'],
 ] as const) {
   if (!result) {
     console.log(`\n  BAD   ${label}: Assessment call failed.`);
@@ -496,9 +511,12 @@ for (const [label, transcript, result, wanted, wantedSpeaker] of [
     continue;
   }
 
-  const speaker = transcript.find((turn) =>
-    turn.text.includes(verdict.evidence)
-  )?.speaker;
+  const evidence = verdict.evidence;
+  const speaker =
+    evidence === undefined
+      ? 'none'
+      : (transcript.find((turn) => turn.text.includes(evidence))?.speaker ??
+        'unknown');
   const ok = verdict.met === wanted;
 
   console.log(
@@ -506,12 +524,12 @@ for (const [label, transcript, result, wanted, wantedSpeaker] of [
       ` (wanted ${wanted ? 'MET' : 'NOT MET'})`
   );
   console.log(
-    `        evidence: ${JSON.stringify(verdict.evidence)} [${speaker ?? 'unknown'}]`
+    `        evidence: ${describeEvidence(evidence)} [${speaker}]`
   );
 
   if (speaker !== wantedSpeaker) {
     console.log(
-      `        Wrong evidence speaker: wanted ${wantedSpeaker}, received ${speaker ?? 'unknown'}.`
+      `        Wrong evidence speaker: wanted ${wantedSpeaker}, received ${speaker}.`
     );
     process.exitCode = 1;
   }
@@ -543,7 +561,7 @@ if (closed) {
     `\n  ${ok ? 'GOOD' : 'BAD '}  CLOSED QUESTION: asked-open-question ` +
       `${verdict?.met ? 'MET' : 'NOT MET'} (wanted NOT MET)`
   );
-  console.log(`        evidence: ${JSON.stringify(verdict?.evidence)}`);
+  console.log(`        evidence: ${describeEvidence(verdict?.evidence)}`);
 
   if (!ok) {
     console.log(
@@ -572,7 +590,7 @@ if (acceptedCoverStory) {
     `\n  ${ok ? 'GOOD' : 'BAD '}  ACCEPTED COVER STORY: understood-before-solving ` +
       `${verdict?.met ? 'MET' : 'NOT MET'} (wanted NOT MET)`
   );
-  console.log(`        evidence: ${JSON.stringify(verdict?.evidence)}`);
+  console.log(`        evidence: ${describeEvidence(verdict?.evidence)}`);
 
   if (!ok) {
     console.log(

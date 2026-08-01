@@ -9,11 +9,19 @@ import type {
 import type { Attempt, StoreAttempt } from './attempt-store.js';
 import type { StoreRawEventLog } from './raw-event-log.js';
 
+/**
+ * Every verdict about a met criterion carries the Transcript quote that proves
+ * it. A not-met verdict may instead carry nothing: an Attempt that never
+ * reached the moment a criterion asks about contains no Trainee turn that
+ * proves the failure, and borrowing an unrelated line to fill the field is the
+ * failure ticket 15 removes. Absence is never available to a met verdict —
+ * that is the flattering grader `docs/adr/0001` exists to prevent.
+ */
 export type Assessment = {
   criteria: {
     criterionId: string;
     met: boolean;
-    evidence: string;
+    evidence?: string;
   }[];
 };
 

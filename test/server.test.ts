@@ -182,6 +182,62 @@ describe('the server HTTP interface', () => {
     });
   });
 
+  // Ticket 15: a not-met criterion the Attempt never reached carries no quote,
+  // and the grid has to carry that absence rather than inventing one.
+  it('carries a criterion with no qualifying moment through the comparison', async () => {
+    const previousAttempt = completedAttemptWithMarks(40, [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    const lastCriterion = previousAttempt.assessment.criteria.at(-1);
+
+    if (!lastCriterion) {
+      throw new Error('Expected the fixed Rubric to contain criteria.');
+    }
+
+    delete lastCriterion.evidence;
+
+    const thisAttempt = completedAttemptWithMarks(41, [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
+    const server = createApiServer({
+      currentScenario: scenario,
+      readComparisonAttempts: () =>
+        Promise.resolve([previousAttempt, thisAttempt]),
+    });
+    servers.push(server);
+
+    await new Promise<void>((resolveListening) => {
+      server.listen(0, '127.0.0.1', resolveListening);
+    });
+
+    const port = (server.address() as AddressInfo).port;
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/comparison`
+    );
+    const comparison = (await response.json()) as {
+      criteria: { outcomes: { met: boolean; evidence?: string }[] }[];
+    };
+
+    expect(response.status).toBe(200);
+    expect(comparison.criteria.at(-1)?.outcomes).toEqual([
+      { met: false },
+      {
+        met: true,
+        evidence: `Evidence from Attempt 41 for ${lastCriterion.criterionId}.`,
+      },
+    ]);
+  });
+
   it('returns a coherent result when there is only one Attempt', async () => {
     const server = createApiServer({
       currentScenario: scenario,

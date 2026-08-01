@@ -87,12 +87,16 @@ function isReadableComparisonAttempt(
     return false;
   }
 
+  // Attempts persisted before a verdict could decline to quote carry a string
+  // on every criterion; newer ones omit the key where there was no qualifying
+  // Trainee moment. Both are readable, so no record on disk stops rendering.
   return value.assessment.criteria.every(
     (criterion) =>
       isRecord(criterion) &&
       typeof criterion.criterionId === 'string' &&
       typeof criterion.met === 'boolean' &&
-      typeof criterion.evidence === 'string'
+      (criterion.evidence === undefined ||
+        typeof criterion.evidence === 'string')
   );
 }
 

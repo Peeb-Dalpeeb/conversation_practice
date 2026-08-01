@@ -181,7 +181,8 @@ function isAttemptComparison(value: unknown): value is AttemptComparison {
         (outcome) =>
           isRecord(outcome) &&
           typeof outcome.met === 'boolean' &&
-          typeof outcome.evidence === 'string'
+          (outcome.evidence === undefined ||
+            typeof outcome.evidence === 'string')
       )
   );
 }
@@ -843,14 +844,21 @@ export function App({ connectAttempt = connectRealtimeAttempt }: AppProps) {
                             aria-label={`Evidence for ${criterion.description}`}
                           >
                             {criterion.outcomes.map((outcome, outcomeIndex) => (
-                              <blockquote
-                                key={comparison.columns[outcomeIndex]}
-                              >
+                              <div key={comparison.columns[outcomeIndex]}>
                                 <span className="comparison-grid__evidence-column">
                                   {comparison.columns[outcomeIndex]} evidence
                                 </span>
-                                “{outcome.evidence}”
-                              </blockquote>
+                                {outcome.evidence === undefined ? (
+                                  // The Attempt never reached the moment this
+                                  // criterion asks about. Saying so is more use
+                                  // to a room than a line that proves nothing.
+                                  <p className="comparison-grid__evidence-absent">
+                                    No qualifying Trainee moment
+                                  </p>
+                                ) : (
+                                  <blockquote>“{outcome.evidence}”</blockquote>
+                                )}
+                              </div>
                             ))}
                           </div>
                         </td>

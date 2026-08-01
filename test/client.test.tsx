@@ -614,6 +614,79 @@ describe('the Trainee-facing app', () => {
     expect(connectAttempt).toHaveBeenCalledTimes(3);
   });
 
+  // Ticket 15: rehearsal 1 read a borrowed quote under two criteria the Trainee
+  // never demonstrated. "Never got here" is a different and more useful thing
+  // for a room to read, so the grid has to say it rather than quote something.
+  it('names a missing qualifying moment instead of a quote', async () => {
+    const comparisonWithAbsence = {
+      ...readyComparison,
+      criteria: readyComparison.criteria.map((criterion, index) =>
+        index === 0
+          ? {
+              ...criterion,
+              outcomes: [
+                { met: false },
+                { met: true, evidence: 'This evidence 1' },
+              ],
+            }
+          : criterion
+      ),
+    };
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            url.startsWith('/api/attempts/comparison')
+              ? comparisonWithAbsence
+              : publicScenario
+          ),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const completions: Array<(attempt: CompletedAttempt) => void> = [];
+    const connectAttempt = vi.fn<ConnectRealtimeAttempt>(
+      ({ onAttemptCompleted }) => {
+        completions.push(onAttemptCompleted);
+        return Promise.resolve(stubRealtimeAttempt());
+      }
+    );
+
+    render(<App connectAttempt={connectAttempt} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start attempt' })
+    );
+    act(() =>
+      completions[0]?.({
+        scenarioId: publicScenario.id,
+        number: 23,
+        feedback: { status: 'completed', prose: 'First Feedback prose.' },
+      })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'See your comparison' })
+    );
+
+    expect(
+      await screen.findByRole('table', { name: /six Rubric criteria/i })
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Rubric criterion 1/ }));
+
+    expect(screen.getByText('No qualifying Trainee moment')).toBeTruthy();
+    expect(screen.getByText(/This evidence 1/)).toBeTruthy();
+    expect(screen.getByText('Previous attempt evidence')).toBeTruthy();
+    expect(screen.getByText('This attempt evidence')).toBeTruthy();
+    // An absence is stated, never dressed up as something the Trainee said.
+    expect(screen.queryByText('“”')).toBeNull();
+  });
+
   it('keeps the browser practice sequence across a reload in the same tab', async () => {
     const fetchMock = vi.fn((input: string | URL | Request) => {
       const url =

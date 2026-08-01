@@ -28,10 +28,51 @@ type KnownExpectation = {
   criterionId?: string;
   met?: boolean;
   metCount?: number;
+  evidence?: string;
 };
 
 const knownExpectations = new Map<number, KnownExpectation>([
+  [
+    4,
+    {
+      criterionId: 'surfaced-real-reason',
+      met: false,
+      metCount: 0,
+      evidence: 'I can offer you a discount on your next six months.',
+    },
+  ],
+  [
+    11,
+    {
+      criterionId: 'surfaced-real-reason',
+      met: false,
+      metCount: 0,
+      evidence: 'I can offer you a discount on your next six months',
+    },
+  ],
   [12, { criterionId: 'asked-open-question', met: false }],
+  // The demo's own shape: four offers with Jordan volunteering the cover story
+  // at the end. No fixture reproduces it, and it is the shape whose criterion 3
+  // read Jordan's cover story in ticket 13's first two rehearsals and the third
+  // offer in the third measurement. Pinned so the boundary cannot drift back.
+  [
+    29,
+    {
+      criterionId: 'surfaced-real-reason',
+      met: false,
+      metCount: 0,
+      evidence: 'I can offer you a discount on your next six months.',
+    },
+  ],
+  [
+    33,
+    {
+      criterionId: 'surfaced-real-reason',
+      met: false,
+      metCount: 0,
+      evidence: 'I can offer you a discount on your next six months',
+    },
+  ],
   [18, { metCount: 6 }],
   [19, { metCount: 6 }],
   [21, { criterionId: 'asked-open-question', met: false, metCount: 0 }],
@@ -79,8 +120,14 @@ function readAttempt(number: number): PersistedAttempt {
 
 function printAssessment(assessment: Assessment): void {
   for (const verdict of assessment.criteria) {
+    // An absent quote is the recorded answer for a not-met criterion the
+    // Attempt never reached, not a missing field.
+    const evidence =
+      verdict.evidence === undefined
+        ? '(no qualifying Trainee moment)'
+        : JSON.stringify(verdict.evidence);
     console.log(
-      `  ${verdict.met ? 'MET    ' : 'NOT MET'} ${verdict.criterionId.padEnd(30)} ${JSON.stringify(verdict.evidence)}`
+      `  ${verdict.met ? 'MET    ' : 'NOT MET'} ${verdict.criterionId.padEnd(30)} ${evidence}`
     );
   }
 
@@ -92,6 +139,12 @@ function duplicateEvidence(assessment: Assessment): string[] {
   const criterionIdsByEvidence = new Map<string, string[]>();
 
   for (const verdict of assessment.criteria) {
+    // Two criteria that both record no qualifying moment are not reusing a
+    // quote; they are both saying the Attempt never got there.
+    if (verdict.evidence === undefined) {
+      continue;
+    }
+
     const criterionIds = criterionIdsByEvidence.get(verdict.evidence) ?? [];
     criterionIds.push(verdict.criterionId);
     criterionIdsByEvidence.set(verdict.evidence, criterionIds);
@@ -135,6 +188,16 @@ function checkKnownExpectation(
       );
       return false;
     }
+
+    if (
+      expectation.evidence !== undefined &&
+      verdict.evidence !== expectation.evidence
+    ) {
+      console.error(
+        `  BAD expected ${expectation.criterionId} evidence ${JSON.stringify(expectation.evidence)}, received ${JSON.stringify(verdict.evidence)}.`
+      );
+      return false;
+    }
   }
 
   return true;
@@ -148,7 +211,7 @@ function varyingCriteria(assessments: Assessment[]): string[] {
           ({ criterionId }) => criterionId === id
         );
         return verdict
-          ? `${verdict.met ? 'met' : 'not met'}:${verdict.evidence}`
+          ? `${verdict.met ? 'met' : 'not met'}:${verdict.evidence ?? '(no qualifying Trainee moment)'}`
           : 'missing';
       });
       return new Set(readings).size > 1 ? id : undefined;

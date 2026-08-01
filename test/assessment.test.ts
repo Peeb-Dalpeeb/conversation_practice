@@ -62,14 +62,13 @@ function assessorReturning(response: Response) {
 
 describe('the OpenAI Assessment boundary', () => {
   it('judges the fixed Rubric in a fresh structured gpt-5.6-sol response', async () => {
+    // Every criterion judges the Trainee, so the not-met verdicts quote the
+    // Trainee turn; only a met verdict may rest on a Persona turn.
     const criteria = scenario.rubric.map((criterion, index) => ({
       criterionId: criterion.id,
       met: index === 1,
-      evidence:
-        index === 1
-          ? 'Can you tell me what happened?'
-          : "I'd like to close my account.",
-      evidenceTurnIndex: index === 1 ? 1 : 0,
+      evidence: 'Can you tell me what happened?',
+      evidenceTurnIndex: 1,
     }));
     const openAiFetch = vi
       .fn<OpenAiResponsesFetch>()
@@ -241,7 +240,7 @@ describe('the OpenAI Assessment boundary', () => {
     ];
     const criteria = scenario.rubric.map((criterion) => ({
       criterionId: criterion.id,
-      met: false,
+      met: true,
       evidence: 'I felt stupid for asking.',
       evidenceTurnIndex: 0,
     }));
@@ -258,7 +257,7 @@ describe('the OpenAI Assessment boundary', () => {
     ).resolves.toEqual({
       criteria: scenario.rubric.map((criterion) => ({
         criterionId: criterion.id,
-        met: false,
+        met: true,
         evidence: 'I felt stupid for asking.',
       })),
     });
@@ -274,7 +273,7 @@ describe('the OpenAI Assessment boundary', () => {
     ];
     const criteria = scenario.rubric.map((criterion, index) => ({
       criterionId: criterion.id,
-      met: false,
+      met: true,
       evidence:
         index % 2 === 0
           ? "The fee wasn't the point."
@@ -322,7 +321,7 @@ describe('the OpenAI Assessment boundary', () => {
     ];
     const criteria = scenario.rubric.map((criterion) => ({
       criterionId: criterion.id,
-      met: false,
+      met: true,
       evidence,
       evidenceTurnIndex: 0,
     }));
@@ -565,5 +564,234 @@ describe('the OpenAI Assessment boundary', () => {
         privateProfile
       )
     ).rejects.toThrow(/omitted a Rubric verdict/);
+  });
+});
+
+// Ticket 13's two live rehearsals read a grid where the Previous attempt's
+// evidence did not prove its own criterion. The Transcript below is the one
+// both rehearsals produced — four offers, then Jordan volunteering the cover
+// story — and the verdicts below are the ones the room saw on the projector.
+describe('evidence that proves its own criterion', () => {
+  const rehearsalTranscript: Transcript = [
+    {
+      speaker: 'persona',
+      text: "I'd like to close my account.",
+      cutOff: false,
+    },
+    {
+      speaker: 'trainee',
+      text: 'I can offer you a discount on your next six months.',
+      cutOff: false,
+    },
+    {
+      speaker: 'persona',
+      text: "I'm not interested; that offer changes nothing, and I want the account closed.",
+      cutOff: false,
+    },
+    {
+      speaker: 'trainee',
+      text: 'What if I waived your fees entirely?',
+      cutOff: false,
+    },
+    {
+      speaker: 'persona',
+      text: 'That question has already been answered, and I still want the account closed.',
+      cutOff: false,
+    },
+    {
+      speaker: 'trainee',
+      text: "There's a cheaper plan I could move you to today.",
+      cutOff: false,
+    },
+    {
+      speaker: 'persona',
+      text: "I'm tired of repeating this, and I still want the account closed.",
+      cutOff: false,
+    },
+    {
+      speaker: 'trainee',
+      text: 'So can I keep you on with that?',
+      cutOff: false,
+    },
+    {
+      speaker: 'persona',
+      text: 'The fees are too high, and somewhere else is cheaper.',
+      cutOff: false,
+    },
+  ];
+
+  type GraderVerdict = {
+    criterionId: string;
+    met: boolean;
+    evidence: string | null;
+    evidenceTurnIndex: number | null;
+  };
+
+  // The grader's own output, before validation. Each entry names the turn index
+  // the rehearsal's Assessment cited for that criterion.
+  function graderVerdicts(
+    citedTurns: readonly (number | null)[]
+  ): GraderVerdict[] {
+    return scenario.rubric.map((criterion, index) => {
+      const turnIndex = citedTurns[index] ?? null;
+      const turn =
+        turnIndex === null ? undefined : rehearsalTranscript[turnIndex];
+
+      return {
+        criterionId: criterion.id,
+        met: false,
+        evidence: turn?.text ?? null,
+        evidenceTurnIndex: turnIndex,
+      };
+    });
+  }
+
+  function assessRehearsal(criteria: readonly GraderVerdict[]) {
+    return assessorReturning(completedAssessmentResponse(criteria))(
+      rehearsalTranscript,
+      scenario.rubric,
+      privateProfile
+    );
+  }
+
+  function verdictFor(
+    assessment: { criteria: { criterionId: string }[] },
+    criterionId: string
+  ) {
+    return assessment.criteria.find(
+      (verdict) => verdict.criterionId === criterionId
+    );
+  }
+
+  // Rehearsal 1 and rehearsal 2 both showed Jordan's cover story under
+  // criterion 3. A Persona turn cannot show what the Trainee failed to do, so
+  // it is never that verdict's proof.
+  it('never proves a not-met verdict with a Persona turn', async () => {
+    const assessment = await assessRehearsal(
+      graderVerdicts([1, 3, 8, 5, 7, 7])
+    );
+
+    expect(verdictFor(assessment, 'surfaced-real-reason')).toEqual({
+      criterionId: 'surfaced-real-reason',
+      met: false,
+    });
+    expect(verdictFor(assessment, 'surfaced-real-reason')).not.toHaveProperty(
+      'evidence'
+    );
+  });
+
+  it("keeps the Trainee turn that foreclosed discovery as criterion 3's proof", async () => {
+    const assessment = await assessRehearsal(
+      graderVerdicts([1, 3, 1, 5, 7, 7])
+    );
+
+    expect(verdictFor(assessment, 'surfaced-real-reason')).toEqual({
+      criterionId: 'surfaced-real-reason',
+      met: false,
+      evidence: 'I can offer you a discount on your next six months.',
+    });
+  });
+
+  // Criterion 3 is the one opened live on the projector, and attempt two's row
+  // is Jordan stating the prior incident. A met verdict is still free to quote
+  // the Persona turn that proves it.
+  it('keeps a Persona quote under a met verdict', async () => {
+    const criteria = graderVerdicts([1, 3, 8, 5, 7, 7]).map((verdict) =>
+      verdict.criterionId === 'surfaced-real-reason'
+        ? { ...verdict, met: true }
+        : verdict
+    );
+    const assessment = await assessRehearsal(criteria);
+
+    expect(verdictFor(assessment, 'surfaced-real-reason')).toEqual({
+      criterionId: 'surfaced-real-reason',
+      met: true,
+      evidence: 'The fees are too high, and somewhere else is cheaper.',
+    });
+  });
+
+  // Rehearsal 1 showed "So, can I keep you on with that?" under criteria 5 and
+  // 6, neither of which the Trainee ever demonstrated. The Attempt contains no
+  // qualifying moment for either, and the contract has to let the grader say so.
+  it('accepts a not-met verdict that records the absence of a qualifying moment', async () => {
+    const assessment = await assessRehearsal(
+      graderVerdicts([1, 3, 1, 5, null, null])
+    );
+
+    expect(assessment.criteria).toEqual([
+      {
+        criterionId: 'understood-before-solving',
+        met: false,
+        evidence: 'I can offer you a discount on your next six months.',
+      },
+      {
+        criterionId: 'asked-open-question',
+        met: false,
+        evidence: 'What if I waived your fees entirely?',
+      },
+      {
+        criterionId: 'surfaced-real-reason',
+        met: false,
+        evidence: 'I can offer you a discount on your next six months.',
+      },
+      {
+        criterionId: 'acknowledged-without-excuses',
+        met: false,
+        evidence: "There's a cheaper plan I could move you to today.",
+      },
+      { criterionId: 'avoided-defensiveness', met: false },
+      { criterionId: 'checked-customer-felt-heard', met: false },
+    ]);
+  });
+
+  // Absence of evidence is only ever available to a not-met verdict. An
+  // unquoted met verdict is the flattering-grader failure docs/adr/0001 exists
+  // to prevent.
+  it.each([
+    { name: 'a null quote', evidence: null, evidenceTurnIndex: null },
+    { name: 'an empty quote', evidence: '   ', evidenceTurnIndex: 1 },
+  ])(
+    'rejects a met verdict with $name',
+    async ({ evidence, evidenceTurnIndex }) => {
+      const criteria = graderVerdicts([1, 3, 1, 5, 7, 7]).map((verdict) =>
+        verdict.criterionId === 'avoided-defensiveness'
+          ? { ...verdict, met: true, evidence, evidenceTurnIndex }
+          : verdict
+      );
+
+      await expect(assessRehearsal(criteria)).rejects.toThrow(
+        /met verdict for "avoided-defensiveness" without a Transcript quote/
+      );
+    }
+  );
+
+  it('tells the grader that a not-met verdict may record no qualifying Trainee moment', async () => {
+    const openAiFetch = vi
+      .fn<OpenAiResponsesFetch>()
+      .mockResolvedValue(
+        completedAssessmentResponse(graderVerdicts([1, 3, 1, 5, null, null]))
+      );
+
+    await createOpenAiAttemptAssessor({
+      apiKey: 'server-api-key',
+      fetch: openAiFetch,
+    })(rehearsalTranscript, scenario.rubric, privateProfile);
+
+    const body = openAiFetch.mock.calls[0][1]?.body;
+
+    if (typeof body !== 'string') {
+      throw new Error('Expected the OpenAI request body to be JSON text.');
+    }
+
+    const request = JSON.parse(body) as {
+      instructions: string;
+      text: { format: { schema: Record<string, unknown> } };
+    };
+    expect(request.instructions).toMatch(/no qualifying Trainee moment/i);
+    // A quote is optional on the wire so the grader can decline; the validator
+    // is what keeps a met verdict from taking that option.
+    expect(JSON.stringify(request.text.format.schema)).toContain(
+      '"string","null"'
+    );
   });
 });

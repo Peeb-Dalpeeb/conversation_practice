@@ -84,8 +84,13 @@ attempt.transcript.forEach((turn, index) => {
 
 console.log('\n  Assessment:');
 for (const criterion of attempt.assessment.criteria) {
+  // A not-met criterion the Attempt never reached carries no quote at all.
+  const evidence =
+    typeof criterion.evidence === 'string'
+      ? JSON.stringify(criterion.evidence.slice(0, 70))
+      : '(no qualifying Trainee moment)';
   console.log(
-    `    ${criterion.met ? 'MET    ' : 'not met'}  ${criterion.criterionId.padEnd(30)} ${JSON.stringify(criterion.evidence.slice(0, 70))}`
+    `    ${criterion.met ? 'MET    ' : 'not met'}  ${criterion.criterionId.padEnd(30)} ${evidence}`
   );
 }
 

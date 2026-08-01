@@ -939,6 +939,67 @@ describe('completed Attempts', () => {
     });
   });
 
+  // Attempts 1–34 on the demo machine were all written before a verdict could
+  // decline to quote. They still have to reach the grid unchanged, alongside a
+  // new Attempt that records an absence.
+  it('compares an Attempt persisted under the old evidence contract with one that records an absence', async () => {
+    const attemptDirectory = await createTemporaryDirectory();
+    let assessedAttemptNumber = 0;
+    const port = await startCompletionServer(
+      attemptDirectory,
+      undefined,
+      undefined,
+      (_transcript, rubric) => {
+        assessedAttemptNumber += 1;
+        const withoutQuote = assessedAttemptNumber === 2;
+
+        return Promise.resolve({
+          criteria: rubric.map((criterion, index) => ({
+            criterionId: criterion.id,
+            met: false,
+            ...(withoutQuote && index === 0
+              ? {}
+              : {
+                  evidence: `Evidence from ${String(assessedAttemptNumber)}.`,
+                }),
+          })),
+        });
+      }
+    );
+    const rawEventLog = await readFixture('clean-stop-in-silence.json');
+
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      expect((await postRawEventLog(port, rawEventLog)).status).toBe(200);
+    }
+
+    // The stored record keeps the absence: nothing invents a quote on the way
+    // to disk either.
+    const persisted = await readPersistedAttempt(attemptDirectory, 2);
+    expect(persisted.assessment.criteria[0]).toEqual({
+      criterionId: scenario.rubric[0].id,
+      met: false,
+    });
+
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/attempts/comparison`
+    );
+    const comparison = (await response.json()) as {
+      status: string;
+      criteria: { outcomes: { met: boolean; evidence?: string }[] }[];
+    };
+
+    expect(response.status).toBe(200);
+    expect(comparison.status).toBe('ready');
+    expect(comparison.criteria[0]?.outcomes).toEqual([
+      { met: false, evidence: 'Evidence from 1.' },
+      { met: false },
+    ]);
+    expect(comparison.criteria[1]?.outcomes).toEqual([
+      { met: false, evidence: 'Evidence from 1.' },
+      { met: false, evidence: 'Evidence from 2.' },
+    ]);
+  });
+
   it('marks a Persona turn cut off when the Trainee stops mid-conversation', async () => {
     const attemptDirectory = await createTemporaryDirectory();
     const port = await startCompletionServer(attemptDirectory);

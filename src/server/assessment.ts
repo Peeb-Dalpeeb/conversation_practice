@@ -13,8 +13,14 @@ type OpenAiAttemptAssessorOptions = {
   fetch?: OpenAiResponsesFetch;
 };
 
-type AssessmentVerdict = Assessment['criteria'][number] & {
-  evidenceTurnIndex: number;
+type AssessmentVerdict = {
+  criterionId: string;
+  met: boolean;
+  // Both null when the grader declines to quote. The wire schema is strict, so
+  // the fields are always present and a decline arrives as a null rather than
+  // as a missing key.
+  evidence: string | null;
+  evidenceTurnIndex: number | null;
 };
 
 type SourceSpan = {
@@ -149,16 +155,18 @@ function sourceQuote(
   return transcriptText.slice(firstSpan.start, lastSpan.end);
 }
 
+function shortQuote(quote: string): string {
+  return JSON.stringify(quote.length > 120 ? `${quote.slice(0, 120)}…` : quote);
+}
+
 // A rejected quote discards the whole Attempt, so the throw has to say which
 // criterion and which quote. Tuning runs read this from the server log; without
 // it the only signal is a bare 500 long after the Attempt is over.
-function ineligibleQuoteMessage(verdict: AssessmentVerdict): string {
-  const quote =
-    verdict.evidence.length > 120
-      ? `${verdict.evidence.slice(0, 120)}…`
-      : verdict.evidence;
-
-  return `OpenAI returned evidence that is not an eligible Transcript quote for "${verdict.criterionId}" at turn ${String(verdict.evidenceTurnIndex)}: ${JSON.stringify(quote)}`;
+function ineligibleQuoteMessage(
+  verdict: AssessmentVerdict,
+  quote: string
+): string {
+  return `OpenAI returned evidence that is not an eligible Transcript quote for "${verdict.criterionId}" at turn ${String(verdict.evidenceTurnIndex)}: ${shortQuote(quote)}`;
 }
 
 function assessmentSchema(rubric: readonly RubricCriterion[]) {
@@ -175,9 +183,13 @@ function assessmentSchema(rubric: readonly RubricCriterion[]) {
               enum: rubric.map(({ id }) => id),
             },
             met: { type: 'boolean' },
-            evidence: { type: 'string' },
+            // Nullable so a not-met verdict can decline to quote. The schema
+            // cannot express "nullable only when met is false" under strict
+            // structured outputs, so the validator is what keeps an unquoted
+            // met verdict impossible.
+            evidence: { type: ['string', 'null'] },
             evidenceTurnIndex: {
-              type: 'integer',
+              type: ['integer', 'null'],
               minimum: 0,
             },
           },
@@ -199,10 +211,18 @@ function assessmentInstructions(): string {
     'Return one verdict for every criterion, using each supplied criterionId exactly once.',
     'The met value is strictly binary: true or false.',
     'Each Rubric criterion has a description and assessmentGuidance. The description is the layperson-visible standard; apply assessmentGuidance only to make that same standard and its evidence selection explicit, never to impose a different criterion.',
-    'For every verdict, provide a concise exact contiguous quote from one Transcript turn that best supports the judgment. For a criterion that was not met, quote the Trainee action that failed it or the closest concrete opportunity the Trainee missed; never use an unrelated line merely because the schema requires evidence.',
-    'Set evidenceTurnIndex to the zero-based index of that Transcript turn.',
-    "Quote the turn the verdict is actually about and follow that criterion's assessmentGuidance for whose turn to quote. A criterion about the Trainee's behaviour normally quotes a Trainee turn; a revealed fact normally quotes the Persona turn that revealed it.",
+    'Evidence must prove the verdict it sits under on its own, read without the other five. Provide a concise exact contiguous quote from one Transcript turn and set evidenceTurnIndex to the zero-based index of that turn.',
+    "A met verdict always has to be quoted: quote the turn that demonstrates the criterion, following that criterion's assessmentGuidance for whose turn that is. A revealed fact quotes the Persona turn that revealed it.",
+    'A not-met verdict has to be proved by a Trainee turn, because every criterion judges the Trainee and a Persona turn cannot show what the Trainee failed to do. Quote the Trainee turn that itself failed the criterion.',
+    'When the Attempt contains no such Trainee turn — usually because the conversation never reached the point where the behaviour was possible — set both evidence and evidenceTurnIndex to null. That records no qualifying Trainee moment, and it is the required answer: never borrow a line that does not itself prove the verdict, and never fill the field with a line that proves some other criterion instead of this one. Only a not-met verdict may decline to quote.',
     'Give each criterion its own best evidence. When two moments support a verdict equally well, use the earliest one so identical input has a stable tie-break. Do not reuse a quote when a distinct Transcript moment directly supports one of the verdicts, and never substitute weaker or irrelevant evidence merely to make the quotes different.',
+    // Ticket 13's third rehearsal measurement: criteria 1 and 3 both name the
+    // earliest Trainee turn that stopped discovery, which in the demo's
+    // four-offer shape is one and the same opening offer. Read as a flat ban on
+    // repetition, the rule above walked criterion 3 — the row opened live on the
+    // projector — down to the third offer to keep the quotes distinct. Distinctness
+    // is a tie-break, never a reason to quote a turn the criterion did not name.
+    "When a criterion's assessmentGuidance names which turn to quote, quote that turn even if another criterion names the same one. Two criteria may rest on the same moment when each names it independently; moving to a later or weaker turn only to avoid repeating a quote is always wrong.",
     'Never use a Persona turn marked cutOff as evidence because the Trainee did not necessarily hear its complete text.',
     'The Private Profile is ground truth the Trainee could not see and it is not part of the Attempt. Use it only to decide what the Transcript shows.',
     'Judge only from the supplied Transcript, Rubric, and Private Profile.',
@@ -219,8 +239,9 @@ function parseVerdicts(value: unknown): AssessmentVerdict[] {
       !isRecord(criterion) ||
       typeof criterion.criterionId !== 'string' ||
       typeof criterion.met !== 'boolean' ||
-      typeof criterion.evidence !== 'string' ||
-      !Number.isInteger(criterion.evidenceTurnIndex)
+      (criterion.evidence !== null && typeof criterion.evidence !== 'string') ||
+      (criterion.evidenceTurnIndex !== null &&
+        !Number.isInteger(criterion.evidenceTurnIndex))
     ) {
       throw new TypeError('OpenAI returned an invalid Assessment criterion.');
     }
@@ -229,9 +250,16 @@ function parseVerdicts(value: unknown): AssessmentVerdict[] {
       criterionId: criterion.criterionId,
       met: criterion.met,
       evidence: criterion.evidence,
-      evidenceTurnIndex: criterion.evidenceTurnIndex as number,
+      evidenceTurnIndex: criterion.evidenceTurnIndex as number | null,
     };
   });
+}
+
+// A quote is declined when the grader says there was nothing to quote. An empty
+// string is the same statement written a different way, and reading it as a
+// zero-length quote would only turn it into a rejection further down.
+function declinesToQuote(verdict: AssessmentVerdict): boolean {
+  return verdict.evidence === null || verdict.evidence.trim() === '';
 }
 
 function validateAssessment(
@@ -263,19 +291,47 @@ function validateAssessment(
         throw new TypeError('OpenAI omitted a Rubric verdict.');
       }
 
-      const evidenceTurn = transcript[verdict.evidenceTurnIndex];
+      if (declinesToQuote(verdict)) {
+        if (verdict.met) {
+          throw new TypeError(
+            `OpenAI returned a met verdict for "${id}" without a Transcript quote.`
+          );
+        }
+
+        return { criterionId: id, met: false };
+      }
+
+      const proposedEvidence = verdict.evidence ?? '';
+      const evidenceTurn =
+        verdict.evidenceTurnIndex === null
+          ? undefined
+          : transcript[verdict.evidenceTurnIndex];
 
       if (
         !evidenceTurn ||
         (evidenceTurn.speaker === 'persona' && evidenceTurn.cutOff)
       ) {
-        throw new TypeError(ineligibleQuoteMessage(verdict));
+        throw new TypeError(ineligibleQuoteMessage(verdict, proposedEvidence));
       }
 
-      const evidence = sourceQuote(evidenceTurn.text, verdict.evidence);
+      const evidence = sourceQuote(evidenceTurn.text, proposedEvidence);
 
       if (evidence === undefined) {
-        throw new TypeError(ineligibleQuoteMessage(verdict));
+        throw new TypeError(ineligibleQuoteMessage(verdict, proposedEvidence));
+      }
+
+      // Every criterion judges the Trainee, so a Persona turn cannot show what
+      // the Trainee failed to do — it is the borrowed line ticket 15 removes,
+      // and ticket 13's rehearsals read one off the projector under criterion
+      // 3. Record the absence rather than discarding the Attempt: a failed
+      // Assessment in front of a room is worse than a row that says the
+      // Trainee never got there.
+      if (!verdict.met && evidenceTurn.speaker === 'persona') {
+        console.warn(
+          `Discarding a Persona quote offered as proof of the not-met verdict for "${id}": ${shortQuote(evidence)}`
+        );
+
+        return { criterionId: id, met: false };
       }
 
       return {

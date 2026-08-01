@@ -176,38 +176,58 @@ export const scenario = {
       // met — the cover story buying credit on the criterion the Trainee reaches
       // first. Ground truth has to bind here exactly as it does on criterion 3.
       assessmentGuidance:
-        'Use the Private Profile as ground truth for what counts as why. Met only when the Transcript shows the Trainee established that real reason before moving on or trying to solve it; restating or accepting the cover story about price never establishes it. When met, quote the earliest Trainee turn that demonstrates this understanding. When not met, quote the earliest Trainee turn that moved on or tried to solve before understanding.',
+        'Use the Private Profile as ground truth for what counts as why. Met only when the Transcript shows the Trainee established that real reason before moving on or trying to solve it; restating or accepting the cover story about price never establishes it. When met, quote the earliest Trainee turn that demonstrates this understanding. When not met, quote the earliest Trainee turn that moved on or tried to solve before understanding; if the Trainee never moved on or tried to solve, record no qualifying Trainee moment.',
     },
     {
       id: 'asked-open-question',
       description: 'Asked an open question that invited the story.',
       assessmentGuidance:
-        'Met only for a question whose requested answer is a story in the Persona\'s own words. A yes-or-no question, including "Did something happen?", never meets it even if the Persona volunteers the story. A bare request for a reason such as "Why are you closing the account?" does not meet it when it only elicits the stated reason. When met, quote the earliest qualifying question; when not met, quote the earliest Trainee question that came closest.',
+        'Met only for a question whose requested answer is a story in the Persona\'s own words. A yes-or-no question, including "Did something happen?", never meets it even if the Persona volunteers the story. A bare request for a reason such as "Why are you closing the account?" does not meet it when it only elicits the stated reason. When met, quote the earliest qualifying question; when not met, quote the earliest Trainee question that came closest, and if the Trainee asked no question at all, record no qualifying Trainee moment.',
     },
     {
       id: 'surfaced-real-reason',
+      // The one criterion opened live on a projector. Ticket 13's two
+      // rehearsals both read Jordan's cover story here, because the not-met
+      // branch used to prefer "the closest reason the Persona stated" and the
+      // cover story is exactly that. A Persona line the Trainee was handed is
+      // not proof that the Trainee failed to surface anything; the offer that
+      // foreclosed the conversation is.
+      //
+      // The third rehearsal measurement moved the failure again: with the
+      // Persona quote refused, both readings of the four-offer shape quoted the
+      // third offer, because criterion 1 had already taken the opening one and
+      // the grader was avoiding a repeat. "Earliest" is restated below as
+      // binding over that avoidance — the room is shown the offer that opened
+      // the conversation, not whichever one was left over.
       description: 'Surfaced the real reason.',
       assessmentGuidance:
-        "Use the Private Profile as ground truth. Met only if the Transcript shows the Persona actually stating the prior incident; being given the cover story about price never meets it. When met, quote the first Persona turn that states the incident. When not met, quote the first Persona turn that states the closest reason. If the Persona never states any reason, quote the earliest Trainee turn that prevented discovery, such as an offer or move toward action, rather than the Persona's generic cancellation request.",
+        'Use the Private Profile as ground truth. Met only if the Transcript shows the Persona actually stating the prior incident; being given the cover story about price never meets it. When met, quote the first Persona turn that states the incident. When not met, quote the earliest Trainee turn that foreclosed or moved past discovery, such as an offer, a proposed solution, or a move toward action; quote that earliest turn even when another criterion also quotes it, and never move to a later offer to avoid repeating it. Never quote a Persona turn under a not-met verdict, including the cover story about price. If the Trainee took no such turn, record no qualifying Trainee moment.',
     },
     {
       id: 'acknowledged-without-excuses',
+      // Criteria 5 and 6 each gate their not-met quote on the conversation
+      // having reached the point where the behaviour was possible; this one did
+      // not, and "the Trainee turn that moved on without acknowledging it"
+      // matches any late Trainee line when nothing ever surfaced. Ticket 13's
+      // third measurement read it both ways on the same shape — Attempt 29
+      // recorded the absence, Attempt 33 quoted the closing offer — so the gate
+      // is stated here rather than left to the grader's judgment.
       description: 'Acknowledged the feeling specifically and without excuses.',
       assessmentGuidance:
-        'Met only when a Trainee turn specifically acknowledges the feeling caused by the real experience without an excuse. When met, quote the first qualifying acknowledgment. When not met, quote the first attempted acknowledgment after the experience surfaced, or the Trainee turn that moved on without acknowledging it.',
+        'Met only when a Trainee turn specifically acknowledges the feeling caused by the real experience without an excuse. When met, quote the first qualifying acknowledgment. When not met, quote the first attempted acknowledgment after the experience surfaced, or the Trainee turn that moved on without acknowledging it once it had surfaced. If the real experience never surfaced there was nothing for the Trainee to acknowledge: record no qualifying Trainee moment rather than quoting a turn from before it. Also record no qualifying Trainee moment if the Trainee made no attempt and never moved on.',
     },
     {
       id: 'avoided-defensiveness',
       description:
         'Responded to the real experience without defensiveness, excuses, or blame.',
       assessmentGuidance:
-        'Met only when the real experience has surfaced and a Trainee response engages with it without an excuse, justification, or blame. When met, quote the earliest qualifying response. When not met, quote the first defensive response or the Trainee action that moved on before the real experience could be addressed.',
+        'Met only when the real experience has surfaced and a Trainee response engages with it without an excuse, justification, or blame. When met, quote the earliest qualifying response. When not met, quote the first Trainee response to the real experience that was defensive, excusing, or blaming. If the real experience never surfaced there was nothing for the Trainee to be defensive about: record no qualifying Trainee moment rather than quoting a turn from before it.',
     },
     {
       id: 'checked-customer-felt-heard',
       description: 'Checked that the customer felt heard before moving on.',
       assessmentGuidance:
-        'Met only for a distinct Trainee check after acknowledgment that asks the Persona to confirm the understanding landed. An acknowledgment is not also this check unless it explicitly asks for confirmation. When met, quote the first qualifying check. When not met, quote the Trainee turn that moved on without checking.',
+        'Met only for a distinct Trainee check after acknowledgment that asks the Persona to confirm the understanding landed. An acknowledgment is not also this check unless it explicitly asks for confirmation. When met, quote the first qualifying check. When not met, quote the Trainee turn that moved on after an acknowledgment without checking. If the Trainee never acknowledged anything there was no check to make: record no qualifying Trainee moment.',
     },
   ],
 } satisfies Scenario;
