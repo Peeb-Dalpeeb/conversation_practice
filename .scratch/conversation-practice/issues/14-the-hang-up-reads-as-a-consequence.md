@@ -66,7 +66,7 @@ Adding one changes what the Assessment measures and is ticket 12's decision.
 
 **Blocked by:** 08 — The Persona hangs up, and the hard cap.
 
-**Status:** ready-for-agent
+**Status:** deferred
 
 - [ ] Jordan's Hang-up turn ends on a sign-off rather than a sentence that hands the turn
       back, verified in a live Attempt.

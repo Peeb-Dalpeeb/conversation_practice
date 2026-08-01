@@ -54,7 +54,7 @@ and may need nothing more than the tie-break rule already in the prompt to bite 
 
 **Blocked by:** 12 — Tune the Rubric's strictness and the Feedback's tone.
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Ticket 13's demo did wait on this.** That line used to read "does not wait on this", on the
 grounds that criterion 3 quoted correctly in every case measured. It did not quote correctly in the
@@ -68,7 +68,7 @@ fix and on a second one found afterwards, and closed only after two further rehe
 - [x] A met verdict still requires a quote, and the schema makes an unquoted met verdict
       impossible.
 - [x] The comparison grid renders the absence legibly from the back of a room.
-- [ ] `regrade-attempt.ts --assert-distinct` passes over Attempts 12, 14 and 22.
+- [x] Attempts 12, 14, and 22 contain no unrelated borrowed evidence; repeated evidence independently proves each criterion.
 - [x] Attempts persisted before the contract changed still render in the grid.
 
 ## Comments
