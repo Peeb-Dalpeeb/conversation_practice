@@ -26,3 +26,5 @@ Thumbs.db
 # Editors
 .vscode/
 .idea/
+
+conversation-flow-explainer/
